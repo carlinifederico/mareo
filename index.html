@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MAREO - Project Planner</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <header class="toolbar">
+    <div class="toolbar-left">
+      <span class="logo">MAREO</span>
+      <nav class="view-tabs">
+        <button class="view-tab active" data-view="timeline">Timeline</button>
+        <button class="view-tab" data-view="board">Board</button>
+        <button class="view-tab" data-view="notes">Notes</button>
+      </nav>
+    </div>
+    <div class="toolbar-center">
+      <div class="year-nav" id="year-nav">
+        <button id="btn-prev-year">&#9664;</button>
+        <span id="current-year">2026</span>
+        <button id="btn-next-year">&#9654;</button>
+      </div>
+    </div>
+    <div class="toolbar-right">
+      <button id="btn-import" class="btn btn-secondary">Import</button>
+      <button id="btn-export" class="btn btn-secondary">Export</button>
+    </div>
+  </header>
+
+  <!-- VIEW: Timeline -->
+  <div class="view-container active" id="view-timeline">
+    <div class="gantt-container">
+      <div class="sidebar">
+        <div class="sidebar-header">Projects</div>
+        <div class="sidebar-scroll" id="sidebar-scroll">
+          <div id="sidebar-content"></div>
+        </div>
+      </div>
+      <div class="timeline-area" id="timeline-area">
+        <div class="timeline-header-wrapper">
+          <div id="timeline-header"></div>
+        </div>
+        <div id="gantt-body"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEW: Board -->
+  <div class="view-container" id="view-board">
+    <div class="board-toolbar">
+      <button id="btn-add-board-card" class="btn btn-primary">+ Add Card</button>
+    </div>
+    <div class="board-canvas" id="board-canvas"></div>
+  </div>
+
+  <!-- VIEW: Notes -->
+  <div class="view-container" id="view-notes">
+    <div class="notes-toolbar">
+      <button id="btn-add-note" class="btn btn-primary">+ New Note</button>
+      <input type="text" id="notes-search" class="notes-search" placeholder="Search notes...">
+    </div>
+    <div class="notes-grid" id="notes-grid"></div>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

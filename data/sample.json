@@ -1,0 +1,195 @@
+{
+  "currentYear": 2026,
+  "currentView": "timeline",
+  "notes": [],
+  "boardCards": [],
+  "categories": [
+    {
+      "id": "cat-musica",
+      "name": "MUSICA",
+      "order": 0,
+      "collapsed": false,
+      "projects": [
+        {
+          "id": "proj-hiraku",
+          "name": "HIRAKU",
+          "color": "#e74c3c",
+          "links": [],
+          "order": 0,
+          "tasks": [
+            { "id": "t-hiraku-1", "label": "MEZCLA GTRD", "startWeek": 3, "durationWeeks": 4, "color": "#cccccc", "notes": "", "links": [] },
+            { "id": "t-hiraku-2", "label": "TRACK 4", "startWeek": 9, "durationWeeks": 3, "color": "#3498db", "notes": "", "links": [] },
+            { "id": "t-hiraku-3", "label": "TRACK 5", "startWeek": 13, "durationWeeks": 3, "color": "#3498db", "notes": "", "links": [] },
+            { "id": "t-hiraku-4", "label": "TRACK 6", "startWeek": 18, "durationWeeks": 3, "color": "#cccccc", "notes": "", "links": [] },
+            { "id": "t-hiraku-5", "label": "VISUALES + PROD SHOW", "startWeek": 22, "durationWeeks": 8, "color": "#e8d0a9", "notes": "", "links": [] },
+            { "id": "t-hiraku-6", "label": "ENSAYOS", "startWeek": 36, "durationWeeks": 5, "color": "#cccccc", "notes": "", "links": [] },
+            { "id": "t-hiraku-7", "label": "SHOW", "startWeek": 42, "durationWeeks": 1, "color": "#e74c3c", "notes": "", "links": [] }
+          ]
+        },
+        {
+          "id": "proj-nadar",
+          "name": "NADAR DE NOCHE",
+          "color": "#ff69b4",
+          "links": [],
+          "order": 1,
+          "tasks": [
+            { "id": "t-nadar-1", "label": "CERRAR MAQUETAS", "startWeek": 5, "durationWeeks": 10, "color": "#ff69b4", "notes": "", "links": [] }
+          ]
+        },
+        {
+          "id": "proj-soloset",
+          "name": "SOLO SET",
+          "color": "#cccccc",
+          "links": [],
+          "order": 2,
+          "tasks": [
+            { "id": "t-soloset-1", "label": "ARMAR SET", "startWeek": 8, "durationWeeks": 18, "color": "#d5d5d5", "notes": "", "links": [] }
+          ]
+        },
+        {
+          "id": "proj-silence",
+          "name": "THE SILENCE BETWEEN",
+          "color": "#2ecc71",
+          "links": [],
+          "order": 3,
+          "tasks": [
+            { "id": "t-silence-1", "label": "FUND", "startWeek": 5, "durationWeeks": 5, "color": "#a8d8a8", "notes": "", "links": [] }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cat-trabajo",
+      "name": "TRABAJO",
+      "order": 1,
+      "collapsed": false,
+      "projects": [
+        {
+          "id": "proj-protagonist",
+          "name": "PROTAGONIST",
+          "color": "#bdc3c7",
+          "links": [],
+          "order": 0,
+          "tasks": []
+        },
+        {
+          "id": "proj-farfalla",
+          "name": "FARFALLA",
+          "color": "#bdc3c7",
+          "links": [],
+          "order": 1,
+          "tasks": [
+            { "id": "t-farfalla-1", "label": "DECK", "startWeek": 7, "durationWeeks": 10, "color": "#d5d5d5", "notes": "", "links": [] }
+          ]
+        },
+        {
+          "id": "proj-musgario",
+          "name": "MUSGARIO",
+          "color": "#bdc3c7",
+          "links": [],
+          "order": 2,
+          "tasks": []
+        },
+        {
+          "id": "proj-seed",
+          "name": "SEED",
+          "color": "#e74c3c",
+          "links": [],
+          "order": 3,
+          "tasks": [
+            { "id": "t-seed-1", "label": "TRIP 13-19", "startWeek": 19, "durationWeeks": 2, "color": "#f9e79f", "notes": "", "links": [] }
+          ]
+        },
+        {
+          "id": "proj-sitef",
+          "name": "SITE F",
+          "color": "#1abc9c",
+          "links": [],
+          "order": 4,
+          "tasks": [
+            { "id": "t-sitef-1", "label": "REDESIGN", "startWeek": 9, "durationWeeks": 9, "color": "#76d7c4", "notes": "", "links": [] }
+          ]
+        },
+        {
+          "id": "proj-kiosco",
+          "name": "KIOSCO PLAN_B",
+          "color": "#ff69b4",
+          "links": [],
+          "order": 5,
+          "tasks": []
+        },
+        {
+          "id": "proj-atman",
+          "name": "ATMAN",
+          "color": "#bdc3c7",
+          "links": [],
+          "order": 6,
+          "tasks": []
+        },
+        {
+          "id": "proj-kaze",
+          "name": "KAZE",
+          "color": "#e67e22",
+          "links": [],
+          "order": 7,
+          "tasks": [
+            { "id": "t-kaze-1", "label": "DECK + DESIGN", "startWeek": 27, "durationWeeks": 10, "color": "#f5cba7", "notes": "", "links": [] }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cat-personal",
+      "name": "PERSONAL",
+      "order": 2,
+      "collapsed": false,
+      "projects": [
+        {
+          "id": "proj-yoga",
+          "name": "YOGA",
+          "color": "#bdc3c7",
+          "links": [],
+          "order": 0,
+          "tasks": [
+            { "id": "t-yoga-1", "label": "MEELE 4 DIAS?", "startWeek": 19, "durationWeeks": 2, "color": "#abebc6", "notes": "", "links": [] }
+          ]
+        },
+        {
+          "id": "proj-music-estudios",
+          "name": "MUSIC / ESTUDIOS",
+          "color": "#bdc3c7",
+          "links": [],
+          "order": 1,
+          "tasks": [
+            { "id": "t-me-1", "label": "NIKOTIAN", "startWeek": 11, "durationWeeks": 5, "color": "#d5b8e8", "notes": "", "links": [] },
+            { "id": "t-me-2", "label": "CERPS", "startWeek": 18, "durationWeeks": 4, "color": "#85c1e9", "notes": "", "links": [] },
+            { "id": "t-me-3", "label": "MBIRA?", "startWeek": 23, "durationWeeks": 2, "color": "#d5d5d5", "notes": "", "links": [] },
+            { "id": "t-me-4", "label": "CANTO", "startWeek": 25, "durationWeeks": 2, "color": "#d5d5d5", "notes": "", "links": [] }
+          ]
+        },
+        {
+          "id": "proj-casacba",
+          "name": "CASA CBA",
+          "color": "#e67e22",
+          "links": [],
+          "order": 2,
+          "tasks": [
+            { "id": "t-casa-1", "label": "CERRAMIENTO", "startWeek": 3, "durationWeeks": 2, "color": "#f5cba7", "notes": "", "links": [] },
+            { "id": "t-casa-2", "label": "ABERTURAS", "startWeek": 7, "durationWeeks": 4, "color": "#f5cba7", "notes": "", "links": [] },
+            { "id": "t-casa-3", "label": "DETALLES", "startWeek": 18, "durationWeeks": 3, "color": "#f5cba7", "notes": "", "links": [] }
+          ]
+        },
+        {
+          "id": "proj-habitat",
+          "name": "HABITAT",
+          "color": "#f1c40f",
+          "links": [],
+          "order": 3,
+          "tasks": [
+            { "id": "t-habitat-1", "label": "IBERA 2", "startWeek": 26, "durationWeeks": 22, "color": "#f9e79f", "notes": "", "links": [] }
+          ]
+        }
+      ]
+    }
+  ]
+}
