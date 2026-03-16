@@ -1,4 +1,5 @@
 import { Store } from './store.js';
+import { Auth } from './auth.js';
 import { renderTimelineHeader } from './timeline.js';
 import { renderSidebar, setSidebarProjectClickHandler } from './sidebar.js';
 import { renderGantt } from './gantt.js';
@@ -13,12 +14,57 @@ import { initPan } from './pan.js';
 window._mareoModules = { Store };
 
 let currentView = 'timeline';
+let appInitialized = false;
 
-async function init() {
-  await Store.load();
-  ensureCurrentMonth(); // Auto-create current month if needed
-  currentView = Store.data.currentView || 'timeline';
+// Auth flow: show login or app
+Auth.init(
+  // On sign in
+  async (user) => {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app-container').style.display = '';
 
+    // Show user info
+    const avatar = document.getElementById('user-avatar');
+    if (user.photoURL) {
+      avatar.src = user.photoURL;
+      avatar.style.display = '';
+    } else {
+      avatar.style.display = 'none';
+    }
+
+    // Load data with user ID
+    await Store.load(user.uid);
+    ensureCurrentMonth();
+    currentView = Store.data.currentView || 'timeline';
+
+    if (!appInitialized) {
+      initApp();
+      appInitialized = true;
+    }
+
+    switchView(currentView);
+    render();
+  },
+  // On sign out
+  () => {
+    document.getElementById('login-screen').style.display = '';
+    document.getElementById('app-container').style.display = 'none';
+    document.getElementById('login-loading').style.display = 'none';
+  }
+);
+
+// Google sign-in button
+document.getElementById('btn-google-signin').addEventListener('click', () => {
+  document.getElementById('login-loading').style.display = '';
+  Auth.signInWithGoogle();
+});
+
+// Sign out button
+document.getElementById('btn-signout').addEventListener('click', () => {
+  Auth.signOut();
+});
+
+function initApp() {
   initDragDrop();
   initBoardDrag();
   initPan();
@@ -28,7 +74,6 @@ async function init() {
     tab.addEventListener('click', () => switchView(tab.dataset.view));
   });
 
-  // Custom event for switching views from other modules
   document.addEventListener('mareo:switchView', (e) => {
     switchView(e.detail);
   });
@@ -92,13 +137,8 @@ async function init() {
     renderNotes(document.getElementById('notes-grid'), e.target.value);
   });
 
-  // Expenses don't need a global add button - handled internally
-
   // Listen for render events
   document.addEventListener('mareo:render', () => render());
-
-  switchView(currentView);
-  render();
 
   // Init board zoom after first render
   requestAnimationFrame(() => initBoardZoom());
@@ -123,6 +163,8 @@ function switchView(view) {
 }
 
 function render() {
+  if (!Store.data) return;
+
   const year = Store.data.currentYear;
   document.getElementById('current-year').textContent = year;
 
@@ -222,5 +264,3 @@ function importData() {
   });
   input.click();
 }
-
-init();

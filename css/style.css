@@ -37,6 +37,92 @@ html, body {
   overflow: hidden;
 }
 
+/* === Login Screen === */
+.login-screen {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 30000;
+}
+
+.login-card {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid rgba(167, 139, 250, 0.2);
+  border-radius: 24px;
+  padding: 48px;
+  text-align: center;
+  box-shadow: var(--shadow-modal);
+  min-width: 320px;
+}
+
+.login-logo {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 800;
+  font-size: 36px;
+  letter-spacing: 4px;
+  color: var(--accent);
+  display: block;
+  margin-bottom: 8px;
+}
+
+.login-subtitle {
+  color: var(--text-muted);
+  font-size: 14px;
+  margin-bottom: 32px;
+}
+
+.login-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 28px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(37, 30, 62, 0.6);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.login-btn:hover {
+  background: var(--bg-hover);
+  border-color: rgba(167, 139, 250, 0.3);
+  box-shadow: 0 0 16px rgba(167, 139, 250, 0.2);
+}
+
+.login-loading {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin-top: 16px;
+}
+
+/* === User in Toolbar === */
+.toolbar-user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.user-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+}
+
+.btn-signout {
+  font-size: 11px;
+  padding: 4px 10px;
+}
+
 /* === Toolbar === */
 .toolbar {
   height: var(--header-height);

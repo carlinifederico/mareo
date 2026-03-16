@@ -1,32 +1,72 @@
+import { db, doc, getDoc, setDoc } from './firebase-config.js';
+
 const STORAGE_KEY = 'mareo_planner_v4';
 
 export const Store = {
   data: null,
+  _uid: null,
+  _saveTimer: null,
 
-  async load() {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      this.data = JSON.parse(saved);
-    } else {
+  async load(uid) {
+    this._uid = uid;
+
+    // Try Firestore first
+    if (uid) {
+      try {
+        const snap = await getDoc(doc(db, 'mareo_data', uid));
+        if (snap.exists()) {
+          this.data = snap.data();
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(this.data));
+        }
+      } catch (err) {
+        console.warn('Firestore load failed, falling back to localStorage:', err);
+      }
+    }
+
+    // Fallback to localStorage
+    if (!this.data) {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        this.data = JSON.parse(saved);
+      }
+    }
+
+    // Fallback to sample data
+    if (!this.data) {
       const resp = await fetch('data/sample.json');
       this.data = await resp.json();
-      this.save();
     }
+
+    // Ensure required fields
     if (!this.data.notes) this.data.notes = [];
     if (!this.data.boardCards) this.data.boardCards = [];
     if (!this.data.expensesMonths) this.data.expensesMonths = {};
     if (!this.data.currentView) this.data.currentView = 'timeline';
-    // Ensure every project has a projectNotes array
     for (const cat of this.data.categories) {
       for (const proj of cat.projects) {
         if (!proj.projectNotes) proj.projectNotes = [];
       }
     }
+
+    // Save to both
+    this.save();
+
     return this.data;
   },
 
   save() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(this.data));
+    this._debouncedFirestoreSave();
+  },
+
+  _debouncedFirestoreSave() {
+    if (this._saveTimer) clearTimeout(this._saveTimer);
+    this._saveTimer = setTimeout(() => {
+      if (this._uid && this.data) {
+        setDoc(doc(db, 'mareo_data', this._uid), JSON.parse(JSON.stringify(this.data)))
+          .catch(err => console.warn('Firestore save failed:', err));
+      }
+    }, 1500);
   },
 
   setYear(year) { this.data.currentYear = year; this.save(); },
