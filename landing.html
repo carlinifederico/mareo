@@ -13,7 +13,7 @@
         }
 
         html {
-            scroll-behavior: smooth;
+            scroll-behavior: auto;
         }
 
         body {
@@ -22,6 +22,15 @@
             background: linear-gradient(135deg, #e8dff5 0%, #f3e5f5 40%, #dde4f8 100%);
             min-height: 100vh;
             overflow-x: hidden;
+            margin: 0;
+        }
+
+        /* ── Snap sections ── */
+        .snap-section {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
         }
 
         /* ── Decorative blobs ── */
@@ -40,11 +49,7 @@
         /* ── Hero ── */
         .hero {
             position: relative;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
             align-items: center;
-            justify-content: center;
             text-align: center;
             padding: 60px 24px 40px;
         }
@@ -134,9 +139,8 @@
         .mockup-section {
             position: relative;
             z-index: 1;
-            padding: 0 24px 100px;
-            display: flex;
-            justify-content: center;
+            padding: 0 24px;
+            align-items: center;
         }
 
         .mockup-wrapper {
@@ -320,15 +324,10 @@
         .cta {
             position: relative;
             z-index: 1;
-            margin: 40px 24px 80px;
             background: linear-gradient(135deg, #a78bfa, #7c3aed);
-            border-radius: 24px;
             padding: 64px 32px;
             text-align: center;
-            max-width: 1100px;
-            margin-left: auto;
-            margin-right: auto;
-            box-shadow: 0 16px 48px rgba(124, 58, 237, 0.3);
+            align-items: center;
         }
 
         .cta-title {
@@ -375,6 +374,425 @@
             font-size: 13px;
         }
 
+        /* ── Navbar ── */
+        .navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 32px;
+            transition: background 0.3s, box-shadow 0.3s;
+        }
+
+        .navbar.scrolled {
+            background: rgba(232, 223, 245, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            box-shadow: 0 2px 20px rgba(26, 16, 48, 0.08);
+        }
+
+        .navbar-logo {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 800;
+            font-size: 22px;
+            color: #1a1030;
+            text-decoration: none;
+        }
+
+        .navbar-links {
+            display: flex;
+            gap: 28px;
+            list-style: none;
+        }
+
+        .navbar-links a {
+            font-size: 14px;
+            font-weight: 500;
+            color: #4a3f6b;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .navbar-links a:hover {
+            color: #7c3aed;
+        }
+
+        /* ── Section shared ── */
+        .section-heading {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 700;
+            font-size: clamp(28px, 4vw, 40px);
+            text-align: center;
+            margin-bottom: 16px;
+        }
+
+        .section-sub {
+            text-align: center;
+            color: #5a5078;
+            font-size: 16px;
+            line-height: 1.6;
+            max-width: 600px;
+            margin: 0 auto 56px;
+        }
+
+        /* ── What is MAREO ── */
+        .about {
+            position: relative;
+            z-index: 1;
+            padding: 80px 24px;
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        .about-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 48px;
+            align-items: center;
+        }
+
+        .about-text h3 {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 700;
+            font-size: 24px;
+            margin-bottom: 16px;
+        }
+
+        .about-text p {
+            color: #5a5078;
+            line-height: 1.7;
+            margin-bottom: 16px;
+            font-size: 15px;
+        }
+
+        .about-text ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .about-text ul li {
+            padding: 8px 0;
+            font-size: 15px;
+            color: #4a3f6b;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .about-text ul li::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #a78bfa;
+            flex-shrink: 0;
+        }
+
+        .about-visual {
+            background: rgba(255, 255, 255, 0.5);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            border-radius: 20px;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .about-stat {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            background: rgba(255, 255, 255, 0.6);
+            border-radius: 12px;
+        }
+
+        .about-stat .stat-label {
+            font-size: 14px;
+            color: #5a5078;
+        }
+
+        .about-stat .stat-value {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 700;
+            font-size: 20px;
+            color: #7c3aed;
+        }
+
+        /* ── How it works ── */
+        .how-it-works {
+            position: relative;
+            z-index: 1;
+            padding: 80px 24px;
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        .steps {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 32px;
+        }
+
+        .step {
+            text-align: center;
+            padding: 40px 24px;
+            background: rgba(255, 255, 255, 0.5);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            border-radius: 18px;
+            opacity: 0;
+            transform: translateY(24px);
+        }
+
+        .step.visible {
+            opacity: 1;
+            transform: translateY(0);
+            transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+
+        .step-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #a78bfa, #7c3aed);
+            color: #fff;
+            font-family: 'Poppins', sans-serif;
+            font-weight: 700;
+            font-size: 20px;
+            margin-bottom: 20px;
+        }
+
+        .step h3 {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 700;
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+
+        .step p {
+            font-size: 14px;
+            color: #5a5078;
+            line-height: 1.6;
+        }
+
+        /* ── Pricing ── */
+        .pricing {
+            position: relative;
+            z-index: 1;
+            padding: 80px 24px;
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+            align-items: start;
+        }
+
+        .pricing-card {
+            background: rgba(255, 255, 255, 0.55);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            border-radius: 20px;
+            padding: 40px 32px;
+            text-align: center;
+            transition: transform 0.25s, box-shadow 0.25s;
+            opacity: 0;
+            transform: translateY(24px);
+        }
+
+        .pricing-card.visible {
+            opacity: 1;
+            transform: translateY(0);
+            transition: opacity 0.5s ease, transform 0.5s ease, box-shadow 0.25s;
+        }
+
+        .pricing-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(26, 16, 48, 0.12);
+        }
+
+        .pricing-card.featured {
+            border: 2px solid #a78bfa;
+            position: relative;
+        }
+
+        .pricing-badge {
+            position: absolute;
+            top: -14px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, #a78bfa, #7c3aed);
+            color: #fff;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 4px 16px;
+            border-radius: 999px;
+        }
+
+        .pricing-name {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 700;
+            font-size: 20px;
+            margin-bottom: 8px;
+        }
+
+        .pricing-price {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 800;
+            font-size: 48px;
+            color: #1a1030;
+            line-height: 1;
+            margin-bottom: 4px;
+        }
+
+        .pricing-price span {
+            font-size: 16px;
+            font-weight: 500;
+            color: #5a5078;
+        }
+
+        .pricing-desc {
+            font-size: 14px;
+            color: #5a5078;
+            margin-bottom: 24px;
+        }
+
+        .pricing-features {
+            list-style: none;
+            padding: 0;
+            margin-bottom: 32px;
+            text-align: left;
+        }
+
+        .pricing-features li {
+            padding: 8px 0;
+            font-size: 14px;
+            color: #4a3f6b;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        .pricing-features li:last-child {
+            border-bottom: none;
+        }
+
+        .pricing-features li .check {
+            color: #7c3aed;
+            font-weight: 700;
+            font-size: 16px;
+        }
+
+        .btn-plan {
+            display: inline-block;
+            padding: 12px 28px;
+            border-radius: 999px;
+            font-family: 'Inter', sans-serif;
+            font-weight: 600;
+            font-size: 14px;
+            text-decoration: none;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn-plan-primary {
+            background: linear-gradient(135deg, #a78bfa, #7c3aed);
+            color: #fff;
+            box-shadow: 0 4px 20px rgba(124, 58, 237, 0.35);
+        }
+
+        .btn-plan-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 28px rgba(124, 58, 237, 0.5);
+        }
+
+        .btn-plan-outline {
+            background: transparent;
+            color: #7c3aed;
+            border: 2px solid #a78bfa;
+        }
+
+        .btn-plan-outline:hover {
+            transform: translateY(-2px);
+            background: rgba(167, 139, 250, 0.08);
+        }
+
+        /* ── FAQ ── */
+        .faq {
+            position: relative;
+            z-index: 1;
+            padding: 80px 24px;
+            max-width: 760px;
+            margin: 0 auto;
+        }
+
+        .faq-item {
+            border-bottom: 1px solid rgba(26, 16, 48, 0.08);
+            padding: 20px 0;
+        }
+
+        .faq-question {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 600;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            background: none;
+            border: none;
+            width: 100%;
+            text-align: left;
+            color: #1a1030;
+            padding: 0;
+        }
+
+        .faq-question::after {
+            content: '+';
+            font-size: 22px;
+            font-weight: 400;
+            color: #a78bfa;
+            transition: transform 0.3s;
+            flex-shrink: 0;
+        }
+
+        .faq-item.open .faq-question::after {
+            transform: rotate(45deg);
+        }
+
+        .faq-answer {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease, padding 0.3s ease;
+        }
+
+        .faq-item.open .faq-answer {
+            max-height: 200px;
+            padding-top: 12px;
+        }
+
+        .faq-answer p {
+            font-size: 14px;
+            color: #5a5078;
+            line-height: 1.7;
+        }
+
         /* ── Footer ── */
         .footer {
             position: relative;
@@ -403,6 +821,19 @@
             .float-card-2 { right: -20px; }
             .float-card-3 { left: -10px; }
             .float-card-4 { right: -20px; }
+            .pricing-grid {
+                grid-template-columns: 1fr;
+                max-width: 420px;
+                margin: 0 auto;
+            }
+            .steps {
+                grid-template-columns: 1fr;
+                max-width: 420px;
+                margin: 0 auto;
+            }
+            .about-grid {
+                grid-template-columns: 1fr;
+            }
         }
 
         @media (max-width: 768px) {
@@ -426,13 +857,30 @@
                 letter-spacing: 4px;
             }
             .cta {
-                margin: 40px 16px 60px;
                 padding: 48px 24px;
+            }
+            .navbar-links {
+                display: none;
+            }
+            .navbar {
+                padding: 14px 20px;
             }
         }
     </style>
 </head>
 <body>
+
+    <!-- Navbar -->
+    <nav class="navbar" id="navbar">
+        <a href="#" class="navbar-logo">MAREO</a>
+        <ul class="navbar-links">
+            <li><a href="#about">About</a></li>
+            <li><a href="#features">Features</a></li>
+            <li><a href="#how-it-works">How it works</a></li>
+            <li><a href="#pricing">Pricing</a></li>
+            <li><a href="#faq">FAQ</a></li>
+        </ul>
+    </nav>
 
     <!-- Decorative blobs -->
     <div class="blob blob-1"></div>
@@ -440,7 +888,7 @@
     <div class="blob blob-3"></div>
 
     <!-- Hero -->
-    <section class="hero">
+    <section class="hero snap-section" data-snap>
         <div class="hero-content">
             <h1 class="hero-title">MAREO</h1>
             <p class="hero-subtitle">A lightweight project planner with timelines, boards, notes, and expense tracking. All offline, all yours.</p>
@@ -458,7 +906,7 @@
     </section>
 
     <!-- Mockup -->
-    <section class="mockup-section">
+    <section class="mockup-section snap-section" data-snap>
         <div class="mockup-wrapper">
             <div class="float-card float-card-1">
                 <span class="card-icon">📅</span>
@@ -489,8 +937,45 @@
         </div>
     </section>
 
+    <!-- About -->
+    <section class="about snap-section" id="about" data-snap>
+        <h2 class="section-heading">What is MAREO?</h2>
+        <p class="section-sub">A desktop app that gives you everything you need to plan, track, and deliver projects — without the complexity of enterprise tools.</p>
+        <div class="about-grid">
+            <div class="about-text">
+                <h3>Built for makers, not managers</h3>
+                <p>MAREO is a lightweight, offline-first project planner designed for freelancers, small teams, and anyone who wants to stay organized without signing up for yet another SaaS.</p>
+                <p>Your data lives on your machine. No cloud sync, no accounts, no subscriptions required for the core experience.</p>
+                <ul>
+                    <li>Works offline — no internet required</li>
+                    <li>Portable — runs from any folder</li>
+                    <li>Fast — vanilla HTML/CSS/JS, no frameworks</li>
+                    <li>Private — your data never leaves your device</li>
+                </ul>
+            </div>
+            <div class="about-visual">
+                <div class="about-stat">
+                    <span class="stat-label">App size</span>
+                    <span class="stat-value">&lt; 2 MB</span>
+                </div>
+                <div class="about-stat">
+                    <span class="stat-label">Dependencies</span>
+                    <span class="stat-value">Zero</span>
+                </div>
+                <div class="about-stat">
+                    <span class="stat-label">Startup time</span>
+                    <span class="stat-value">Instant</span>
+                </div>
+                <div class="about-stat">
+                    <span class="stat-label">Data stored</span>
+                    <span class="stat-value">Locally</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- Features -->
-    <section class="features">
+    <section class="features snap-section" id="features" data-snap>
         <h2 class="features-heading">Everything you need to plan</h2>
         <div class="features-grid">
             <div class="feature-card">
@@ -516,8 +1001,125 @@
         </div>
     </section>
 
+    <!-- How it works -->
+    <section class="how-it-works snap-section" id="how-it-works" data-snap>
+        <h2 class="section-heading">How it works</h2>
+        <p class="section-sub">Get up and running in under a minute. No installation wizard, no configuration files.</p>
+        <div class="steps">
+            <div class="step">
+                <div class="step-number">1</div>
+                <h3>Download</h3>
+                <p>Grab the app for Windows or Mac. It's a single lightweight file — no installer needed.</p>
+            </div>
+            <div class="step">
+                <div class="step-number">2</div>
+                <h3>Create a project</h3>
+                <p>Open MAREO and start a new project. Add phases to the timeline, tasks to the board, and notes as you go.</p>
+            </div>
+            <div class="step">
+                <div class="step-number">3</div>
+                <h3>Plan & track</h3>
+                <p>Use the timeline for high-level planning, the board for daily tasks, and the expense tracker to keep your budget in check.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing -->
+    <section class="pricing snap-section" id="pricing" data-snap>
+        <h2 class="section-heading">Simple, transparent pricing</h2>
+        <p class="section-sub">Start free, upgrade when you're ready. No hidden fees, no feature gates on essentials.</p>
+        <div class="pricing-grid">
+            <div class="pricing-card">
+                <div class="pricing-name">Free</div>
+                <div class="pricing-price">$0</div>
+                <div class="pricing-desc">For personal projects</div>
+                <ul class="pricing-features">
+                    <li><span class="check">&#10003;</span> Unlimited projects</li>
+                    <li><span class="check">&#10003;</span> Timeline view</li>
+                    <li><span class="check">&#10003;</span> Board view</li>
+                    <li><span class="check">&#10003;</span> Notes</li>
+                    <li><span class="check">&#10003;</span> Expense tracking</li>
+                    <li><span class="check">&#10003;</span> Offline-first</li>
+                </ul>
+                <a href="#" class="btn-plan btn-plan-outline">Download free</a>
+            </div>
+            <div class="pricing-card featured">
+                <div class="pricing-badge">Most popular</div>
+                <div class="pricing-name">Pro</div>
+                <div class="pricing-price">$12 <span>/ month</span></div>
+                <div class="pricing-desc">For freelancers & teams</div>
+                <ul class="pricing-features">
+                    <li><span class="check">&#10003;</span> Everything in Free</li>
+                    <li><span class="check">&#10003;</span> Cloud backup & sync</li>
+                    <li><span class="check">&#10003;</span> Collaborate with up to 5 users</li>
+                    <li><span class="check">&#10003;</span> Export to PDF & CSV</li>
+                    <li><span class="check">&#10003;</span> Priority support</li>
+                    <li><span class="check">&#10003;</span> Custom themes</li>
+                </ul>
+                <a href="#" class="btn-plan btn-plan-primary">Start free trial</a>
+            </div>
+            <div class="pricing-card">
+                <div class="pricing-name">Team</div>
+                <div class="pricing-price">$29 <span>/ month</span></div>
+                <div class="pricing-desc">For growing teams</div>
+                <ul class="pricing-features">
+                    <li><span class="check">&#10003;</span> Everything in Pro</li>
+                    <li><span class="check">&#10003;</span> Unlimited collaborators</li>
+                    <li><span class="check">&#10003;</span> Admin dashboard</li>
+                    <li><span class="check">&#10003;</span> Shared templates</li>
+                    <li><span class="check">&#10003;</span> API access</li>
+                    <li><span class="check">&#10003;</span> Dedicated support</li>
+                </ul>
+                <a href="#" class="btn-plan btn-plan-outline">Contact sales</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="faq snap-section" id="faq" data-snap>
+        <h2 class="section-heading">Frequently asked questions</h2>
+        <p class="section-sub">Everything you need to know about MAREO.</p>
+
+        <div class="faq-item">
+            <button class="faq-question">Is MAREO really free?</button>
+            <div class="faq-answer">
+                <p>Yes! The core desktop app is completely free with all essential features. The Pro and Team plans add cloud sync, collaboration, and exports for those who need them.</p>
+            </div>
+        </div>
+        <div class="faq-item">
+            <button class="faq-question">Where is my data stored?</button>
+            <div class="faq-answer">
+                <p>By default, all your data stays on your local machine in a standard JSON file. If you upgrade to Pro, you can optionally enable cloud backup, but local-first is always the default.</p>
+            </div>
+        </div>
+        <div class="faq-item">
+            <button class="faq-question">Does it work offline?</button>
+            <div class="faq-answer">
+                <p>Absolutely. MAREO is designed to work 100% offline. No internet connection is required to create projects, manage tasks, or track expenses.</p>
+            </div>
+        </div>
+        <div class="faq-item">
+            <button class="faq-question">Can I use it with my team?</button>
+            <div class="faq-answer">
+                <p>The Pro plan supports up to 5 collaborators, and the Team plan offers unlimited seats. Collaboration features include real-time sync, shared boards, and role-based permissions.</p>
+            </div>
+        </div>
+        <div class="faq-item">
+            <button class="faq-question">What platforms are supported?</button>
+            <div class="faq-answer">
+                <p>MAREO is available for Windows (10+) and macOS (11+). A Linux version is on the roadmap. The app is lightweight and runs on virtually any modern hardware.</p>
+            </div>
+        </div>
+        <div class="faq-item">
+            <button class="faq-question">Can I cancel my subscription anytime?</button>
+            <div class="faq-answer">
+                <p>Yes, you can cancel anytime with no questions asked. Your local data is always yours regardless of your subscription status. Cloud data is retained for 30 days after cancellation.</p>
+            </div>
+        </div>
+    </section>
+
     <!-- CTA -->
-    <section class="cta">
+    <section class="cta snap-section" data-snap>
         <h2 class="cta-title">Ready to plan?</h2>
         <p class="cta-sub">Get started in seconds. No sign-up required.</p>
         <div class="btn-group">
@@ -538,20 +1140,113 @@
         <p>&copy; 2026 MAREO &middot; <a href="https://github.com" target="_blank" rel="noopener">GitHub</a></p>
     </footer>
 
-    <!-- Scroll animations -->
+    <!-- Scripts -->
     <script>
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    entry.target.classList.add('visible');
-                    observer.unobserve(entry.target);
+        // ── Scroll-snap with custom ease ──
+        const sections = Array.from(document.querySelectorAll('[data-snap]'));
+        const navbar = document.getElementById('navbar');
+        let currentIndex = 0;
+        let isSnapping = false;
+
+        // Ease-in-out cubic
+        function easeInOutCubic(t) {
+            return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+        }
+
+        function smoothScrollTo(targetY, duration = 700) {
+            const startY = window.pageYOffset;
+            const diff = targetY - startY;
+            if (Math.abs(diff) < 2) { isSnapping = false; return; }
+            isSnapping = true;
+            const startTime = performance.now();
+
+            function step(now) {
+                const elapsed = now - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                window.scrollTo(0, startY + diff * easeInOutCubic(progress));
+                if (progress < 1) {
+                    requestAnimationFrame(step);
+                } else {
+                    isSnapping = false;
+                }
+            }
+            requestAnimationFrame(step);
+        }
+
+        function goToSection(index) {
+            index = Math.max(0, Math.min(index, sections.length - 1));
+            if (index === currentIndex && isSnapping) return;
+            currentIndex = index;
+            smoothScrollTo(sections[index].offsetTop, 700);
+            navbar.classList.toggle('scrolled', index > 0);
+            // Reveal cards in target section
+            sections[index].querySelectorAll('.feature-card, .step, .pricing-card').forEach(el => {
+                el.classList.add('visible');
+            });
+        }
+
+        // Wheel: hijack — any tick = next/prev section
+        window.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            if (isSnapping) return;
+            goToSection(currentIndex + (e.deltaY > 0 ? 1 : -1));
+        }, { passive: false });
+
+        // Touch
+        let touchStartY = 0;
+        window.addEventListener('touchstart', (e) => {
+            touchStartY = e.touches[0].clientY;
+        }, { passive: true });
+        window.addEventListener('touchend', (e) => {
+            if (isSnapping) return;
+            const diff = touchStartY - e.changedTouches[0].clientY;
+            if (Math.abs(diff) > 30) goToSection(currentIndex + (diff > 0 ? 1 : -1));
+        }, { passive: true });
+
+        // Keyboard
+        window.addEventListener('keydown', (e) => {
+            if (isSnapping) return;
+            if (e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === ' ') {
+                e.preventDefault();
+                goToSection(currentIndex + 1);
+            } else if (e.key === 'ArrowUp' || e.key === 'PageUp') {
+                e.preventDefault();
+                goToSection(currentIndex - 1);
+            }
+        });
+
+        // Resize: re-align
+        window.addEventListener('resize', () => {
+            window.scrollTo(0, sections[currentIndex].offsetTop);
+        });
+
+        // Navbar links
+        document.querySelectorAll('.navbar-links a[href^="#"]').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const target = document.querySelector(link.getAttribute('href'));
+                if (target) {
+                    const idx = sections.indexOf(target);
+                    if (idx !== -1) goToSection(idx);
                 }
             });
-        }, { threshold: 0.15 });
+        });
 
-        document.querySelectorAll('.feature-card').forEach((card, i) => {
-            card.style.transitionDelay = `${i * 100}ms`;
-            observer.observe(card);
+        // Reveal animations setup
+        document.querySelectorAll('.feature-card, .step, .pricing-card').forEach((el, i) => {
+            el.style.transitionDelay = `${(i % 4) * 100}ms`;
+        });
+        // Reveal first section
+        sections[0].querySelectorAll('.feature-card, .step, .pricing-card').forEach(el => el.classList.add('visible'));
+
+        // ── FAQ toggle ──
+        document.querySelectorAll('.faq-question').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const item = btn.parentElement;
+                const wasOpen = item.classList.contains('open');
+                document.querySelectorAll('.faq-item.open').forEach(i => i.classList.remove('open'));
+                if (!wasOpen) item.classList.add('open');
+            });
         });
     </script>
 </body>
