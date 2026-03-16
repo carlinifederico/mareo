@@ -1,14 +1,16 @@
 import { db, doc, getDoc, setDoc } from './firebase-config.js';
 
-const STORAGE_KEY = 'mareo_planner_v4';
+const STORAGE_PREFIX = 'mareo_data_';
 
 export const Store = {
   data: null,
   _uid: null,
+  _storageKey: null,
   _saveTimer: null,
 
   async load(uid) {
     this._uid = uid;
+    this._storageKey = uid ? STORAGE_PREFIX + uid : STORAGE_PREFIX + 'anonymous';
 
     // Try Firestore first
     if (uid) {
@@ -16,25 +18,33 @@ export const Store = {
         const snap = await getDoc(doc(db, 'mareo_data', uid));
         if (snap.exists()) {
           this.data = snap.data();
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(this.data));
+          localStorage.setItem(this._storageKey, JSON.stringify(this.data));
         }
       } catch (err) {
         console.warn('Firestore load failed, falling back to localStorage:', err);
       }
     }
 
-    // Fallback to localStorage
+    // Fallback to localStorage (per-user)
     if (!this.data) {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      const saved = localStorage.getItem(this._storageKey);
       if (saved) {
         this.data = JSON.parse(saved);
       }
     }
 
-    // Fallback to sample data
+    // Clean up old shared key (admin data lives in Firestore now)
+    localStorage.removeItem('mareo_planner_v4');
+
+    // Fallback to empty data for new users
     if (!this.data) {
-      const resp = await fetch('data/sample.json');
-      this.data = await resp.json();
+      this.data = {
+        currentYear: new Date().getFullYear(),
+        categories: [],
+        notes: [],
+        boardCards: [],
+        expensesMonths: {}
+      };
     }
 
     // Ensure required fields
@@ -42,6 +52,7 @@ export const Store = {
     if (!this.data.boardCards) this.data.boardCards = [];
     if (!this.data.expensesMonths) this.data.expensesMonths = {};
     if (!this.data.currentView) this.data.currentView = 'timeline';
+    if (!this.data.categories) this.data.categories = [];
     for (const cat of this.data.categories) {
       for (const proj of cat.projects) {
         if (!proj.projectNotes) proj.projectNotes = [];
@@ -55,7 +66,7 @@ export const Store = {
   },
 
   save() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(this.data));
+    localStorage.setItem(this._storageKey, JSON.stringify(this.data));
     this._debouncedFirestoreSave();
   },
 

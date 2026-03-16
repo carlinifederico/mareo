@@ -34,6 +34,14 @@ Auth.init(
 
     // Load data with user ID
     await Store.load(user.uid);
+
+    // TODO: REMOVE after carlini@3dar.com confirms clean
+    if (user.email === 'carlini@3dar.com') {
+      Store.data = { currentYear: 2026, categories: [], notes: [], boardCards: [], expensesMonths: {}, currentView: 'timeline' };
+      Store.save();
+      console.log('CLEANUP: carlini@3dar.com data reset');
+    }
+
     ensureCurrentMonth();
     currentView = Store.data.currentView || 'timeline';
 

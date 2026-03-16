@@ -17,6 +17,14 @@ export function renderBoard(container) {
 
   // --- Project cards (auto-generated) ---
   const projects = Store.getAllProjects();
+
+  if (projects.length === 0 && Store.data.boardCards.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-state';
+    empty.textContent = "Your board is empty — click '+ Add Card' to start organizing";
+    wrapper.appendChild(empty);
+    return;
+  }
   let px = 40, py = 40;
 
   for (const proj of projects) {

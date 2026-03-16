@@ -345,6 +345,13 @@ function renderIncomes(container, monthKey, data, rate) {
   });
   wrapper.appendChild(header);
 
+  if (incomes.length === 0) {
+    const hint = document.createElement('div');
+    hint.className = 'empty-state empty-state-sm';
+    hint.textContent = 'Add your first income source';
+    wrapper.appendChild(hint);
+  }
+
   const table = document.createElement('table');
   table.className = 'exp-io-table';
   table.innerHTML = `<thead><tr>

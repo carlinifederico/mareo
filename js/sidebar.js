@@ -10,6 +10,13 @@ export function setSidebarProjectClickHandler(handler) {
 export function renderSidebar(container) {
   container.innerHTML = '';
 
+  if (Store.data.categories.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-state';
+    empty.textContent = 'Start by creating your first project category';
+    container.appendChild(empty);
+  }
+
   for (const cat of Store.data.categories) {
     // Category header
     const catHeader = document.createElement('div');

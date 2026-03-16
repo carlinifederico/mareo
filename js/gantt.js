@@ -10,6 +10,14 @@ export function renderGantt(container) {
   const totalWidth = totalWeeks * weekWidth;
   const todayWeek = getTodayWeekIndex(Store.data.currentYear);
 
+  if (Store.data.categories.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-state';
+    empty.textContent = 'Your timeline is empty — add a category and project to get started';
+    container.appendChild(empty);
+    return;
+  }
+
   for (const cat of Store.data.categories) {
     // Category spacer row
     const catRow = document.createElement('div');

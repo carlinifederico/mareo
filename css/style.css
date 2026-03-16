@@ -1719,6 +1719,20 @@ html, body {
   display: block;
 }
 
+/* === Empty States === */
+.empty-state {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 48px 24px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.empty-state-sm {
+  padding: 16px 12px;
+  font-size: 12px;
+}
+
 /* === Scrollbar === */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: var(--bg); }

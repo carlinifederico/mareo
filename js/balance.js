@@ -165,6 +165,14 @@ export function renderBalance(container) {
 
   const allData = getMonthData();
 
+  if (allData.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-state';
+    empty.textContent = 'No balance data yet — start tracking expenses to see your history';
+    container.appendChild(empty);
+    return;
+  }
+
   const years = [...new Set(allData.map(d => d.key.split('-')[0]))].sort();
 
   const toolbar = document.createElement('div');
