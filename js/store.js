@@ -1,4 +1,4 @@
-const STORAGE_KEY = 'mareo_planner_v3';
+const STORAGE_KEY = 'mareo_planner_v4';
 
 export const Store = {
   data: null,
@@ -14,7 +14,7 @@ export const Store = {
     }
     if (!this.data.notes) this.data.notes = [];
     if (!this.data.boardCards) this.data.boardCards = [];
-    if (!this.data.expensesData) this.data.expensesData = null;
+    if (!this.data.expensesMonths) this.data.expensesMonths = {};
     if (!this.data.currentView) this.data.currentView = 'timeline';
     // Ensure every project has a projectNotes array
     for (const cat of this.data.categories) {

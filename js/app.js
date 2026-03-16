@@ -6,7 +6,7 @@ import { initDragDrop } from './dragdrop.js';
 import { showLinksModal } from './modal.js';
 import { renderBoard, initBoardDrag, initBoardZoom } from './board.js';
 import { renderNotes } from './notes.js';
-import { renderExpenses } from './expenses.js';
+import { renderExpenses, ensureCurrentMonth } from './expenses.js';
 import { initPan } from './pan.js';
 
 window._mareoModules = { Store };
@@ -15,6 +15,7 @@ let currentView = 'timeline';
 
 async function init() {
   await Store.load();
+  ensureCurrentMonth(); // Auto-create current month if needed
   currentView = Store.data.currentView || 'timeline';
 
   initDragDrop();

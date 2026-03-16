@@ -3,6 +3,49 @@
   "currentView": "timeline",
   "notes": [],
   "boardCards": [],
+  "expensesMonths": {
+    "2026-03": {
+      "monthlyIncome": 9800000,
+      "savings": 2900000,
+      "sections": [
+        {
+          "name": "GASTOS FIJOS",
+          "items": [
+            { "id": "ei-alq", "name": "Alquiler Iberá", "amount": 2175000, "aPagar": 0, "paid": true, "recurring": true, "method": "CASH", "notes": "" },
+            { "id": "ei-luz", "name": "Luz Iberá", "amount": 25180, "aPagar": 0, "paid": false, "recurring": true, "method": "LEMON", "notes": "16 / 7266007534" },
+            { "id": "ei-aysa", "name": "Aysa Iberá", "amount": 0, "aPagar": 33000, "paid": false, "recurring": true, "method": "OTHER", "notes": "paga maremoto" },
+            { "id": "ei-mono", "name": "Monotributo", "amount": 129000, "aPagar": 0, "paid": true, "recurring": true, "method": "BBVA", "notes": "30" },
+            { "id": "ei-seg", "name": "Seguro Chichozul", "amount": 103346, "aPagar": 0, "paid": true, "recurring": true, "method": "LEMON", "notes": "15, desde la app con mp" },
+            { "id": "ei-pat", "name": "Patente", "amount": 0, "aPagar": 38000, "paid": false, "recurring": false, "method": "BBVA", "notes": "bimestral, no pague la anterior" },
+            { "id": "ei-hiba", "name": "HIBA M / A / F", "amount": 442071, "aPagar": 0, "paid": true, "recurring": true, "method": "LEMON", "notes": "vence el 15 / nro 428036" },
+            { "id": "ei-yoga", "name": "Yoga F", "amount": 70000, "aPagar": 0, "paid": true, "recurring": true, "method": "LEMON", "notes": "" },
+            { "id": "ei-limp", "name": "Limpieza", "amount": 200000, "aPagar": 0, "paid": false, "recurring": true, "method": "CASH", "notes": "Rosi: 6k la hora + 1k viaticos" },
+            { "id": "ei-gato", "name": "Comida Gato", "amount": 60000, "aPagar": 0, "paid": false, "recurring": true, "method": "CASH", "notes": "" },
+            { "id": "ei-tera", "name": "Terapia", "amount": 84000, "aPagar": 0, "paid": false, "recurring": true, "method": "LEMON", "notes": "42K la sesion" },
+            { "id": "ei-nine", "name": "Niñera", "amount": 180000, "aPagar": 0, "paid": false, "recurring": true, "method": "CASH", "notes": "7k la hora" },
+            { "id": "ei-coop", "name": "Cuota Coope", "amount": 0, "aPagar": 45000, "paid": false, "recurring": true, "method": "BBVA", "notes": "https://www.9de2.com.ar/ / pagado tod" }
+          ]
+        },
+        {
+          "name": "GASTOS NO FIJOS",
+          "items": [
+            { "id": "ei-visa", "name": "Visa Frances", "amount": 2455762, "aPagar": 0, "paid": true, "recurring": false, "method": "BBVA", "notes": "" }
+          ]
+        },
+        {
+          "name": "GASTOS EXTRAS",
+          "items": []
+        }
+      ],
+      "payments": [
+        { "source": "TransAr", "amount": 2000, "notes": "" },
+        { "source": "Lemon", "amount": 1000, "notes": "3/3" },
+        { "source": "lemon", "amount": 470, "notes": "9/3" },
+        { "source": "Alq ibera", "amount": 1500, "notes": "" },
+        { "source": "Maia", "amount": 280, "notes": "" }
+      ]
+    }
+  },
   "categories": [
     {
       "id": "cat-musica",

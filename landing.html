@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MAREO — Project Planner</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            color: #1a1030;
+            background: linear-gradient(135deg, #e8dff5 0%, #f3e5f5 40%, #dde4f8 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* ── Decorative blobs ── */
+        .blob {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.45;
+            pointer-events: none;
+            z-index: 0;
+        }
+        .blob-1 { width: 500px; height: 500px; background: #c4b5fd; top: -120px; left: -100px; }
+        .blob-2 { width: 400px; height: 400px; background: #f9a8d4; top: 200px; right: -80px; }
+        .blob-3 { width: 350px; height: 350px; background: #93c5fd; bottom: -60px; left: 30%; }
+
+        /* ── Hero ── */
+        .hero {
+            position: relative;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 60px 24px 40px;
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 1;
+            max-width: 720px;
+        }
+
+        .hero-title {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 800;
+            font-size: clamp(56px, 10vw, 96px);
+            letter-spacing: -2px;
+            line-height: 1;
+            margin-bottom: 16px;
+            background: linear-gradient(135deg, #1a1030 0%, #6d28d9 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero-subtitle {
+            font-size: clamp(16px, 2.5vw, 20px);
+            color: #4a3f6b;
+            line-height: 1.6;
+            margin-bottom: 36px;
+            max-width: 540px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn-download {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 32px;
+            border-radius: 999px;
+            font-family: 'Inter', sans-serif;
+            font-weight: 600;
+            font-size: 15px;
+            text-decoration: none;
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+            border: none;
+        }
+
+        .btn-download svg {
+            width: 20px;
+            height: 20px;
+            flex-shrink: 0;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #a78bfa, #7c3aed);
+            color: #fff;
+            box-shadow: 0 4px 20px rgba(124, 58, 237, 0.35);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 28px rgba(124, 58, 237, 0.5);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.7);
+            color: #1a1030;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+        }
+
+        /* ── Mockup section ── */
+        .mockup-section {
+            position: relative;
+            z-index: 1;
+            padding: 0 24px 100px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .mockup-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+        }
+
+        .browser-frame {
+            background: #1a1030;
+            border-radius: 16px;
+            box-shadow: 0 24px 80px rgba(26, 16, 48, 0.25);
+            overflow: hidden;
+        }
+
+        .browser-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 14px 18px;
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .browser-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        .browser-dot:nth-child(1) { background: #ff5f57; }
+        .browser-dot:nth-child(2) { background: #febc2e; }
+        .browser-dot:nth-child(3) { background: #28c840; }
+
+        .browser-content {
+            aspect-ratio: 16 / 9;
+            background: linear-gradient(135deg, #1a1030 0%, #2d1b69 50%, #1a1030 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .browser-content::before {
+            content: '';
+            position: absolute;
+            width: 300px;
+            height: 300px;
+            background: radial-gradient(circle, rgba(167, 139, 250, 0.2) 0%, transparent 70%);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .browser-app-title {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 800;
+            font-size: 48px;
+            color: rgba(255, 255, 255, 0.15);
+            letter-spacing: 8px;
+            z-index: 1;
+        }
+
+        /* ── Floating cards ── */
+        .float-card {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            border-radius: 14px;
+            padding: 16px 20px;
+            box-shadow: 0 8px 32px rgba(26, 16, 48, 0.12);
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            white-space: nowrap;
+        }
+
+        .float-card .card-icon {
+            font-size: 22px;
+            line-height: 1;
+        }
+
+        .float-card .card-label {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 600;
+            font-size: 14px;
+            color: #1a1030;
+        }
+
+        .float-card-1 { top: 10%; left: -40px; animation: float-1 6s ease-in-out infinite; }
+        .float-card-2 { top: 15%; right: -50px; animation: float-2 7s ease-in-out infinite; }
+        .float-card-3 { bottom: 20%; left: -30px; animation: float-3 5.5s ease-in-out infinite; }
+        .float-card-4 { bottom: 10%; right: -40px; animation: float-4 6.5s ease-in-out infinite; }
+
+        @keyframes float-1 {
+            0%, 100% { transform: translateY(0) rotate(-2deg); }
+            50% { transform: translateY(-14px) rotate(0deg); }
+        }
+        @keyframes float-2 {
+            0%, 100% { transform: translateY(0) rotate(2deg); }
+            50% { transform: translateY(-12px) rotate(0deg); }
+        }
+        @keyframes float-3 {
+            0%, 100% { transform: translateY(0) rotate(1deg); }
+            50% { transform: translateY(-16px) rotate(-1deg); }
+        }
+        @keyframes float-4 {
+            0%, 100% { transform: translateY(0) rotate(-1deg); }
+            50% { transform: translateY(-10px) rotate(1deg); }
+        }
+
+        /* ── Features grid ── */
+        .features {
+            position: relative;
+            z-index: 1;
+            padding: 80px 24px;
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        .features-heading {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 700;
+            font-size: clamp(28px, 4vw, 40px);
+            text-align: center;
+            margin-bottom: 56px;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 24px;
+        }
+
+        .feature-card {
+            background: rgba(255, 255, 255, 0.55);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            border-radius: 18px;
+            padding: 32px 24px;
+            text-align: center;
+            transition: transform 0.25s, box-shadow 0.25s;
+            opacity: 0;
+            transform: translateY(24px);
+        }
+
+        .feature-card.visible {
+            opacity: 1;
+            transform: translateY(0);
+            transition: opacity 0.5s ease, transform 0.5s ease, box-shadow 0.25s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(26, 16, 48, 0.12);
+        }
+
+        .feature-icon {
+            font-size: 36px;
+            margin-bottom: 16px;
+            line-height: 1;
+        }
+
+        .feature-title {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 700;
+            font-size: 18px;
+            margin-bottom: 8px;
+        }
+
+        .feature-desc {
+            font-size: 14px;
+            color: #5a5078;
+            line-height: 1.6;
+        }
+
+        /* ── CTA band ── */
+        .cta {
+            position: relative;
+            z-index: 1;
+            margin: 40px 24px 80px;
+            background: linear-gradient(135deg, #a78bfa, #7c3aed);
+            border-radius: 24px;
+            padding: 64px 32px;
+            text-align: center;
+            max-width: 1100px;
+            margin-left: auto;
+            margin-right: auto;
+            box-shadow: 0 16px 48px rgba(124, 58, 237, 0.3);
+        }
+
+        .cta-title {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 700;
+            font-size: clamp(28px, 4vw, 40px);
+            color: #fff;
+            margin-bottom: 12px;
+        }
+
+        .cta-sub {
+            color: rgba(255, 255, 255, 0.85);
+            font-size: 15px;
+            margin-bottom: 32px;
+        }
+
+        .cta .btn-group {
+            margin-bottom: 24px;
+        }
+
+        .cta .btn-primary {
+            background: #fff;
+            color: #7c3aed;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        .cta .btn-primary:hover {
+            box-shadow: 0 6px 28px rgba(0, 0, 0, 0.2);
+        }
+
+        .cta .btn-secondary {
+            background: rgba(255, 255, 255, 0.2);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            box-shadow: none;
+        }
+
+        .cta .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .cta-note {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 13px;
+        }
+
+        /* ── Footer ── */
+        .footer {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+            padding: 32px 24px 40px;
+            color: #7a6f9a;
+            font-size: 14px;
+        }
+
+        .footer a {
+            color: #7c3aed;
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 1024px) {
+            .features-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .float-card-1 { left: -20px; }
+            .float-card-2 { right: -20px; }
+            .float-card-3 { left: -10px; }
+            .float-card-4 { right: -20px; }
+        }
+
+        @media (max-width: 768px) {
+            .hero {
+                min-height: auto;
+                padding: 100px 20px 60px;
+            }
+            .features-grid {
+                grid-template-columns: 1fr;
+                max-width: 400px;
+                margin: 0 auto;
+            }
+            .float-card {
+                display: none;
+            }
+            .mockup-section {
+                padding: 0 16px 60px;
+            }
+            .browser-app-title {
+                font-size: 28px;
+                letter-spacing: 4px;
+            }
+            .cta {
+                margin: 40px 16px 60px;
+                padding: 48px 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Decorative blobs -->
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+
+    <!-- Hero -->
+    <section class="hero">
+        <div class="hero-content">
+            <h1 class="hero-title">MAREO</h1>
+            <p class="hero-subtitle">A lightweight project planner with timelines, boards, notes, and expense tracking. All offline, all yours.</p>
+            <div class="btn-group">
+                <a href="#" class="btn-download btn-primary">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 5.548v6.259l8.484 1.174V5.004L3 5.548zm0 7.044v6.259l8.484 1.396V13.78L3 12.592zm9.378 1.313v5.404L21 20.948v-7.18l-8.622 1.137zm0-2.118L21 10.58V3.052l-8.622 1.358v7.377z"/></svg>
+                    Download for Windows
+                </a>
+                <a href="#" class="btn-download btn-secondary">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+                    Download for Mac
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Mockup -->
+    <section class="mockup-section">
+        <div class="mockup-wrapper">
+            <div class="float-card float-card-1">
+                <span class="card-icon">📅</span>
+                <span class="card-label">Timeline View</span>
+            </div>
+            <div class="float-card float-card-2">
+                <span class="card-icon">📋</span>
+                <span class="card-label">Board View</span>
+            </div>
+            <div class="float-card float-card-3">
+                <span class="card-icon">📝</span>
+                <span class="card-label">Notes</span>
+            </div>
+            <div class="float-card float-card-4">
+                <span class="card-icon">💰</span>
+                <span class="card-label">Expenses</span>
+            </div>
+            <div class="browser-frame">
+                <div class="browser-bar">
+                    <span class="browser-dot"></span>
+                    <span class="browser-dot"></span>
+                    <span class="browser-dot"></span>
+                </div>
+                <div class="browser-content">
+                    <span class="browser-app-title">MAREO</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features -->
+    <section class="features">
+        <h2 class="features-heading">Everything you need to plan</h2>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">📅</div>
+                <h3 class="feature-title">Timeline Planner</h3>
+                <p class="feature-desc">Drag-and-drop Gantt-style timeline. Visualize your project phases and milestones at a glance.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📋</div>
+                <h3 class="feature-title">Board View</h3>
+                <p class="feature-desc">Kanban boards to organize tasks by status. Move cards between columns as work progresses.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📝</div>
+                <h3 class="feature-title">Notes</h3>
+                <p class="feature-desc">Rich-text notes attached to each project. Keep decisions, ideas, and context in one place.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">💰</div>
+                <h3 class="feature-title">Expense Tracking</h3>
+                <p class="feature-desc">Track project costs with a built-in spreadsheet. Categorize expenses and monitor your budget.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="cta">
+        <h2 class="cta-title">Ready to plan?</h2>
+        <p class="cta-sub">Get started in seconds. No sign-up required.</p>
+        <div class="btn-group">
+            <a href="#" class="btn-download btn-primary">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 5.548v6.259l8.484 1.174V5.004L3 5.548zm0 7.044v6.259l8.484 1.396V13.78L3 12.592zm9.378 1.313v5.404L21 20.948v-7.18l-8.622 1.137zm0-2.118L21 10.58V3.052l-8.622 1.358v7.377z"/></svg>
+                Download for Windows
+            </a>
+            <a href="#" class="btn-download btn-secondary">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+                Download for Mac
+            </a>
+        </div>
+        <p class="cta-note">Free. No account needed. Your data stays on your device.</p>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>&copy; 2026 MAREO &middot; <a href="https://github.com" target="_blank" rel="noopener">GitHub</a></p>
+    </footer>
+
+    <!-- Scroll animations -->
+    <script>
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.15 });
+
+        document.querySelectorAll('.feature-card').forEach((card, i) => {
+            card.style.transitionDelay = `${i * 100}ms`;
+            observer.observe(card);
+        });
+    </script>
+</body>
+</html>

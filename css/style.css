@@ -1146,6 +1146,38 @@ html, body {
   padding: 16px;
 }
 
+/* Month Navigator */
+.exp-month-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 10px 16px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+
+.exp-month-title {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 700;
+  font-size: 18px;
+  min-width: 160px;
+  text-align: center;
+}
+
+.exp-month-title.current {
+  color: var(--accent);
+}
+
+.exp-today-btn {
+  margin-left: auto;
+  font-size: 11px;
+  padding: 4px 12px;
+}
+
 /* Overview */
 .exp-overview {
   display: flex;
