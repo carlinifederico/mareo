@@ -90,11 +90,7 @@ async function init() {
     renderNotes(document.getElementById('notes-grid'), e.target.value);
   });
 
-  // Expenses: Add
-  document.getElementById('btn-add-expense').addEventListener('click', () => {
-    Store.addExpense({});
-    render();
-  });
+  // Expenses don't need a global add button - handled internally
 
   // Listen for render events
   document.addEventListener('mareo:render', () => render());

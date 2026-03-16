@@ -14,7 +14,7 @@ export const Store = {
     }
     if (!this.data.notes) this.data.notes = [];
     if (!this.data.boardCards) this.data.boardCards = [];
-    if (!this.data.expenses) this.data.expenses = [];
+    if (!this.data.expensesData) this.data.expensesData = null;
     if (!this.data.currentView) this.data.currentView = 'timeline';
     // Ensure every project has a projectNotes array
     for (const cat of this.data.categories) {
@@ -202,32 +202,6 @@ export const Store = {
     this.save();
   },
 
-  // --- Expenses ---
-  addExpense(expense) {
-    const e = {
-      id: 'exp-' + crypto.randomUUID(),
-      date: expense.date || new Date().toISOString().slice(0, 10),
-      projectId: expense.projectId || null,
-      category: expense.category || 'Other',
-      description: expense.description || '',
-      amount: expense.amount || 0,
-      paid: false
-    };
-    this.data.expenses.push(e);
-    this.save();
-    return e;
-  },
-
-  updateExpense(expId, updates) {
-    const exp = this.data.expenses.find(e => e.id === expId);
-    if (exp) { Object.assign(exp, updates); this.save(); }
-  },
-
-  removeExpense(expId) {
-    this.data.expenses = this.data.expenses.filter(e => e.id !== expId);
-    this.save();
-  },
-
   // --- Import/Export ---
   exportJSON() { return JSON.stringify(this.data, null, 2); },
 
@@ -237,7 +211,6 @@ export const Store = {
     this.data = parsed;
     if (!this.data.notes) this.data.notes = [];
     if (!this.data.boardCards) this.data.boardCards = [];
-    if (!this.data.expenses) this.data.expenses = [];
     this.save();
   },
 
