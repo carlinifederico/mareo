@@ -1178,65 +1178,191 @@ html, body {
   padding: 4px 12px;
 }
 
-/* Overview */
-.exp-overview {
+/* Exchange Rate & Savings in Nav */
+.exp-rate-group {
   display: flex;
-  gap: 20px;
-  margin-bottom: 20px;
-}
-
-.exp-overview-left {
-  flex: 2;
-}
-
-.exp-overview-right {
-  flex: 1;
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 12px;
-}
-
-.exp-overview-row {
-  display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  gap: 6px;
+  padding: 0 8px;
+  border-left: 1px solid var(--border);
 }
 
-.exp-label {
-  font-size: 11px;
+.exp-rate-label {
+  font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 1px;
   color: var(--text-muted);
+  white-space: nowrap;
 }
 
-.exp-income-input {
-  width: 160px;
-  padding: 6px 10px;
+.exp-rate-input {
+  width: 90px;
+  padding: 4px 8px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--bg);
   color: var(--text);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   text-align: right;
   font-family: 'Poppins', sans-serif;
 }
 
-.exp-income-input:focus {
+.exp-rate-input:focus {
   outline: none;
   border-color: var(--accent);
 }
 
+/* Incomes / Outcomes side by side */
+.exp-io-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.exp-io-panel {
+  flex: 1;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.exp-io-incomes { border-color: rgba(74, 222, 128, 0.2); }
+.exp-io-outcomes { border-color: rgba(248, 113, 113, 0.2); }
+
+.exp-io-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: rgba(37, 30, 62, 0.5);
+  border-bottom: 1px solid var(--border);
+}
+
+.exp-io-title {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.exp-io-title-income { color: #4ade80; }
+.exp-io-title-outcome { color: var(--danger); }
+
+.exp-io-add-btn {
+  font-size: 10px;
+  padding: 3px 8px;
+}
+
+.exp-io-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.exp-io-table thead { background: rgba(37, 30, 62, 0.3); }
+
+.exp-io-table th {
+  padding: 5px 6px;
+  text-align: left;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+}
+
+.exp-io-table td {
+  padding: 3px 4px;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  vertical-align: middle;
+}
+
+.exp-io-table input[type="text"],
+.exp-io-table input[type="number"] {
+  width: 100%;
+  padding: 4px 6px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-size: 11px;
+  font-family: inherit;
+  transition: border-color 0.15s;
+}
+
+.exp-io-table input:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--bg);
+}
+
+/* Income rows green tint */
+.exp-io-row-income {
+  background: rgba(74, 222, 128, 0.04);
+}
+.exp-io-row-income:hover {
+  background: rgba(74, 222, 128, 0.1) !important;
+}
+
+/* Outcome rows red tint */
+.exp-io-row-outcome {
+  background: rgba(248, 113, 113, 0.04);
+}
+.exp-io-row-outcome:hover {
+  background: rgba(248, 113, 113, 0.1) !important;
+}
+
+.exp-io-ars-value {
+  font-weight: 600;
+  font-size: 11px;
+  color: #4ade80;
+  padding: 4px 6px;
+  display: inline-block;
+}
+
+.exp-io-table tfoot td {
+  padding: 6px;
+  border-top: 1px solid var(--border);
+  border-bottom: none;
+}
+
+.exp-io-table tfoot strong {
+  font-family: 'Poppins', sans-serif;
+  font-size: 12px;
+  color: var(--accent);
+}
+
+/* Outcomes totals */
+.exp-io-totals {
+  padding: 6px 12px 8px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.exp-io-total-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 3px 0;
+}
+
+.exp-io-paid { color: var(--danger); }
+.exp-io-topay { color: #4ade80; }
+
+/* Summary Cards */
 .exp-summary-cards {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 8px;
-  margin-top: 12px;
+  margin-bottom: 12px;
 }
 
 .exp-card {
@@ -1268,73 +1394,6 @@ html, body {
 
 .exp-card-warn { border-color: rgba(245, 197, 66, 0.3); }
 .exp-card-warn .exp-card-value { color: var(--accent-2); }
-
-/* Pagos */
-.exp-pagos-title {
-  font-family: 'Poppins', sans-serif;
-  font-weight: 700;
-  font-size: 12px;
-  margin-bottom: 8px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: var(--text-muted);
-}
-
-.exp-pagos-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-bottom: 8px;
-}
-
-.exp-pagos-table th {
-  font-size: 9px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: var(--text-muted);
-  text-align: left;
-  padding: 4px 4px;
-  border-bottom: 1px solid var(--border);
-}
-
-.exp-pagos-table td {
-  padding: 3px 4px;
-}
-
-.exp-pagos-table input {
-  width: 100%;
-  padding: 4px 6px;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text);
-  font-size: 11px;
-  font-family: inherit;
-}
-
-.exp-pagos-table input:focus {
-  outline: none;
-  border-color: var(--accent);
-  background: var(--bg);
-}
-
-.exp-pagos-totals {
-  display: flex;
-  justify-content: space-between;
-  padding: 6px 0;
-  border-top: 1px solid var(--border);
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.exp-pagos-totals strong {
-  color: #4ade80;
-}
-
-.exp-add-pago-btn {
-  font-size: 10px;
-  padding: 4px 8px;
-  margin-top: 4px;
-}
 
 /* Expense Sections */
 .exp-sections {
@@ -1413,12 +1472,27 @@ html, body {
 }
 
 .exp-table tr.row-paid {
-  opacity: 0.45;
+  background: rgba(74, 222, 128, 0.12);
+}
+
+.exp-table tr.row-paid:hover {
+  background: rgba(74, 222, 128, 0.18) !important;
+}
+
+.exp-table tr.row-paid td {
+  color: #4ade80;
 }
 
 .exp-table tr.row-paid td input[type="text"],
 .exp-table tr.row-paid td input[type="number"] {
+  color: #4ade80;
+  font-style: italic;
   text-decoration: line-through;
+}
+
+.exp-table tr.row-paid td select {
+  color: #4ade80;
+  font-style: italic;
 }
 
 .exp-table tr.row-recurring td:first-child input {
@@ -1484,13 +1558,80 @@ html, body {
   font-size: 12px !important;
 }
 
-.col-name { width: 20%; }
-.col-montos { width: 12%; }
-.col-apagar { width: 12%; }
+.col-name { width: 22%; }
+.col-montos { width: 14%; }
 .col-check { width: 60px; text-align: center; white-space: nowrap; }
 .col-method { width: 10%; }
 .col-notes { width: auto; }
 .col-del { width: 30px; text-align: center; }
+
+/* ================================================
+   VIEW: BALANCE
+   ================================================ */
+#view-balance {
+  flex-direction: column;
+}
+
+.balance-body {
+  flex: 1;
+  overflow: auto;
+  padding: 16px;
+}
+
+.bal-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  margin-bottom: 16px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+
+.bal-title {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--accent);
+  letter-spacing: 1px;
+  margin-right: auto;
+}
+
+.bal-year-select {
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.bal-year-select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.bal-year-select option {
+  background: var(--bg-surface);
+  color: var(--text);
+}
+
+.bal-chart-wrap {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow-x: auto;
+  padding: 16px;
+}
+
+.bal-canvas {
+  display: block;
+}
 
 /* === Scrollbar === */
 ::-webkit-scrollbar { width: 8px; height: 8px; }

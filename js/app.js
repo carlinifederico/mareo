@@ -7,6 +7,7 @@ import { showLinksModal } from './modal.js';
 import { renderBoard, initBoardDrag, initBoardZoom } from './board.js';
 import { renderNotes } from './notes.js';
 import { renderExpenses, ensureCurrentMonth } from './expenses.js';
+import { renderBalance } from './balance.js';
 import { initPan } from './pan.js';
 
 window._mareoModules = { Store };
@@ -137,6 +138,8 @@ function render() {
     renderNotes(document.getElementById('notes-grid'), query);
   } else if (currentView === 'expenses') {
     renderExpenses(document.getElementById('expenses-body'));
+  } else if (currentView === 'balance') {
+    renderBalance(document.getElementById('balance-body'));
   }
 }
 

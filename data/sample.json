@@ -5,8 +5,14 @@
   "boardCards": [],
   "expensesMonths": {
     "2026-03": {
-      "monthlyIncome": 9800000,
-      "savings": 2900000,
+      "exchangeRate": 1400,
+      "savingsUSD": 2000,
+      "incomes": [
+        { "id": "inc-1", "source": "CASH EN USD", "amountUSD": 3000, "fees": "2.5 de comision" },
+        { "id": "inc-2", "source": "TRANS ARS BBVA", "amountUSD": 2000, "fees": "" },
+        { "id": "inc-3", "source": "TRANS EN USD BOFA", "amountUSD": 0, "fees": "" },
+        { "id": "inc-4", "source": "TRANS EN USD MM", "amountUSD": 2000, "fees": "1 de comision" }
+      ],
       "sections": [
         {
           "name": "GASTOS FIJOS",
@@ -34,7 +40,9 @@
         },
         {
           "name": "GASTOS EXTRAS",
-          "items": []
+          "items": [
+            { "id": "ei-maia", "name": "Maia x 300 USD", "amount": 394748, "aPagar": 0, "paid": true, "recurring": false, "method": "CASH", "notes": "" }
+          ]
         }
       ],
       "payments": [
