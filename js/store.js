@@ -1,4 +1,4 @@
-const STORAGE_KEY = 'mareo_planner_v2';
+const STORAGE_KEY = 'mareo_planner_v3';
 
 export const Store = {
   data: null,
@@ -12,10 +12,16 @@ export const Store = {
       this.data = await resp.json();
       this.save();
     }
-    // Ensure notes and board arrays exist
     if (!this.data.notes) this.data.notes = [];
     if (!this.data.boardCards) this.data.boardCards = [];
+    if (!this.data.expenses) this.data.expenses = [];
     if (!this.data.currentView) this.data.currentView = 'timeline';
+    // Ensure every project has a projectNotes array
+    for (const cat of this.data.categories) {
+      for (const proj of cat.projects) {
+        if (!proj.projectNotes) proj.projectNotes = [];
+      }
+    }
     return this.data;
   },
 
@@ -23,26 +29,15 @@ export const Store = {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(this.data));
   },
 
-  // Year
-  setYear(year) {
-    this.data.currentYear = year;
-    this.save();
-  },
-
-  // View
-  setView(view) {
-    this.data.currentView = view;
-    this.save();
-  },
+  setYear(year) { this.data.currentYear = year; this.save(); },
+  setView(view) { this.data.currentView = view; this.save(); },
 
   // --- Categories ---
   addCategory(name) {
     const cat = {
       id: 'cat-' + crypto.randomUUID(),
-      name,
-      order: this.data.categories.length,
-      collapsed: false,
-      projects: []
+      name, order: this.data.categories.length,
+      collapsed: false, projects: []
     };
     this.data.categories.push(cat);
     this.save();
@@ -70,11 +65,9 @@ export const Store = {
     if (!cat) return null;
     const proj = {
       id: 'proj-' + crypto.randomUUID(),
-      name,
-      color: color || '#bdc3c7',
-      links: [],
-      order: cat.projects.length,
-      tasks: []
+      name, color: color || '#bdc3c7',
+      links: [], order: cat.projects.length,
+      tasks: [], projectNotes: []
     };
     cat.projects.push(proj);
     this.save();
@@ -90,10 +83,38 @@ export const Store = {
 
   updateProject(projectId, updates) {
     const proj = this._findProject(projectId);
-    if (proj) {
-      Object.assign(proj, updates);
-      this.save();
-    }
+    if (proj) { Object.assign(proj, updates); this.save(); }
+  },
+
+  // --- Project Notes (multiple notes per project) ---
+  addProjectNote(projectId, note) {
+    const proj = this._findProject(projectId);
+    if (!proj) return null;
+    if (!proj.projectNotes) proj.projectNotes = [];
+    const n = {
+      id: 'pn-' + crypto.randomUUID(),
+      title: note.title || '',
+      content: note.content || '',
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    };
+    proj.projectNotes.unshift(n);
+    this.save();
+    return n;
+  },
+
+  updateProjectNote(projectId, noteId, updates) {
+    const proj = this._findProject(projectId);
+    if (!proj) return;
+    const note = (proj.projectNotes || []).find(n => n.id === noteId);
+    if (note) { Object.assign(note, updates, { updatedAt: Date.now() }); this.save(); }
+  },
+
+  removeProjectNote(projectId, noteId) {
+    const proj = this._findProject(projectId);
+    if (!proj) return;
+    proj.projectNotes = (proj.projectNotes || []).filter(n => n.id !== noteId);
+    this.save();
   },
 
   // --- Tasks ---
@@ -125,22 +146,16 @@ export const Store = {
 
   updateTask(taskId, updates) {
     const task = this._findTask(taskId);
-    if (task) {
-      Object.assign(task, updates);
-      this.save();
-    }
+    if (task) { Object.assign(task, updates); this.save(); }
   },
 
-  // --- Notes (Google Keep style) ---
+  // --- Notes (general, Google Keep style) ---
   addNote(note) {
     const n = {
       id: 'note-' + crypto.randomUUID(),
-      title: note.title || '',
-      content: note.content || '',
-      color: note.color || '#16213e',
-      pinned: false,
-      createdAt: Date.now(),
-      updatedAt: Date.now()
+      title: note.title || '', content: note.content || '',
+      color: note.color || '#1a1433',
+      pinned: false, createdAt: Date.now(), updatedAt: Date.now()
     };
     this.data.notes.unshift(n);
     this.save();
@@ -149,10 +164,7 @@ export const Store = {
 
   updateNote(noteId, updates) {
     const note = this.data.notes.find(n => n.id === noteId);
-    if (note) {
-      Object.assign(note, updates, { updatedAt: Date.now() });
-      this.save();
-    }
+    if (note) { Object.assign(note, updates, { updatedAt: Date.now() }); this.save(); }
   },
 
   removeNote(noteId) {
@@ -162,10 +174,7 @@ export const Store = {
 
   togglePinNote(noteId) {
     const note = this.data.notes.find(n => n.id === noteId);
-    if (note) {
-      note.pinned = !note.pinned;
-      this.save();
-    }
+    if (note) { note.pinned = !note.pinned; this.save(); }
   },
 
   // --- Board Cards ---
@@ -175,10 +184,8 @@ export const Store = {
       title: card.title || 'New Card',
       content: card.content || '',
       color: card.color || '#1f2b47',
-      x: card.x || 100,
-      y: card.y || 100,
-      width: card.width || 200,
-      height: card.height || 150
+      x: card.x || 100, y: card.y || 100,
+      width: card.width || 200, height: card.height || 150
     };
     this.data.boardCards.push(c);
     this.save();
@@ -187,10 +194,7 @@ export const Store = {
 
   updateBoardCard(cardId, updates) {
     const card = this.data.boardCards.find(c => c.id === cardId);
-    if (card) {
-      Object.assign(card, updates);
-      this.save();
-    }
+    if (card) { Object.assign(card, updates); this.save(); }
   },
 
   removeBoardCard(cardId) {
@@ -198,26 +202,47 @@ export const Store = {
     this.save();
   },
 
-  // --- Import/Export ---
-  exportJSON() {
-    return JSON.stringify(this.data, null, 2);
+  // --- Expenses ---
+  addExpense(expense) {
+    const e = {
+      id: 'exp-' + crypto.randomUUID(),
+      date: expense.date || new Date().toISOString().slice(0, 10),
+      projectId: expense.projectId || null,
+      category: expense.category || 'Other',
+      description: expense.description || '',
+      amount: expense.amount || 0,
+      paid: false
+    };
+    this.data.expenses.push(e);
+    this.save();
+    return e;
   },
+
+  updateExpense(expId, updates) {
+    const exp = this.data.expenses.find(e => e.id === expId);
+    if (exp) { Object.assign(exp, updates); this.save(); }
+  },
+
+  removeExpense(expId) {
+    this.data.expenses = this.data.expenses.filter(e => e.id !== expId);
+    this.save();
+  },
+
+  // --- Import/Export ---
+  exportJSON() { return JSON.stringify(this.data, null, 2); },
 
   importJSON(str) {
     const parsed = JSON.parse(str);
-    if (!parsed.categories || !Array.isArray(parsed.categories)) {
-      throw new Error('Invalid data format');
-    }
+    if (!parsed.categories || !Array.isArray(parsed.categories)) throw new Error('Invalid data format');
     this.data = parsed;
     if (!this.data.notes) this.data.notes = [];
     if (!this.data.boardCards) this.data.boardCards = [];
+    if (!this.data.expenses) this.data.expenses = [];
     this.save();
   },
 
   // --- Helpers ---
-  _findCategory(id) {
-    return this.data.categories.find(c => c.id === id);
-  },
+  _findCategory(id) { return this.data.categories.find(c => c.id === id); },
 
   _findProject(id) {
     for (const cat of this.data.categories) {
@@ -251,5 +276,15 @@ export const Store = {
       if (cat.projects.some(p => p.id === projectId)) return cat;
     }
     return null;
+  },
+
+  getAllProjects() {
+    const projects = [];
+    for (const cat of this.data.categories) {
+      for (const proj of cat.projects) {
+        projects.push({ ...proj, categoryName: cat.name });
+      }
+    }
+    return projects;
   }
 };

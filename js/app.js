@@ -4,10 +4,11 @@ import { renderSidebar, setSidebarProjectClickHandler } from './sidebar.js';
 import { renderGantt } from './gantt.js';
 import { initDragDrop } from './dragdrop.js';
 import { showLinksModal } from './modal.js';
-import { renderBoard, initBoardDrag } from './board.js';
+import { renderBoard, initBoardDrag, initBoardZoom } from './board.js';
 import { renderNotes } from './notes.js';
+import { renderExpenses } from './expenses.js';
+import { initPan } from './pan.js';
 
-// Expose Store globally for modal access
 window._mareoModules = { Store };
 
 let currentView = 'timeline';
@@ -18,12 +19,16 @@ async function init() {
 
   initDragDrop();
   initBoardDrag();
+  initPan();
 
   // View tabs
   document.querySelectorAll('.view-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      switchView(tab.dataset.view);
-    });
+    tab.addEventListener('click', () => switchView(tab.dataset.view));
+  });
+
+  // Custom event for switching views from other modules
+  document.addEventListener('mareo:switchView', (e) => {
+    switchView(e.detail);
   });
 
   // Year navigation
@@ -40,12 +45,10 @@ async function init() {
   document.getElementById('btn-export').addEventListener('click', exportData);
   document.getElementById('btn-import').addEventListener('click', importData);
 
-  // Project name click handler - show links dropdown
-  setSidebarProjectClickHandler((e, proj) => {
-    showProjectLinksDropdown(e, proj);
-  });
+  // Project name click
+  setSidebarProjectClickHandler((e, proj) => showProjectLinksDropdown(e, proj));
 
-  // Scroll sync: sidebar ↔ gantt (vertical), timeline header ↔ gantt (horizontal)
+  // Scroll sync
   const timelineArea = document.getElementById('timeline-area');
   const sidebarScroll = document.getElementById('sidebar-scroll');
   const timelineHeader = document.querySelector('.timeline-header-wrapper');
@@ -69,8 +72,7 @@ async function init() {
   document.getElementById('btn-add-board-card').addEventListener('click', () => {
     const canvas = document.getElementById('board-canvas');
     Store.addBoardCard({
-      title: 'New Card',
-      content: '',
+      title: 'New Card', content: '',
       x: canvas.scrollLeft + 100 + Math.random() * 200,
       y: canvas.scrollTop + 100 + Math.random() * 100
     });
@@ -88,28 +90,35 @@ async function init() {
     renderNotes(document.getElementById('notes-grid'), e.target.value);
   });
 
+  // Expenses: Add
+  document.getElementById('btn-add-expense').addEventListener('click', () => {
+    Store.addExpense({});
+    render();
+  });
+
   // Listen for render events
   document.addEventListener('mareo:render', () => render());
 
   switchView(currentView);
   render();
+
+  // Init board zoom after first render
+  requestAnimationFrame(() => initBoardZoom());
 }
 
 function switchView(view) {
   currentView = view;
   Store.setView(view);
 
-  // Update tabs
   document.querySelectorAll('.view-tab').forEach(t => {
     t.classList.toggle('active', t.dataset.view === view);
   });
 
-  // Show/hide views
   document.querySelectorAll('.view-container').forEach(v => {
     v.classList.toggle('active', v.id === 'view-' + view);
   });
 
-  // Show/hide year nav (only in timeline)
+  // Year nav only in timeline
   document.getElementById('year-nav').style.display = view === 'timeline' ? 'flex' : 'none';
 
   render();
@@ -129,13 +138,14 @@ function render() {
   } else if (currentView === 'notes') {
     const query = document.getElementById('notes-search').value;
     renderNotes(document.getElementById('notes-grid'), query);
+  } else if (currentView === 'expenses') {
+    renderExpenses(document.getElementById('expenses-body'));
   }
 }
 
 function syncRowHeights() {
   const sidebarItems = document.querySelectorAll('#sidebar-content > *');
   const ganttItems = document.querySelectorAll('#gantt-body > *');
-
   const minLen = Math.min(sidebarItems.length, ganttItems.length);
   for (let i = 0; i < minLen; i++) {
     const sH = sidebarItems[i].getBoundingClientRect().height;
@@ -148,16 +158,13 @@ function syncRowHeights() {
 
 function showProjectLinksDropdown(e, proj) {
   document.querySelectorAll('.project-links-dropdown').forEach(d => d.remove());
-
   const dropdown = document.createElement('div');
   dropdown.className = 'project-links-dropdown';
 
   if (proj.links && proj.links.length > 0) {
     for (const link of proj.links) {
       const a = document.createElement('a');
-      a.href = link.url;
-      a.target = '_blank';
-      a.rel = 'noopener';
+      a.href = link.url; a.target = '_blank'; a.rel = 'noopener';
       a.textContent = link.label || link.url;
       dropdown.appendChild(a);
     }
@@ -172,9 +179,7 @@ function showProjectLinksDropdown(e, proj) {
   editBtn.className = 'dropdown-edit-btn';
   editBtn.textContent = '⚙ Manage Links';
   editBtn.addEventListener('click', (ev) => {
-    ev.stopPropagation();
-    dropdown.remove();
-    showLinksModal(proj);
+    ev.stopPropagation(); dropdown.remove(); showLinksModal(proj);
   });
   dropdown.appendChild(editBtn);
 
@@ -205,8 +210,7 @@ function exportData() {
 
 function importData() {
   const input = document.createElement('input');
-  input.type = 'file';
-  input.accept = '.json';
+  input.type = 'file'; input.accept = '.json';
   input.addEventListener('change', async () => {
     const file = input.files[0];
     if (!file) return;
@@ -214,9 +218,7 @@ function importData() {
       const text = await file.text();
       Store.importJSON(text);
       render();
-    } catch (err) {
-      alert('Error importing file: ' + err.message);
-    }
+    } catch (err) { alert('Error importing file: ' + err.message); }
   });
   input.click();
 }

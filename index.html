@@ -15,6 +15,7 @@
         <button class="view-tab active" data-view="timeline">Timeline</button>
         <button class="view-tab" data-view="board">Board</button>
         <button class="view-tab" data-view="notes">Notes</button>
+        <button class="view-tab" data-view="expenses">Expenses</button>
       </nav>
     </div>
     <div class="toolbar-center">
@@ -52,6 +53,7 @@
   <div class="view-container" id="view-board">
     <div class="board-toolbar">
       <button id="btn-add-board-card" class="btn btn-primary">+ Add Card</button>
+      <span class="board-zoom-info">Zoom: <span id="board-zoom-level">100%</span></span>
     </div>
     <div class="board-canvas" id="board-canvas"></div>
   </div>
@@ -63,6 +65,14 @@
       <input type="text" id="notes-search" class="notes-search" placeholder="Search notes...">
     </div>
     <div class="notes-grid" id="notes-grid"></div>
+  </div>
+
+  <!-- VIEW: Expenses -->
+  <div class="view-container" id="view-expenses">
+    <div class="expenses-toolbar">
+      <button id="btn-add-expense" class="btn btn-primary">+ Add Expense</button>
+    </div>
+    <div class="expenses-body" id="expenses-body"></div>
   </div>
 
   <script type="module" src="js/app.js"></script>

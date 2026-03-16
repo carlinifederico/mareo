@@ -1,7 +1,7 @@
 import { Store } from './store.js';
 
 const NOTE_COLORS = [
-  { name: 'Default', value: '#16213e' },
+  { name: 'Default', value: '#1a1433' },
   { name: 'Red', value: '#4a2d2d' },
   { name: 'Green', value: '#2d4a3e' },
   { name: 'Blue', value: '#2d3f4a' },
@@ -15,9 +15,97 @@ export function renderNotes(container, searchQuery) {
   container.innerHTML = '';
   const query = (searchQuery || '').toLowerCase();
 
+  // === PROJECTS section ===
+  const projects = Store.getAllProjects();
+
+  if (!query || projects.some(p => p.name.toLowerCase().includes(query))) {
+    const projectsHeader = document.createElement('div');
+    projectsHeader.className = 'notes-section-header';
+    projectsHeader.textContent = 'PROJECTS';
+    container.appendChild(projectsHeader);
+
+    for (const proj of projects) {
+      if (query && !proj.name.toLowerCase().includes(query)) continue;
+
+      // Project header card
+      const projCard = document.createElement('div');
+      projCard.className = 'note-card note-project-card';
+      projCard.style.borderLeft = `4px solid ${proj.color}`;
+
+      const projTitle = document.createElement('div');
+      projTitle.className = 'note-project-title';
+      projTitle.textContent = proj.name;
+
+      const projCat = document.createElement('div');
+      projCat.className = 'note-project-category';
+      projCat.textContent = proj.categoryName;
+
+      const addNoteBtn = document.createElement('button');
+      addNoteBtn.className = 'btn btn-secondary note-add-btn';
+      addNoteBtn.textContent = '+ Add Note';
+      addNoteBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        Store.addProjectNote(proj.id, { title: '', content: '' });
+        document.dispatchEvent(new Event('mareo:render'));
+      });
+
+      projCard.appendChild(projTitle);
+      projCard.appendChild(projCat);
+      projCard.appendChild(addNoteBtn);
+
+      // Project notes
+      const projNotes = proj.projectNotes || [];
+      if (projNotes.length > 0) {
+        const notesList = document.createElement('div');
+        notesList.className = 'project-notes-list';
+
+        for (const pn of projNotes) {
+          const noteItem = document.createElement('div');
+          noteItem.className = 'project-note-item';
+
+          const noteTitle = document.createElement('input');
+          noteTitle.type = 'text';
+          noteTitle.className = 'project-note-title';
+          noteTitle.placeholder = 'Note title...';
+          noteTitle.value = pn.title;
+          noteTitle.addEventListener('change', () => {
+            Store.updateProjectNote(proj.id, pn.id, { title: noteTitle.value });
+          });
+
+          const noteContent = document.createElement('textarea');
+          noteContent.className = 'project-note-content';
+          noteContent.placeholder = 'Write here...';
+          noteContent.value = pn.content;
+          noteContent.addEventListener('input', () => autoResizeTextarea(noteContent));
+          noteContent.addEventListener('change', () => {
+            Store.updateProjectNote(proj.id, pn.id, { content: noteContent.value });
+          });
+
+          const delBtn = document.createElement('button');
+          delBtn.className = 'btn-icon project-note-delete';
+          delBtn.textContent = '✕';
+          delBtn.addEventListener('click', () => {
+            Store.removeProjectNote(proj.id, pn.id);
+            document.dispatchEvent(new Event('mareo:render'));
+          });
+
+          noteItem.appendChild(delBtn);
+          noteItem.appendChild(noteTitle);
+          noteItem.appendChild(noteContent);
+          notesList.appendChild(noteItem);
+
+          requestAnimationFrame(() => autoResizeTextarea(noteContent));
+        }
+        projCard.appendChild(notesList);
+      }
+
+      container.appendChild(projCard);
+    }
+  }
+
+  // === GENERAL NOTES section ===
   let notes = [...Store.data.notes];
 
-  // Filter by search
   if (query) {
     notes = notes.filter(n =>
       (n.title || '').toLowerCase().includes(query) ||
@@ -25,14 +113,20 @@ export function renderNotes(container, searchQuery) {
     );
   }
 
-  // Sort: pinned first, then by updatedAt
   notes.sort((a, b) => {
     if (a.pinned && !b.pinned) return -1;
     if (!a.pinned && b.pinned) return 1;
     return b.updatedAt - a.updatedAt;
   });
 
-  if (notes.length === 0 && !query) {
+  if (notes.length > 0 || !query) {
+    const generalHeader = document.createElement('div');
+    generalHeader.className = 'notes-section-header';
+    generalHeader.textContent = 'GENERAL NOTES';
+    container.appendChild(generalHeader);
+  }
+
+  if (notes.length === 0 && !query && projects.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'notes-empty';
     empty.textContent = 'No notes yet. Click "+ New Note" to create one.';
@@ -44,9 +138,8 @@ export function renderNotes(container, searchQuery) {
     const card = document.createElement('div');
     card.className = 'note-card';
     if (note.pinned) card.classList.add('pinned');
-    card.style.backgroundColor = note.color || '#16213e';
+    card.style.backgroundColor = note.color || '#1a1433';
 
-    // Pin button
     const pinBtn = document.createElement('button');
     pinBtn.className = 'note-pin btn-icon';
     pinBtn.textContent = note.pinned ? '📌' : '📍';
@@ -57,7 +150,6 @@ export function renderNotes(container, searchQuery) {
       document.dispatchEvent(new Event('mareo:render'));
     });
 
-    // Delete button
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'note-delete btn-icon';
     deleteBtn.textContent = '✕';
@@ -67,7 +159,6 @@ export function renderNotes(container, searchQuery) {
       document.dispatchEvent(new Event('mareo:render'));
     });
 
-    // Title
     const title = document.createElement('input');
     title.className = 'note-title';
     title.type = 'text';
@@ -77,19 +168,15 @@ export function renderNotes(container, searchQuery) {
       Store.updateNote(note.id, { title: title.value });
     });
 
-    // Content
     const content = document.createElement('textarea');
     content.className = 'note-content';
     content.placeholder = 'Take a note...';
     content.value = note.content;
-    content.addEventListener('input', () => {
-      autoResizeTextarea(content);
-    });
+    content.addEventListener('input', () => autoResizeTextarea(content));
     content.addEventListener('change', () => {
       Store.updateNote(note.id, { content: content.value });
     });
 
-    // Color picker
     const colorBar = document.createElement('div');
     colorBar.className = 'note-colors';
     for (const c of NOTE_COLORS) {
@@ -119,7 +206,6 @@ export function renderNotes(container, searchQuery) {
     card.appendChild(colorBar);
     container.appendChild(card);
 
-    // Auto-resize after render
     requestAnimationFrame(() => autoResizeTextarea(content));
   }
 }
