@@ -301,6 +301,8 @@ function showTaskContextMenu(e, task) {
   menu.className = 'context-menu';
   menu.innerHTML = `
     <div class="context-menu-item" data-action="edit">Edit Task</div>
+    <div class="context-menu-item" data-action="notes">Notes</div>
+    <div class="context-menu-item" data-action="links">Links</div>
     <div class="context-menu-item danger" data-action="delete">Delete Task</div>
   `;
   menu.style.position = 'fixed';
@@ -312,6 +314,14 @@ function showTaskContextMenu(e, task) {
     const action = ev.target.dataset.action;
     if (action === 'edit') {
       showEditTaskModal(task);
+    } else if (action === 'notes') {
+      menu.remove();
+      showTaskPopover(e, task);
+      return;
+    } else if (action === 'links') {
+      menu.remove();
+      showTaskPopover(e, task);
+      return;
     } else if (action === 'delete') {
       Store.removeTask(task.id);
       document.dispatchEvent(new Event('mareo:render'));

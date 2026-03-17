@@ -64,11 +64,12 @@ export function renderTimelineHeader(container, year) {
 
     monthRow.appendChild(monthCell);
 
+    let weekInMonth = 1;
     for (let w = month.startWeek; w <= month.endWeek; w++) {
       const weekCell = document.createElement('div');
       weekCell.className = 'timeline-week-cell';
       weekCell.style.width = weekWidth + 'px';
-      weekCell.textContent = 'W' + (w + 1);
+      weekCell.textContent = weekInMonth++;
 
       // Highlight current week
       if (w === todayWeek) {
