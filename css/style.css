@@ -604,6 +604,15 @@ html, body {
   font-size: 13px;
 }
 
+.popover-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.popover-delete-btn:hover {
+  color: var(--danger);
+}
+
 .popover-label {
   font-size: 10px;
   color: var(--text-muted);

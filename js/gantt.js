@@ -133,10 +133,13 @@ function showTaskPopover(e, task) {
   const popover = document.createElement('div');
   popover.className = 'task-popover';
 
-  // Header
+  // Header with title + actions
   const header = document.createElement('div');
   header.className = 'popover-header';
   header.innerHTML = `<strong>${task.label}</strong>`;
+
+  const actions = document.createElement('div');
+  actions.className = 'popover-actions';
 
   const editBtn = document.createElement('button');
   editBtn.className = 'btn-icon';
@@ -147,18 +150,34 @@ function showTaskPopover(e, task) {
     popover.remove();
     showEditTaskModal(task);
   });
-  header.appendChild(editBtn);
+
+  const deleteBtn = document.createElement('button');
+  deleteBtn.className = 'btn-icon popover-delete-btn';
+  deleteBtn.textContent = '✕';
+  deleteBtn.title = 'Delete task';
+  deleteBtn.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    if (confirm(`Delete task "${task.label}"?`)) {
+      popover.remove();
+      Store.removeTask(task.id);
+      document.dispatchEvent(new Event('mareo:render'));
+    }
+  });
+
+  actions.appendChild(editBtn);
+  actions.appendChild(deleteBtn);
+  header.appendChild(actions);
   popover.appendChild(header);
 
-  // Notes
+  // Description / Notes
   const notesLabel = document.createElement('div');
   notesLabel.className = 'popover-label';
-  notesLabel.textContent = 'Notes';
+  notesLabel.textContent = 'Description';
   popover.appendChild(notesLabel);
 
   const notesArea = document.createElement('textarea');
   notesArea.className = 'popover-notes';
-  notesArea.placeholder = 'Add notes...';
+  notesArea.placeholder = 'Add a description...';
   notesArea.value = task.notes || '';
   notesArea.addEventListener('input', () => {
     Store.updateTask(task.id, { notes: notesArea.value });
@@ -223,7 +242,8 @@ function showTaskPopover(e, task) {
   popover.appendChild(linksContainer);
 
   // Position
-  const rect = e.target.closest('.task-bar').getBoundingClientRect();
+  const bar = e.target.closest('.task-bar') || e.target;
+  const rect = bar.getBoundingClientRect();
   popover.style.position = 'fixed';
   popover.style.left = Math.min(rect.left, window.innerWidth - 320) + 'px';
   popover.style.top = (rect.bottom + 6) + 'px';
