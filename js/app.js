@@ -1,6 +1,6 @@
 import { Store } from './store.js';
 import { Auth } from './auth.js';
-import { renderTimelineHeader } from './timeline.js';
+import { renderTimelineHeader, getWeekWidth, getTodayWeekIndex } from './timeline.js';
 import { renderSidebar, setSidebarProjectClickHandler } from './sidebar.js';
 import { renderGantt } from './gantt.js';
 import { initDragDrop } from './dragdrop.js';
@@ -86,6 +86,18 @@ function initApp() {
   document.getElementById('btn-next-year').addEventListener('click', () => {
     Store.setYear(Store.data.currentYear + 1);
     render();
+  });
+  document.getElementById('btn-today').addEventListener('click', () => {
+    const now = new Date();
+    Store.setYear(now.getFullYear());
+    render();
+    const weekIndex = getTodayWeekIndex(now.getFullYear());
+    if (weekIndex >= 0) {
+      const timelineArea = document.getElementById('timeline-area');
+      const weekWidth = getWeekWidth();
+      const targetX = weekIndex * weekWidth - timelineArea.clientWidth / 2 + weekWidth / 2;
+      timelineArea.scrollTo({ left: Math.max(0, targetX), behavior: 'smooth' });
+    }
   });
 
   // Import/Export

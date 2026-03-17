@@ -224,6 +224,12 @@ html, body {
   text-align: center;
 }
 
+.btn-today {
+  font-size: 11px;
+  padding: 4px 12px;
+  margin-left: 8px;
+}
+
 /* === Buttons === */
 .btn {
   padding: 6px 14px;
