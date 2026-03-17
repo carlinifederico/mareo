@@ -552,12 +552,20 @@ html, body {
 
 .resize-handle {
   position: absolute;
-  right: 0;
   top: 0;
   width: 8px;
   height: 100%;
   cursor: ew-resize;
+}
+
+.resize-handle-right {
+  right: 0;
   border-radius: 0 6px 6px 0;
+}
+
+.resize-handle-left {
+  left: 0;
+  border-radius: 6px 0 0 6px;
 }
 
 .resize-handle:hover { background: rgba(255,255,255,0.2); }

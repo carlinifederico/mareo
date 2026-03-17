@@ -13,7 +13,9 @@ function onPointerDown(e) {
   const bar = e.target.closest('.task-bar');
   if (!bar) return;
 
-  const isResize = e.target.classList.contains('resize-handle');
+  const isResizeRight = e.target.classList.contains('resize-handle-right');
+  const isResizeLeft = e.target.classList.contains('resize-handle-left');
+  const isResize = isResizeRight || isResizeLeft;
   const taskId = bar.dataset.taskId;
   const task = Store._findTask(taskId);
   if (!task) return;
@@ -21,10 +23,14 @@ function onPointerDown(e) {
   e.preventDefault();
   bar.setPointerCapture(e.pointerId);
 
+  let mode = 'move';
+  if (isResizeRight) mode = 'resize-right';
+  else if (isResizeLeft) mode = 'resize-left';
+
   dragState = {
     taskId,
     bar,
-    mode: isResize ? 'resize' : 'move',
+    mode,
     initialStartWeek: task.startWeek,
     initialDuration: task.durationWeeks,
     pointerStartX: e.clientX,
@@ -43,9 +49,14 @@ function onPointerMove(e) {
   if (dragState.mode === 'move') {
     const newStart = Math.max(0, Math.min(52, dragState.initialStartWeek + deltaWeeks));
     dragState.bar.style.setProperty('--start-week', newStart);
-  } else {
+  } else if (dragState.mode === 'resize-right') {
     const newDuration = Math.max(1, dragState.initialDuration + deltaWeeks);
     dragState.bar.style.setProperty('--duration', newDuration);
+  } else if (dragState.mode === 'resize-left') {
+    const maxDelta = dragState.initialDuration - 1;
+    const clampedDelta = Math.max(-dragState.initialStartWeek, Math.min(maxDelta, deltaWeeks));
+    dragState.bar.style.setProperty('--start-week', dragState.initialStartWeek + clampedDelta);
+    dragState.bar.style.setProperty('--duration', dragState.initialDuration - clampedDelta);
   }
 }
 
@@ -58,9 +69,16 @@ function onPointerUp(e) {
   if (dragState.mode === 'move') {
     const newStart = Math.max(0, Math.min(52, dragState.initialStartWeek + deltaWeeks));
     Store.updateTask(dragState.taskId, { startWeek: newStart });
-  } else {
+  } else if (dragState.mode === 'resize-right') {
     const newDuration = Math.max(1, dragState.initialDuration + deltaWeeks);
     Store.updateTask(dragState.taskId, { durationWeeks: newDuration });
+  } else if (dragState.mode === 'resize-left') {
+    const maxDelta = dragState.initialDuration - 1;
+    const clampedDelta = Math.max(-dragState.initialStartWeek, Math.min(maxDelta, deltaWeeks));
+    Store.updateTask(dragState.taskId, {
+      startWeek: dragState.initialStartWeek + clampedDelta,
+      durationWeeks: dragState.initialDuration - clampedDelta
+    });
   }
 
   dragState.bar.classList.remove('dragging');

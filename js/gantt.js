@@ -63,8 +63,12 @@ export function renderGantt(container) {
         label.textContent = task.label;
         bar.appendChild(label);
 
+        const resizeHandleLeft = document.createElement('div');
+        resizeHandleLeft.className = 'resize-handle resize-handle-left';
+        bar.appendChild(resizeHandleLeft);
+
         const resizeHandle = document.createElement('div');
-        resizeHandle.className = 'resize-handle';
+        resizeHandle.className = 'resize-handle resize-handle-right';
         bar.appendChild(resizeHandle);
 
         // Left click -> show task popover with notes & links
