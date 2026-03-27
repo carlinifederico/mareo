@@ -1,6 +1,6 @@
 import { Store } from './store.js';
 import { Auth } from './auth.js';
-import { renderTimelineHeader, getWeekWidth, setWeekWidth, resetWeekWidth, getDefaultWeekWidth, getTodayWeekIndex, isDayMode, getColumnWidth, getTotalColumns } from './timeline.js';
+import { renderTimelineHeader, getWeekWidth, getDayWidth, setWeekWidth, resetWeekWidth, getDefaultWeekWidth, getTodayWeekIndex, getTodayDayIndex, isDayMode, getTotalWidth } from './timeline.js';
 import { renderSidebar, setSidebarProjectClickHandler } from './sidebar.js';
 import { renderGantt } from './gantt.js';
 import { initDragDrop } from './dragdrop.js';
@@ -129,22 +129,18 @@ function initApp() {
     e.preventDefault();
     const oldWeekWidth = getWeekWidth();
     const year = Store.data.currentYear;
-    const oldColWidth = getColumnWidth();
-    const oldTotalCols = getTotalColumns(year);
-    const oldTotalWidth = oldTotalCols * oldColWidth;
+    const oldTotalWidth = getTotalWidth(year);
 
     const rect = timelineArea.getBoundingClientRect();
     const mouseX = e.clientX - rect.left + timelineArea.scrollLeft;
-    const fraction = mouseX / oldTotalWidth; // position as fraction of total
+    const fraction = mouseX / oldTotalWidth;
 
     const delta = e.deltaY > 0 ? -5 : 5;
     setWeekWidth(oldWeekWidth + delta);
 
     if (getWeekWidth() !== oldWeekWidth) {
       render();
-      const newColWidth = getColumnWidth();
-      const newTotalCols = getTotalColumns(year);
-      const newTotalWidth = newTotalCols * newColWidth;
+      const newTotalWidth = getTotalWidth(year);
       const newScrollLeft = fraction * newTotalWidth - (e.clientX - rect.left);
       timelineArea.scrollLeft = Math.max(0, newScrollLeft);
     }
@@ -275,18 +271,10 @@ function scrollToToday() {
   const now = new Date();
   if (Store.data.currentYear !== now.getFullYear()) return;
   const timelineArea = document.getElementById('timeline-area');
-  const colWidth = getColumnWidth();
-  const todayWeek = getTodayWeekIndex(now.getFullYear());
-  if (todayWeek < 0) return;
-
-  let targetX;
-  if (isDayMode()) {
-    const jan1 = new Date(now.getFullYear(), 0, 1);
-    const todayDoy = Math.floor((now - jan1) / 86400000);
-    targetX = (todayDoy + 0.5) * colWidth - timelineArea.clientWidth / 2;
-  } else {
-    targetX = (todayWeek + 0.5) * colWidth - timelineArea.clientWidth / 2;
-  }
+  const dw = getDayWidth();
+  const todayDoy = getTodayDayIndex(now.getFullYear());
+  if (todayDoy < 0) return;
+  const targetX = (todayDoy + 0.5) * dw - timelineArea.clientWidth / 2;
   timelineArea.scrollTo({ left: Math.max(0, targetX), behavior: 'smooth' });
 }
 

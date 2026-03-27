@@ -96,17 +96,15 @@ function renderProjectRow(proj, cat, pinned) {
   const hasNotes = notes.length > 0;
   const expanded = !!proj.notesExpanded;
 
-  if (hasNotes) {
-    const toggle = document.createElement('span');
-    toggle.className = 'proj-notes-toggle';
-    toggle.textContent = expanded ? '▼' : '▶';
-    toggle.addEventListener('click', (e) => {
-      e.stopPropagation();
-      Store.updateProject(proj.id, { notesExpanded: !expanded });
-      document.dispatchEvent(new Event('mareo:render'));
-    });
-    header.appendChild(toggle);
-  }
+  const toggle = document.createElement('span');
+  toggle.className = 'proj-notes-toggle';
+  toggle.textContent = expanded ? '▼' : '▶';
+  toggle.addEventListener('click', (e) => {
+    e.stopPropagation();
+    Store.updateProject(proj.id, { notesExpanded: !expanded });
+    document.dispatchEvent(new Event('mareo:render'));
+  });
+  header.appendChild(toggle);
 
   const nameEl = document.createElement('span');
   nameEl.className = 'project-name';
@@ -131,10 +129,11 @@ function renderProjectRow(proj, cat, pinned) {
   header.appendChild(menuBtn);
   projRow.appendChild(header);
 
-  // Notes preview (last 3 notes with checkboxes)
-  if (hasNotes && expanded) {
+  // Notes preview (last 3 notes with checkboxes + add button)
+  if (expanded) {
     const preview = document.createElement('div');
     preview.className = 'project-notes-preview';
+
     for (const note of notes.slice(0, 3)) {
       const noteItem = document.createElement('label');
       noteItem.className = 'note-preview-item' + (note.done ? ' done' : '');
@@ -157,6 +156,18 @@ function renderProjectRow(proj, cat, pinned) {
       noteItem.appendChild(text);
       preview.appendChild(noteItem);
     }
+
+    // Add note button
+    const addBtn = document.createElement('div');
+    addBtn.className = 'note-preview-add';
+    addBtn.textContent = '+ Note';
+    addBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      Store.addProjectNote(proj.id, { title: '', content: '' });
+      document.dispatchEvent(new Event('mareo:render'));
+    });
+    preview.appendChild(addBtn);
+
     projRow.appendChild(preview);
   }
 

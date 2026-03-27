@@ -1,108 +1,66 @@
 const MONTH_NAMES = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
-const DAY_ABBR = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const DAY_ABBR = ['S','M','T','W','T','F','S'];
 
 const DEFAULT_WEEK_WIDTH = 40;
-const DAY_THRESHOLD = 110; // switch to day-level columns when weekWidth >= this
+const DAY_THRESHOLD = 110;
 
 let _weekWidth = DEFAULT_WEEK_WIDTH;
 
-// --- Week width getters/setters ---
-export function getWeekWidth() {
-  return _weekWidth;
+// --- Week width (controls zoom level) ---
+export function getWeekWidth() { return _weekWidth; }
+export function setWeekWidth(w) { _weekWidth = Math.max(20, Math.min(300, w)); }
+export function resetWeekWidth() { _weekWidth = DEFAULT_WEEK_WIDTH; }
+export function getDefaultWeekWidth() { return DEFAULT_WEEK_WIDTH; }
+export function isDayMode() { return _weekWidth >= DAY_THRESHOLD; }
+
+// --- Core unit: the day ---
+// Everything is based on days. dayWidth = weekWidth / 7.
+// Total width = daysInYear * dayWidth (ALWAYS, both modes).
+
+export function getDayWidth() {
+  return _weekWidth / 7;
 }
 
-export function setWeekWidth(w) {
-  _weekWidth = Math.max(20, Math.min(300, w));
-}
-
-export function resetWeekWidth() {
-  _weekWidth = DEFAULT_WEEK_WIDTH;
-}
-
-export function getDefaultWeekWidth() {
-  return DEFAULT_WEEK_WIDTH;
-}
-
-// --- Day mode detection ---
-export function isDayMode() {
-  return _weekWidth >= DAY_THRESHOLD;
-}
-
-// --- Calendar helpers ---
-
-// How many days in a year
 function daysInYear(year) {
   return ((year % 4 === 0 && year % 100 !== 0) || year % 400 === 0) ? 366 : 365;
 }
 
-// Day-of-year index (0-based) for a Date
+export function getTotalDays(year) {
+  return daysInYear(year);
+}
+
+export function getTotalWidth(year) {
+  return daysInYear(year) * getDayWidth();
+}
+
+// Day-of-year index (0-based)
 function dayOfYear(date) {
   const start = new Date(date.getFullYear(), 0, 1);
   return Math.floor((date - start) / 86400000);
 }
 
-// Date from day-of-year index (0-based)
-function dateFromDayOfYear(year, doy) {
+function dateFromDoy(year, doy) {
   const d = new Date(year, 0, 1);
   d.setDate(d.getDate() + doy);
   return d;
 }
 
-export function getWeekOfYear(date) {
-  const start = new Date(date.getFullYear(), 0, 1);
-  const diff = date - start;
-  return Math.floor(diff / (7 * 86400000));
-}
+// --- Task positioning (always day-based) ---
+// Tasks are stored as startWeek (0-52) and durationWeeks.
+// Convert to pixel positions using: day = week * 7, px = day * dayWidth.
 
-export function getTotalWeeks() {
-  return 53;
-}
-
-// Total columns in current mode
-export function getTotalColumns(year) {
-  if (isDayMode()) return daysInYear(year);
-  return 53;
-}
-
-// Width of a single column
-export function getColumnWidth() {
-  if (isDayMode()) return _weekWidth / 7;
-  return _weekWidth;
-}
-
-// Convert week-based task position to pixel position
-export function taskToPixels(startWeek, durationWeeks, year) {
-  if (isDayMode()) {
-    const dayWidth = _weekWidth / 7;
-    const startDay = startWeek * 7;
-    const durationDays = durationWeeks * 7;
-    return {
-      left: startDay * dayWidth,
-      width: durationDays * dayWidth
-    };
-  }
+export function taskToPixels(startWeek, durationWeeks) {
+  const dw = getDayWidth();
   return {
-    left: startWeek * _weekWidth,
-    width: durationWeeks * _weekWidth
+    left: startWeek * 7 * dw,
+    width: durationWeeks * 7 * dw
   };
 }
 
-// Convert pixel position to week (for drag snapping)
-export function pixelsToWeeks(pixelX) {
-  if (isDayMode()) {
-    const dayWidth = _weekWidth / 7;
-    const day = Math.round(pixelX / dayWidth);
-    return day / 7; // fractional weeks
-  }
-  return Math.round(pixelX / _weekWidth);
-}
-
-// Today's column index
-export function getTodayColumnIndex(year) {
-  const now = new Date();
-  if (now.getFullYear() !== year) return -1;
-  if (isDayMode()) return dayOfYear(now);
-  return getWeekOfYear(now);
+// --- Week helpers (for storage) ---
+export function getWeekOfYear(date) {
+  const start = new Date(date.getFullYear(), 0, 1);
+  return Math.floor((date - start) / (7 * 86400000));
 }
 
 export function getTodayWeekIndex(year) {
@@ -111,39 +69,24 @@ export function getTodayWeekIndex(year) {
   return getWeekOfYear(now);
 }
 
-// Month map for week mode
-export function getMonthWeekMap(year) {
-  const months = [];
-  for (let m = 0; m < 12; m++) {
-    const firstDay = new Date(year, m, 1);
-    const lastDay = new Date(year, m + 1, 0);
-    const startWeek = getWeekOfYear(firstDay);
-    const endWeek = getWeekOfYear(lastDay);
-    months.push({
-      name: MONTH_NAMES[m],
-      month: m,
-      startWeek,
-      endWeek,
-      weekCount: endWeek - startWeek + 1
-    });
-  }
-  return months;
+export function getTodayDayIndex(year) {
+  const now = new Date();
+  if (now.getFullYear() !== year) return -1;
+  return dayOfYear(now);
 }
 
-// Month map for day mode — each month spans its exact days
+// --- Month info ---
 function getMonthDayMap(year) {
   const months = [];
   for (let m = 0; m < 12; m++) {
     const firstDay = new Date(year, m, 1);
     const lastDay = new Date(year, m + 1, 0);
-    const startDoy = dayOfYear(firstDay);
-    const endDoy = dayOfYear(lastDay);
     months.push({
       name: MONTH_NAMES[m],
       month: m,
-      startDoy,
-      endDoy,
-      dayCount: endDoy - startDoy + 1
+      startDoy: dayOfYear(firstDay),
+      endDoy: dayOfYear(lastDay),
+      dayCount: lastDay.getDate()
     });
   }
   return months;
@@ -153,18 +96,22 @@ function getMonthDayMap(year) {
 
 export function renderTimelineHeader(container, year) {
   container.innerHTML = '';
+  const dayMode = isDayMode();
 
-  if (isDayMode()) {
+  if (dayMode) {
     renderDayModeHeader(container, year);
   } else {
     renderWeekModeHeader(container, year);
   }
 }
 
+// WEEK MODE: Month row + Week row
+// Each month's width = its dayCount * dayWidth (exact calendar)
+// Weeks are visual subdivisions: 4 per month, each = dayCount/4 * dayWidth
 function renderWeekModeHeader(container, year) {
-  const weekWidth = _weekWidth;
-  const months = getMonthWeekMap(year);
-  const todayWeek = getTodayWeekIndex(year);
+  const dw = getDayWidth();
+  const months = getMonthDayMap(year);
+  const todayDoy = getTodayDayIndex(year);
 
   const monthRow = document.createElement('div');
   monthRow.className = 'timeline-month-row';
@@ -173,24 +120,40 @@ function renderWeekModeHeader(container, year) {
   weekRow.className = 'timeline-week-row';
 
   for (const month of months) {
+    const monthWidth = month.dayCount * dw;
+
     const monthCell = document.createElement('div');
     monthCell.className = 'timeline-month-cell';
-    monthCell.style.width = (month.weekCount * weekWidth) + 'px';
+    monthCell.style.width = monthWidth + 'px';
     monthCell.textContent = month.name;
 
-    if (todayWeek >= 0 && todayWeek >= month.startWeek && todayWeek <= month.endWeek) {
+    if (todayDoy >= month.startDoy && todayDoy <= month.endDoy) {
       monthCell.classList.add('current-month');
     }
     monthRow.appendChild(monthCell);
 
-    let weekInMonth = 1;
-    for (let w = month.startWeek; w <= month.endWeek; w++) {
+    // 4 week columns per month
+    const weeksInMonth = 4;
+    const baseDays = Math.floor(month.dayCount / weeksInMonth);
+    let remainder = month.dayCount - baseDays * weeksInMonth;
+    let dayOffset = month.startDoy;
+
+    for (let w = 0; w < weeksInMonth; w++) {
+      const wDays = baseDays + (remainder > 0 ? 1 : 0);
+      if (remainder > 0) remainder--;
+
       const weekCell = document.createElement('div');
       weekCell.className = 'timeline-week-cell';
-      weekCell.style.width = weekWidth + 'px';
-      weekCell.textContent = weekInMonth++;
-      if (w === todayWeek) weekCell.classList.add('current-week');
+      weekCell.style.width = (wDays * dw) + 'px';
+      weekCell.textContent = w + 1;
+
+      // Highlight if today falls in this week slice
+      if (todayDoy >= dayOffset && todayDoy < dayOffset + wDays) {
+        weekCell.classList.add('current-week');
+      }
+
       weekRow.appendChild(weekCell);
+      dayOffset += wDays;
     }
   }
 
@@ -199,12 +162,12 @@ function renderWeekModeHeader(container, year) {
   document.documentElement.style.setProperty('--timeline-header-height', '52px');
 }
 
+// DAY MODE: Month row + Day row
 function renderDayModeHeader(container, year) {
-  const dayWidth = _weekWidth / 7;
+  const dw = getDayWidth();
   const months = getMonthDayMap(year);
-  const today = new Date();
-  const todayDoy = (today.getFullYear() === year) ? dayOfYear(today) : -1;
-  const showDayName = dayWidth >= 22;
+  const todayDoy = getTodayDayIndex(year);
+  const showName = dw >= 22;
 
   const monthRow = document.createElement('div');
   monthRow.className = 'timeline-month-row';
@@ -215,31 +178,26 @@ function renderDayModeHeader(container, year) {
   for (const month of months) {
     const monthCell = document.createElement('div');
     monthCell.className = 'timeline-month-cell';
-    monthCell.style.width = (month.dayCount * dayWidth) + 'px';
+    monthCell.style.width = (month.dayCount * dw) + 'px';
     monthCell.textContent = month.name;
-
     if (todayDoy >= month.startDoy && todayDoy <= month.endDoy) {
       monthCell.classList.add('current-month');
     }
     monthRow.appendChild(monthCell);
 
     for (let doy = month.startDoy; doy <= month.endDoy; doy++) {
-      const date = dateFromDayOfYear(year, doy);
-      const dow = date.getDay(); // 0=Sun
+      const date = dateFromDoy(year, doy);
+      const dow = date.getDay();
       const dayCell = document.createElement('div');
       dayCell.className = 'timeline-day-cell';
-      dayCell.style.width = dayWidth + 'px';
+      dayCell.style.width = dw + 'px';
 
       const dayNum = date.getDate();
-      if (showDayName) {
-        dayCell.textContent = `${DAY_ABBR[dow]} ${dayNum}`;
-      } else {
-        dayCell.textContent = dayNum;
-      }
+      dayCell.textContent = showName ? `${DAY_ABBR[dow]}${dayNum}` : dayNum;
 
       if (dow === 0 || dow === 6) dayCell.classList.add('weekend');
       if (doy === todayDoy) dayCell.classList.add('today');
-      if (dow === 1) dayCell.classList.add('monday'); // week separator
+      if (dow === 1) dayCell.classList.add('monday');
 
       dayRow.appendChild(dayCell);
     }
