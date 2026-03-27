@@ -576,6 +576,51 @@ html, body {
   background: rgba(167, 139, 250, 0.08);
 }
 
+.note-reorder-arrows {
+  display: flex;
+  gap: 1px;
+  margin-left: auto;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.note-preview-item:hover .note-reorder-arrows { opacity: 1; }
+
+.note-reorder-btn {
+  font-size: 7px !important;
+  padding: 0 2px !important;
+  line-height: 1;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.note-reorder-btn:hover {
+  color: var(--accent) !important;
+}
+
+/* Notes view reorder */
+.project-note-actions {
+  position: absolute;
+  top: 4px;
+  right: 0;
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.project-note-item:hover .project-note-actions { opacity: 1; }
+
+.project-note-actions .note-reorder-btn {
+  font-size: 9px !important;
+  padding: 1px 4px !important;
+}
+
+.project-note-actions .project-note-delete {
+  position: static;
+  opacity: 1;
+}
+
 .note-preview-add {
   font-size: 10px;
   color: var(--text-muted);
@@ -1523,9 +1568,7 @@ html, body {
   transition: opacity 0.15s;
 }
 
-.project-note-item:hover .project-note-delete {
-  opacity: 1;
-}
+/* project-note-delete visibility handled by .project-note-actions */
 
 .project-note-title {
   flex: 1;

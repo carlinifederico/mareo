@@ -134,8 +134,9 @@ function renderProjectRow(proj, cat, pinned) {
     const preview = document.createElement('div');
     preview.className = 'project-notes-preview';
 
-    for (const note of notes.slice(0, 3)) {
-      const noteItem = document.createElement('label');
+    for (let i = 0; i < Math.min(notes.length, 3); i++) {
+      const note = notes[i];
+      const noteItem = document.createElement('div');
       noteItem.className = 'note-preview-item' + (note.done ? ' done' : '');
 
       const checkbox = document.createElement('input');
@@ -152,8 +153,35 @@ function renderProjectRow(proj, cat, pinned) {
       text.className = 'note-preview-text';
       text.textContent = note.title || note.content || 'Untitled';
 
+      const arrows = document.createElement('span');
+      arrows.className = 'note-reorder-arrows';
+
+      if (i > 0) {
+        const up = document.createElement('button');
+        up.className = 'btn-icon note-reorder-btn';
+        up.textContent = '▲';
+        up.addEventListener('click', (e) => {
+          e.stopPropagation();
+          Store.reorderProjectNote(proj.id, note.id, -1);
+          document.dispatchEvent(new Event('mareo:render'));
+        });
+        arrows.appendChild(up);
+      }
+      if (i < notes.length - 1) {
+        const down = document.createElement('button');
+        down.className = 'btn-icon note-reorder-btn';
+        down.textContent = '▼';
+        down.addEventListener('click', (e) => {
+          e.stopPropagation();
+          Store.reorderProjectNote(proj.id, note.id, 1);
+          document.dispatchEvent(new Event('mareo:render'));
+        });
+        arrows.appendChild(down);
+      }
+
       noteItem.appendChild(checkbox);
       noteItem.appendChild(text);
+      noteItem.appendChild(arrows);
       preview.appendChild(noteItem);
     }
 

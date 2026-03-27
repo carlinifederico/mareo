@@ -171,6 +171,18 @@ export const Store = {
     this.save();
   },
 
+  reorderProjectNote(projectId, noteId, direction) {
+    const proj = this._findProject(projectId);
+    if (!proj || !proj.projectNotes) return;
+    const idx = proj.projectNotes.findIndex(n => n.id === noteId);
+    if (idx < 0) return;
+    const newIdx = idx + direction;
+    if (newIdx < 0 || newIdx >= proj.projectNotes.length) return;
+    const [note] = proj.projectNotes.splice(idx, 1);
+    proj.projectNotes.splice(newIdx, 0, note);
+    this.save();
+  },
+
   // --- Tasks ---
   addTask(projectId, task) {
     const proj = this._findProject(projectId);

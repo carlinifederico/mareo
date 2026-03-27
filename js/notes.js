@@ -90,6 +90,33 @@ export function renderNotes(container, searchQuery) {
             Store.updateProjectNote(proj.id, pn.id, { content: noteContent.value });
           });
 
+          const noteActions = document.createElement('div');
+          noteActions.className = 'project-note-actions';
+
+          const pnIndex = projNotes.indexOf(pn);
+          if (pnIndex > 0) {
+            const upBtn = document.createElement('button');
+            upBtn.className = 'btn-icon note-reorder-btn';
+            upBtn.textContent = '▲';
+            upBtn.title = 'Move up';
+            upBtn.addEventListener('click', () => {
+              Store.reorderProjectNote(proj.id, pn.id, -1);
+              document.dispatchEvent(new Event('mareo:render'));
+            });
+            noteActions.appendChild(upBtn);
+          }
+          if (pnIndex < projNotes.length - 1) {
+            const downBtn = document.createElement('button');
+            downBtn.className = 'btn-icon note-reorder-btn';
+            downBtn.textContent = '▼';
+            downBtn.title = 'Move down';
+            downBtn.addEventListener('click', () => {
+              Store.reorderProjectNote(proj.id, pn.id, 1);
+              document.dispatchEvent(new Event('mareo:render'));
+            });
+            noteActions.appendChild(downBtn);
+          }
+
           const delBtn = document.createElement('button');
           delBtn.className = 'btn-icon project-note-delete';
           delBtn.textContent = '✕';
@@ -97,9 +124,10 @@ export function renderNotes(container, searchQuery) {
             Store.removeProjectNote(proj.id, pn.id);
             document.dispatchEvent(new Event('mareo:render'));
           });
+          noteActions.appendChild(delBtn);
 
           if (pn.done) noteItem.classList.add('done');
-          noteItem.appendChild(delBtn);
+          noteItem.appendChild(noteActions);
           noteItem.appendChild(noteCheck);
           noteItem.appendChild(noteTitle);
           noteItem.appendChild(noteContent);
