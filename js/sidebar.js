@@ -116,6 +116,18 @@ function renderProjectRow(proj, cat, pinned) {
     if (onProjectClick) onProjectClick(e, proj);
   });
 
+  const isPinned = Store.isProjectPinned(proj.id);
+  const pinBtn = document.createElement('button');
+  pinBtn.className = 'btn-icon proj-pin-btn' + (isPinned ? ' pinned' : '');
+  pinBtn.title = isPinned ? 'Unpin' : 'Pin to top';
+  pinBtn.innerHTML = '<svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor"><path d="M9.828.722a.5.5 0 0 1 .354.146l4.95 4.95a.5.5 0 0 1-.707.707l-.71-.71-3.18 3.18a3.5 3.5 0 0 1-.4.3L11 11.07l.71.71a.5.5 0 0 1-.708.707l-2.83-2.83-3.54 3.54a.5.5 0 0 1-.707-.708l3.54-3.54-2.83-2.83a.5.5 0 1 1 .707-.707l.71.71.78-.86a3.5 3.5 0 0 1 .3-.4l3.18-3.18-.71-.71a.5.5 0 0 1 .146-.354z"/></svg>';
+  pinBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (isPinned) Store.unpinProject(proj.id);
+    else Store.pinProject(proj.id);
+    document.dispatchEvent(new Event('mareo:render'));
+  });
+
   const menuBtn = document.createElement('button');
   menuBtn.className = 'btn-icon proj-menu-btn';
   menuBtn.title = 'Project options';
@@ -126,6 +138,7 @@ function renderProjectRow(proj, cat, pinned) {
   });
 
   header.appendChild(nameEl);
+  header.appendChild(pinBtn);
   header.appendChild(menuBtn);
   projRow.appendChild(header);
 
@@ -354,10 +367,7 @@ function showProjectMenu(e, proj, cat) {
   closeAllMenus();
   const menu = document.createElement('div');
   menu.className = 'context-menu';
-  const isPinned = Store.isProjectPinned(proj.id);
-
   menu.innerHTML = `
-    <div class="context-menu-item" data-action="pin">${isPinned ? '📌 Unpin' : '📌 Pin to Top'}</div>
     <div class="context-menu-item" data-action="edit">Edit Project</div>
     <div class="context-menu-item" data-action="addtask">Add Task</div>
     <div class="context-menu-item danger" data-action="delete">Delete Project</div>
@@ -365,11 +375,7 @@ function showProjectMenu(e, proj, cat) {
 
   menu.addEventListener('click', (ev) => {
     const action = ev.target.dataset.action;
-    if (action === 'pin') {
-      if (isPinned) Store.unpinProject(proj.id);
-      else Store.pinProject(proj.id);
-      document.dispatchEvent(new Event('mareo:render'));
-    } else if (action === 'edit') {
+    if (action === 'edit') {
       showEditProjectModal(proj);
     } else if (action === 'addtask') {
       showAddTaskModal(proj.id);
