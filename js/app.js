@@ -1,6 +1,6 @@
 import { Store } from './store.js';
 import { Auth } from './auth.js';
-import { renderTimelineHeader, getWeekWidth, getTodayWeekIndex } from './timeline.js';
+import { renderTimelineHeader, getWeekWidth, setWeekWidth, resetWeekWidth, getDefaultWeekWidth, getTodayWeekIndex } from './timeline.js';
 import { renderSidebar, setSidebarProjectClickHandler } from './sidebar.js';
 import { renderGantt } from './gantt.js';
 import { initDragDrop } from './dragdrop.js';
@@ -69,9 +69,19 @@ function initApp() {
   initBoardDrag();
   initPan();
 
+  // Mobile menu toggle
+  const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+  const viewTabsNav = document.getElementById('view-tabs-nav');
+  mobileMenuBtn.addEventListener('click', () => {
+    viewTabsNav.classList.toggle('open');
+  });
+
   // View tabs
   document.querySelectorAll('.view-tab').forEach(tab => {
-    tab.addEventListener('click', () => switchView(tab.dataset.view));
+    tab.addEventListener('click', () => {
+      viewTabsNav.classList.remove('open');
+      switchView(tab.dataset.view);
+    });
   });
 
   document.addEventListener('mareo:switchView', (e) => {
@@ -100,6 +110,68 @@ function initApp() {
     }
   });
 
+  // Timeline zoom (Ctrl+scroll or pinch)
+  const timelineArea = document.getElementById('timeline-area');
+  timelineArea.addEventListener('wheel', (e) => {
+    if (!e.ctrlKey && !e.metaKey) return;
+    e.preventDefault();
+    const oldWidth = getWeekWidth();
+    const rect = timelineArea.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left + timelineArea.scrollLeft;
+    const fraction = mouseX / oldWidth;
+
+    const delta = e.deltaY > 0 ? -5 : 5;
+    setWeekWidth(oldWidth + delta);
+    const newWidth = getWeekWidth();
+
+    if (newWidth !== oldWidth) {
+      const newScrollLeft = fraction * newWidth - (e.clientX - rect.left);
+      render();
+      timelineArea.scrollLeft = Math.max(0, newScrollLeft);
+    }
+  }, { passive: false });
+
+  // Touch pinch zoom for mobile
+  let lastPinchDist = 0;
+  timelineArea.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 2) {
+      lastPinchDist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+    }
+  });
+  timelineArea.addEventListener('touchmove', (e) => {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const diff = dist - lastPinchDist;
+      if (Math.abs(diff) > 3) {
+        const oldWidth = getWeekWidth();
+        setWeekWidth(oldWidth + (diff > 0 ? 3 : -3));
+        if (getWeekWidth() !== oldWidth) render();
+        lastPinchDist = dist;
+      }
+    }
+  }, { passive: false });
+
+  // Reset view button
+  document.getElementById('btn-reset-view').addEventListener('click', () => {
+    resetWeekWidth();
+    render();
+    // Scroll to today if visible
+    const now = new Date();
+    const weekIndex = getTodayWeekIndex(now.getFullYear());
+    if (weekIndex >= 0 && Store.data.currentYear === now.getFullYear()) {
+      const weekWidth = getWeekWidth();
+      const targetX = weekIndex * weekWidth - timelineArea.clientWidth / 2 + weekWidth / 2;
+      timelineArea.scrollTo({ left: Math.max(0, targetX), behavior: 'smooth' });
+    }
+  });
+
   // Import/Export
   document.getElementById('btn-export').addEventListener('click', exportData);
   document.getElementById('btn-import').addEventListener('click', importData);
@@ -108,7 +180,6 @@ function initApp() {
   setSidebarProjectClickHandler((e, proj) => showProjectLinksDropdown(e, proj));
 
   // Scroll sync
-  const timelineArea = document.getElementById('timeline-area');
   const sidebarScroll = document.getElementById('sidebar-scroll');
   const timelineHeader = document.querySelector('.timeline-header-wrapper');
 

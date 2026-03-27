@@ -28,8 +28,9 @@
   <div id="app-container" style="display:none">
     <header class="toolbar">
       <div class="toolbar-left">
+        <button class="mobile-menu-btn" id="mobile-menu-btn">☰</button>
         <span class="logo">MAREO</span>
-        <nav class="view-tabs">
+        <nav class="view-tabs" id="view-tabs-nav">
           <button class="view-tab active" data-view="timeline">Timeline</button>
           <button class="view-tab" data-view="board">Board</button>
           <button class="view-tab" data-view="notes">Notes</button>
@@ -43,6 +44,7 @@
           <span id="current-year">2026</span>
           <button id="btn-next-year">&#9654;</button>
           <button id="btn-today" class="btn btn-secondary btn-today">Today</button>
+          <button id="btn-reset-view" class="btn btn-secondary btn-today">Reset</button>
         </div>
       </div>
       <div class="toolbar-right">

@@ -10,6 +10,9 @@ export function renderGantt(container) {
   const totalWidth = totalWeeks * weekWidth;
   const todayWeek = getTodayWeekIndex(Store.data.currentYear);
 
+  // Update CSS variable for dynamic zoom
+  document.documentElement.style.setProperty('--week-width', weekWidth + 'px');
+
   if (Store.data.categories.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'empty-state';

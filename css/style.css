@@ -348,10 +348,18 @@ html, body {
 
 .btn-tiny { font-size: 10px; padding: 1px 4px; }
 
+/* === App Container === */
+#app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
 /* === View Containers === */
 .view-container {
   display: none;
-  height: calc(100vh - var(--header-height));
+  flex: 1;
+  min-height: 0;
 }
 
 .view-container.active {
@@ -362,6 +370,7 @@ html, body {
 .gantt-container {
   display: flex;
   width: 100%;
+  height: 100%;
   overflow: hidden;
 }
 
@@ -706,7 +715,6 @@ html, body {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  --week-width: 40px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
 }
 
@@ -2099,4 +2107,262 @@ html, body {
 @keyframes modalIn {
   from { opacity: 0; transform: scale(0.95) translateY(10px); }
   to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* === Day-level zoom row === */
+.timeline-day-row {
+  display: flex;
+  height: 20px;
+}
+
+.timeline-day-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  color: var(--text-muted);
+  border-right: 1px solid rgba(255,255,255,0.03);
+}
+
+.timeline-day-cell.weekend {
+  background: rgba(167, 139, 250, 0.04);
+  color: rgba(122, 114, 148, 0.6);
+}
+
+.timeline-day-cell.today {
+  background: rgba(167, 139, 250, 0.2);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* === Mobile menu button (hidden on desktop) === */
+.mobile-menu-btn {
+  display: none;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 18px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+/* === Responsive: Tablet (<= 900px) === */
+@media (max-width: 900px) {
+  :root {
+    --sidebar-width: 140px;
+  }
+
+  .toolbar {
+    padding: 0 8px;
+    gap: 4px;
+  }
+
+  .toolbar-left {
+    gap: 8px;
+  }
+
+  .toolbar-left .logo {
+    font-size: 14px;
+    letter-spacing: 2px;
+  }
+
+  .view-tab {
+    padding: 5px 10px;
+    font-size: 11px;
+  }
+
+  #current-year {
+    font-size: 16px;
+  }
+
+  .year-nav button {
+    padding: 3px 8px;
+    font-size: 11px;
+  }
+
+  .toolbar-right .btn {
+    font-size: 10px;
+    padding: 4px 8px;
+  }
+}
+
+/* === Responsive: Mobile (<= 640px) === */
+@media (max-width: 640px) {
+  :root {
+    --sidebar-width: 110px;
+    --header-height: 44px;
+    --row-height: 36px;
+  }
+
+  .mobile-menu-btn {
+    display: block;
+  }
+
+  .toolbar {
+    flex-wrap: wrap;
+    height: auto;
+    min-height: var(--header-height);
+    padding: 4px 8px;
+    gap: 0;
+  }
+
+  .toolbar-left {
+    order: 1;
+    gap: 8px;
+  }
+
+  .toolbar-center {
+    order: 3;
+    width: 100%;
+    justify-content: center;
+    padding: 2px 0;
+  }
+
+  .toolbar-right {
+    order: 2;
+    margin-left: auto;
+    gap: 4px;
+  }
+
+  .toolbar-left .logo {
+    font-size: 14px;
+    letter-spacing: 2px;
+  }
+
+  /* Hide tabs by default, show as dropdown on toggle */
+  .view-tabs {
+    display: none;
+    position: absolute;
+    top: var(--header-height);
+    left: 0;
+    right: 0;
+    z-index: 200;
+    flex-direction: column;
+    background: rgba(10, 8, 18, 0.97);
+    backdrop-filter: var(--glass-blur);
+    border-bottom: 1px solid var(--border);
+    border-radius: 0;
+    padding: 8px;
+    gap: 4px;
+  }
+
+  .view-tabs.open {
+    display: flex;
+  }
+
+  .view-tab {
+    padding: 10px 16px;
+    text-align: left;
+    border-radius: 12px;
+    font-size: 13px;
+  }
+
+  /* Year nav compact */
+  .year-nav {
+    gap: 2px;
+  }
+
+  #current-year {
+    font-size: 14px;
+    min-width: 40px;
+  }
+
+  .year-nav button {
+    padding: 3px 8px;
+    font-size: 10px;
+  }
+
+  .btn-today {
+    font-size: 10px;
+    padding: 3px 8px;
+    margin-left: 4px;
+  }
+
+  /* Toolbar right items */
+  .toolbar-right #btn-import,
+  .toolbar-right #btn-export {
+    display: none;
+  }
+
+  .btn-signout {
+    font-size: 10px;
+    padding: 3px 6px;
+  }
+
+  .user-avatar {
+    width: 24px;
+    height: 24px;
+  }
+
+  /* Sidebar smaller */
+  .sidebar-header {
+    font-size: 9px;
+    padding: 0 4px 4px;
+  }
+
+  .sidebar-category {
+    font-size: 9px;
+    padding: 0 4px;
+  }
+
+  .project-name {
+    font-size: 9px;
+    padding: 2px 6px;
+  }
+
+  .drag-handle {
+    font-size: 8px;
+    width: 10px;
+  }
+
+  .proj-notes-toggle {
+    font-size: 6px;
+    width: 10px;
+  }
+
+  /* Login screen */
+  .login-card {
+    min-width: auto;
+    width: calc(100vw - 32px);
+    max-width: 360px;
+    padding: 32px 24px;
+  }
+
+  .login-logo {
+    font-size: 32px;
+    letter-spacing: 4px;
+  }
+
+  .login-btn {
+    padding: 12px 24px;
+    font-size: 13px;
+  }
+
+  /* Notes */
+  .notes-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .notes-toolbar {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}
+
+/* === Responsive: Small phone (<= 400px) === */
+@media (max-width: 400px) {
+  :root {
+    --sidebar-width: 90px;
+  }
+
+  .project-name {
+    font-size: 8px;
+    padding: 2px 4px;
+  }
+
+  .sidebar-category {
+    font-size: 8px;
+    letter-spacing: 0.5px;
+  }
 }
