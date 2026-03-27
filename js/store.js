@@ -157,6 +157,28 @@ export const Store = {
     return n;
   },
 
+  addProjectNoteAfter(projectId, afterNoteId, note) {
+    const proj = this._findProject(projectId);
+    if (!proj) return null;
+    if (!proj.projectNotes) proj.projectNotes = [];
+    const n = {
+      id: 'pn-' + crypto.randomUUID(),
+      title: note.title || '',
+      content: note.content || '',
+      done: false,
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    };
+    const idx = proj.projectNotes.findIndex(pn => pn.id === afterNoteId);
+    if (idx >= 0) {
+      proj.projectNotes.splice(idx + 1, 0, n);
+    } else {
+      proj.projectNotes.push(n);
+    }
+    this.save();
+    return n;
+  },
+
   updateProjectNote(projectId, noteId, updates) {
     const proj = this._findProject(projectId);
     if (!proj) return;

@@ -141,6 +141,10 @@ function renderProjectRow(proj, cat, pinned) {
       noteItem.draggable = true;
       noteItem.dataset.noteId = note.id;
 
+      const grip = document.createElement('span');
+      grip.className = 'note-drag-grip';
+      grip.textContent = '⠿';
+
       const checkbox = document.createElement('input');
       checkbox.type = 'checkbox';
       checkbox.className = 'note-preview-check';
@@ -156,11 +160,26 @@ function renderProjectRow(proj, cat, pinned) {
       textInput.className = 'note-preview-text';
       textInput.value = note.title || note.content || '';
       textInput.placeholder = 'Note...';
+      textInput.dataset.noteId = note.id;
       textInput.addEventListener('change', () => {
         Store.updateProjectNote(proj.id, note.id, { title: textInput.value });
       });
       textInput.addEventListener('focus', () => { noteItem.draggable = false; });
       textInput.addEventListener('blur', () => { noteItem.draggable = true; });
+      textInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          Store.updateProjectNote(proj.id, note.id, { title: textInput.value });
+          const newNote = Store.addProjectNoteAfter(proj.id, note.id, { title: '', content: '' });
+          document.dispatchEvent(new Event('mareo:render'));
+          // Focus new note after render
+          requestAnimationFrame(() => {
+            const newInput = preview.closest('.sidebar-project')
+              ?.querySelector(`.note-preview-text[data-note-id="${newNote.id}"]`);
+            if (newInput) newInput.focus();
+          });
+        }
+      });
 
       const delBtn = document.createElement('button');
       delBtn.className = 'btn-icon note-preview-delete';
@@ -171,6 +190,7 @@ function renderProjectRow(proj, cat, pinned) {
         document.dispatchEvent(new Event('mareo:render'));
       });
 
+      noteItem.appendChild(grip);
       noteItem.appendChild(checkbox);
       noteItem.appendChild(textInput);
       noteItem.appendChild(delBtn);

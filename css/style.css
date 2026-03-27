@@ -576,6 +576,25 @@ html, body {
 .note-preview-item:hover .note-preview-delete { opacity: 0.7; }
 .note-preview-delete:hover { opacity: 1 !important; color: var(--danger) !important; }
 
+.note-drag-grip {
+  font-size: 9px;
+  color: var(--text-muted);
+  cursor: grab;
+  opacity: 0;
+  flex-shrink: 0;
+  user-select: none;
+  transition: opacity 0.15s ease;
+}
+
+.note-preview-item:hover .note-drag-grip,
+.project-note-item:hover .note-drag-grip { opacity: 0.5; }
+.note-drag-grip:hover { opacity: 1 !important; color: var(--text) !important; }
+
+.note-drag-grip-lg { font-size: 12px; margin-top: 4px; }
+
+.project-note-item.dragging { opacity: 0.4; }
+.project-note-item.drag-over { box-shadow: 0 -2px 0 0 var(--accent); }
+
 .note-preview-check {
   appearance: none;
   width: 12px;
@@ -608,28 +627,17 @@ html, body {
   background: rgba(167, 139, 250, 0.08);
 }
 
-/* Notes view reorder */
-.project-note-actions {
+/* Notes view note delete */
+.project-note-delete {
   position: absolute;
   top: 4px;
   right: 0;
-  display: flex;
-  gap: 2px;
   opacity: 0;
-  transition: opacity 0.2s ease;
+  transition: opacity 0.15s ease;
 }
 
-.project-note-item:hover .project-note-actions { opacity: 1; }
-
-.project-note-actions .note-reorder-btn {
-  font-size: 9px !important;
-  padding: 1px 4px !important;
-}
-
-.project-note-actions .project-note-delete {
-  position: static;
-  opacity: 1;
-}
+.project-note-item:hover .project-note-delete { opacity: 0.7; }
+.project-note-delete:hover { opacity: 1 !important; color: var(--danger) !important; }
 
 .note-preview-add {
   font-size: 10px;
