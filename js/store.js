@@ -1,4 +1,4 @@
-import { db, doc, getDoc, setDoc } from './firebase-config.js';
+import { db, doc, getDoc, setDoc } from './firebase-config.js?v=7';
 
 const STORAGE_PREFIX = 'mareo_data_';
 
