@@ -53,6 +53,7 @@ export const Store = {
     if (!this.data.expensesMonths) this.data.expensesMonths = {};
     if (!this.data.currentView) this.data.currentView = 'timeline';
     if (!this.data.categories) this.data.categories = [];
+    if (!this.data.pinnedProjects) this.data.pinnedProjects = [];
     for (const cat of this.data.categories) {
       for (const proj of cat.projects) {
         if (!proj.projectNotes) proj.projectNotes = [];
@@ -129,6 +130,7 @@ export const Store = {
     for (const cat of this.data.categories) {
       cat.projects = cat.projects.filter(p => p.id !== projectId);
     }
+    this.data.pinnedProjects = (this.data.pinnedProjects || []).filter(id => id !== projectId);
     this.save();
   },
 
@@ -146,6 +148,7 @@ export const Store = {
       id: 'pn-' + crypto.randomUUID(),
       title: note.title || '',
       content: note.content || '',
+      done: false,
       createdAt: Date.now(),
       updatedAt: Date.now()
     };
@@ -310,5 +313,71 @@ export const Store = {
       }
     }
     return projects;
+  },
+
+  // --- Pinned Projects ---
+  pinProject(projectId) {
+    if (!this.data.pinnedProjects.includes(projectId)) {
+      this.data.pinnedProjects.push(projectId);
+      this.save();
+    }
+  },
+
+  unpinProject(projectId) {
+    this.data.pinnedProjects = this.data.pinnedProjects.filter(id => id !== projectId);
+    this.save();
+  },
+
+  isProjectPinned(projectId) {
+    return this.data.pinnedProjects.includes(projectId);
+  },
+
+  reorderPinnedProjects(orderedIds) {
+    this.data.pinnedProjects = orderedIds;
+    this.save();
+  },
+
+  reorderProject(categoryId, projectId, newIndex) {
+    const cat = this._findCategory(categoryId);
+    if (!cat) return;
+    const idx = cat.projects.findIndex(p => p.id === projectId);
+    if (idx < 0) return;
+    const [proj] = cat.projects.splice(idx, 1);
+    cat.projects.splice(newIndex, 0, proj);
+    this.save();
+  },
+
+  getRenderedLayout() {
+    const layout = [];
+    const pinnedIds = this.data.pinnedProjects || [];
+
+    // Pinned section
+    if (pinnedIds.length > 0) {
+      layout.push({ type: 'pinned-header' });
+      for (const pid of pinnedIds) {
+        const proj = this._findProject(pid);
+        const cat = this._findCategoryForProject(pid);
+        if (proj && cat) {
+          layout.push({ type: 'project', proj, cat, pinned: true });
+        }
+      }
+    }
+
+    // Categories
+    for (const cat of this.data.categories) {
+      layout.push({ type: 'category-header', cat });
+
+      if (!cat.collapsed) {
+        for (const proj of cat.projects) {
+          if (!pinnedIds.includes(proj.id)) {
+            layout.push({ type: 'project', proj, cat, pinned: false });
+          }
+        }
+        layout.push({ type: 'add-project', cat });
+      }
+    }
+
+    layout.push({ type: 'add-category' });
+    return layout;
   }
 };

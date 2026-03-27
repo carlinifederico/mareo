@@ -9,6 +9,7 @@ export function setSidebarProjectClickHandler(handler) {
 
 export function renderSidebar(container) {
   container.innerHTML = '';
+  const layout = Store.getRenderedLayout();
 
   if (Store.data.categories.length === 0) {
     const empty = document.createElement('div');
@@ -17,83 +18,222 @@ export function renderSidebar(container) {
     container.appendChild(empty);
   }
 
-  for (const cat of Store.data.categories) {
-    // Category header
-    const catHeader = document.createElement('div');
-    catHeader.className = 'sidebar-category';
-    catHeader.innerHTML = `
-      <span class="cat-toggle">${cat.collapsed ? '▶' : '▼'}</span>
-      <span class="cat-name">${cat.name}</span>
-      <button class="btn-icon cat-menu-btn" title="Category options">⋯</button>
-    `;
+  for (const item of layout) {
+    if (item.type === 'pinned-header') {
+      const header = document.createElement('div');
+      header.className = 'sidebar-category pinned-section-header';
+      header.innerHTML = `<span class="cat-name">📌 PINNED</span>`;
+      container.appendChild(header);
 
-    catHeader.querySelector('.cat-toggle').addEventListener('click', () => {
-      Store.toggleCollapse(cat.id);
-      document.dispatchEvent(new Event('mareo:render'));
-    });
+    } else if (item.type === 'category-header') {
+      const cat = item.cat;
+      const catHeader = document.createElement('div');
+      catHeader.className = 'sidebar-category';
+      catHeader.innerHTML = `
+        <span class="cat-toggle">${cat.collapsed ? '▶' : '▼'}</span>
+        <span class="cat-name">${cat.name}</span>
+        <button class="btn-icon cat-menu-btn" title="Category options">⋯</button>
+      `;
 
-    catHeader.querySelector('.cat-name').addEventListener('click', () => {
-      Store.toggleCollapse(cat.id);
-      document.dispatchEvent(new Event('mareo:render'));
-    });
+      catHeader.querySelector('.cat-toggle').addEventListener('click', () => {
+        Store.toggleCollapse(cat.id);
+        document.dispatchEvent(new Event('mareo:render'));
+      });
+      catHeader.querySelector('.cat-name').addEventListener('click', () => {
+        Store.toggleCollapse(cat.id);
+        document.dispatchEvent(new Event('mareo:render'));
+      });
+      catHeader.querySelector('.cat-menu-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        showCategoryMenu(e, cat);
+      });
+      container.appendChild(catHeader);
 
-    catHeader.querySelector('.cat-menu-btn').addEventListener('click', (e) => {
-      e.stopPropagation();
-      showCategoryMenu(e, cat);
-    });
+    } else if (item.type === 'project') {
+      container.appendChild(renderProjectRow(item.proj, item.cat, item.pinned));
 
-    container.appendChild(catHeader);
-
-    // Projects
-    if (!cat.collapsed) {
-      for (const proj of cat.projects) {
-        const projRow = document.createElement('div');
-        projRow.className = 'sidebar-project';
-        projRow.dataset.projectId = proj.id;
-
-        const nameEl = document.createElement('span');
-        nameEl.className = 'project-name';
-        nameEl.style.backgroundColor = proj.color;
-        nameEl.style.color = getContrastColor(proj.color);
-        nameEl.textContent = proj.name;
-        nameEl.addEventListener('click', (e) => {
-          e.stopPropagation();
-          if (onProjectClick) onProjectClick(e, proj);
-        });
-
-        const menuBtn = document.createElement('button');
-        menuBtn.className = 'btn-icon proj-menu-btn';
-        menuBtn.title = 'Project options';
-        menuBtn.textContent = '⋯';
-        menuBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          showProjectMenu(e, proj, cat);
-        });
-
-        projRow.appendChild(nameEl);
-        projRow.appendChild(menuBtn);
-        container.appendChild(projRow);
-      }
-
-      // Add project button
+    } else if (item.type === 'add-project') {
       const addProjBtn = document.createElement('div');
       addProjBtn.className = 'sidebar-add-project';
       addProjBtn.textContent = '+ Add Project';
       addProjBtn.addEventListener('click', () => {
-        showAddProjectModal(cat.id);
+        showAddProjectModal(item.cat.id);
       });
       container.appendChild(addProjBtn);
+
+    } else if (item.type === 'add-category') {
+      const addCatBtn = document.createElement('div');
+      addCatBtn.className = 'sidebar-add-category';
+      addCatBtn.textContent = '+ Add Category';
+      addCatBtn.addEventListener('click', () => {
+        showAddCategoryModal();
+      });
+      container.appendChild(addCatBtn);
     }
   }
 
-  // Add category button
-  const addCatBtn = document.createElement('div');
-  addCatBtn.className = 'sidebar-add-category';
-  addCatBtn.textContent = '+ Add Category';
-  addCatBtn.addEventListener('click', () => {
-    showAddCategoryModal();
+  initSidebarDragDrop(container);
+}
+
+function renderProjectRow(proj, cat, pinned) {
+  const projRow = document.createElement('div');
+  projRow.className = 'sidebar-project' + (pinned ? ' pinned' : '');
+  projRow.dataset.projectId = proj.id;
+  projRow.dataset.categoryId = cat.id;
+  projRow.dataset.pinned = pinned ? '1' : '0';
+  projRow.draggable = true;
+
+  const header = document.createElement('div');
+  header.className = 'sidebar-project-header';
+
+  // Drag handle
+  const grip = document.createElement('span');
+  grip.className = 'drag-handle';
+  grip.textContent = '⠿';
+  header.appendChild(grip);
+
+  const notes = proj.projectNotes || [];
+  const hasNotes = notes.length > 0;
+  const expanded = !!proj.notesExpanded;
+
+  if (hasNotes) {
+    const toggle = document.createElement('span');
+    toggle.className = 'proj-notes-toggle';
+    toggle.textContent = expanded ? '▼' : '▶';
+    toggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      Store.updateProject(proj.id, { notesExpanded: !expanded });
+      document.dispatchEvent(new Event('mareo:render'));
+    });
+    header.appendChild(toggle);
+  }
+
+  const nameEl = document.createElement('span');
+  nameEl.className = 'project-name';
+  nameEl.style.backgroundColor = proj.color;
+  nameEl.style.color = getContrastColor(proj.color);
+  nameEl.textContent = proj.name;
+  nameEl.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (onProjectClick) onProjectClick(e, proj);
   });
-  container.appendChild(addCatBtn);
+
+  const menuBtn = document.createElement('button');
+  menuBtn.className = 'btn-icon proj-menu-btn';
+  menuBtn.title = 'Project options';
+  menuBtn.textContent = '⋯';
+  menuBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    showProjectMenu(e, proj, cat);
+  });
+
+  header.appendChild(nameEl);
+  header.appendChild(menuBtn);
+  projRow.appendChild(header);
+
+  // Notes preview (last 3 notes with checkboxes)
+  if (hasNotes && expanded) {
+    const preview = document.createElement('div');
+    preview.className = 'project-notes-preview';
+    for (const note of notes.slice(0, 3)) {
+      const noteItem = document.createElement('label');
+      noteItem.className = 'note-preview-item' + (note.done ? ' done' : '');
+
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.className = 'note-preview-check';
+      checkbox.checked = !!note.done;
+      checkbox.addEventListener('change', (e) => {
+        e.stopPropagation();
+        Store.updateProjectNote(proj.id, note.id, { done: checkbox.checked });
+        document.dispatchEvent(new Event('mareo:render'));
+      });
+
+      const text = document.createElement('span');
+      text.className = 'note-preview-text';
+      text.textContent = note.title || note.content || 'Untitled';
+
+      noteItem.appendChild(checkbox);
+      noteItem.appendChild(text);
+      preview.appendChild(noteItem);
+    }
+    projRow.appendChild(preview);
+  }
+
+  return projRow;
+}
+
+function initSidebarDragDrop(container) {
+  let draggedId = null;
+  let draggedPinned = false;
+
+  container.addEventListener('dragstart', (e) => {
+    const row = e.target.closest('.sidebar-project');
+    if (!row) return;
+    draggedId = row.dataset.projectId;
+    draggedPinned = row.dataset.pinned === '1';
+    row.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+  });
+
+  container.addEventListener('dragend', (e) => {
+    const row = e.target.closest('.sidebar-project');
+    if (row) row.classList.remove('dragging');
+    container.querySelectorAll('.sidebar-project').forEach(r => r.classList.remove('drag-over'));
+    draggedId = null;
+  });
+
+  container.addEventListener('dragover', (e) => {
+    const row = e.target.closest('.sidebar-project');
+    if (!row || row.dataset.projectId === draggedId) return;
+
+    // Only allow drop in same zone (pinned↔pinned or same category)
+    const targetPinned = row.dataset.pinned === '1';
+    if (draggedPinned !== targetPinned) {
+      if (!draggedPinned && !targetPinned && row.dataset.categoryId !== document.querySelector(`.sidebar-project[data-project-id="${draggedId}"]`)?.dataset.categoryId) return;
+      if (draggedPinned !== targetPinned) return;
+    }
+    if (!draggedPinned && !targetPinned) {
+      const draggedRow = container.querySelector(`.sidebar-project[data-project-id="${draggedId}"]`);
+      if (draggedRow && draggedRow.dataset.categoryId !== row.dataset.categoryId) return;
+    }
+
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    container.querySelectorAll('.sidebar-project').forEach(r => r.classList.remove('drag-over'));
+    row.classList.add('drag-over');
+  });
+
+  container.addEventListener('drop', (e) => {
+    e.preventDefault();
+    const row = e.target.closest('.sidebar-project');
+    if (!row || row.dataset.projectId === draggedId) return;
+
+    const targetId = row.dataset.projectId;
+
+    if (draggedPinned) {
+      // Reorder within pinned
+      const pinned = [...Store.data.pinnedProjects];
+      const fromIdx = pinned.indexOf(draggedId);
+      const toIdx = pinned.indexOf(targetId);
+      if (fromIdx < 0 || toIdx < 0) return;
+      pinned.splice(fromIdx, 1);
+      pinned.splice(toIdx, 0, draggedId);
+      Store.reorderPinnedProjects(pinned);
+    } else {
+      // Reorder within category
+      const catId = row.dataset.categoryId;
+      const cat = Store._findCategory(catId);
+      if (!cat) return;
+      const unpinnedProjects = cat.projects.filter(p => !Store.isProjectPinned(p.id));
+      const targetUnpinnedIdx = unpinnedProjects.findIndex(p => p.id === targetId);
+      // Find actual target index in cat.projects
+      const targetActualIdx = cat.projects.findIndex(p => p.id === targetId);
+      Store.reorderProject(catId, draggedId, targetActualIdx);
+    }
+
+    document.dispatchEvent(new Event('mareo:render'));
+  });
 }
 
 function showCategoryMenu(e, cat) {
@@ -130,8 +270,10 @@ function showProjectMenu(e, proj, cat) {
   closeAllMenus();
   const menu = document.createElement('div');
   menu.className = 'context-menu';
+  const isPinned = Store.isProjectPinned(proj.id);
 
   menu.innerHTML = `
+    <div class="context-menu-item" data-action="pin">${isPinned ? '📌 Unpin' : '📌 Pin to Top'}</div>
     <div class="context-menu-item" data-action="edit">Edit Project</div>
     <div class="context-menu-item" data-action="addtask">Add Task</div>
     <div class="context-menu-item danger" data-action="delete">Delete Project</div>
@@ -139,7 +281,11 @@ function showProjectMenu(e, proj, cat) {
 
   menu.addEventListener('click', (ev) => {
     const action = ev.target.dataset.action;
-    if (action === 'edit') {
+    if (action === 'pin') {
+      if (isPinned) Store.unpinProject(proj.id);
+      else Store.pinProject(proj.id);
+      document.dispatchEvent(new Event('mareo:render'));
+    } else if (action === 'edit') {
       showEditProjectModal(proj);
     } else if (action === 'addtask') {
       showAddTaskModal(proj.id);

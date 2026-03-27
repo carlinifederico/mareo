@@ -1,14 +1,14 @@
 import { Store } from './store.js';
 
 const NOTE_COLORS = [
-  { name: 'Default', value: '#1a1433' },
-  { name: 'Red', value: '#4a2d2d' },
-  { name: 'Green', value: '#2d4a3e' },
-  { name: 'Blue', value: '#2d3f4a' },
-  { name: 'Purple', value: '#3d3a4a' },
-  { name: 'Orange', value: '#4a3d2d' },
-  { name: 'Teal', value: '#1a3a3a' },
-  { name: 'Yellow', value: '#4a4a2d' }
+  { name: 'Default', value: '#111119' },
+  { name: 'Red', value: '#2a1520' },
+  { name: 'Green', value: '#0f2a1f' },
+  { name: 'Blue', value: '#0f1a2d' },
+  { name: 'Purple', value: '#1a1430' },
+  { name: 'Orange', value: '#2a1a0f' },
+  { name: 'Teal', value: '#0f2525' },
+  { name: 'Yellow', value: '#2a2a0f' }
 ];
 
 export function renderNotes(container, searchQuery) {
@@ -63,6 +63,15 @@ export function renderNotes(container, searchQuery) {
           const noteItem = document.createElement('div');
           noteItem.className = 'project-note-item';
 
+          const noteCheck = document.createElement('input');
+          noteCheck.type = 'checkbox';
+          noteCheck.className = 'project-note-check';
+          noteCheck.checked = !!pn.done;
+          noteCheck.addEventListener('change', () => {
+            Store.updateProjectNote(proj.id, pn.id, { done: noteCheck.checked });
+            noteItem.classList.toggle('done', noteCheck.checked);
+          });
+
           const noteTitle = document.createElement('input');
           noteTitle.type = 'text';
           noteTitle.className = 'project-note-title';
@@ -89,7 +98,9 @@ export function renderNotes(container, searchQuery) {
             document.dispatchEvent(new Event('mareo:render'));
           });
 
+          if (pn.done) noteItem.classList.add('done');
           noteItem.appendChild(delBtn);
+          noteItem.appendChild(noteCheck);
           noteItem.appendChild(noteTitle);
           noteItem.appendChild(noteContent);
           notesList.appendChild(noteItem);

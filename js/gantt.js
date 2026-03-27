@@ -18,16 +18,17 @@ export function renderGantt(container) {
     return;
   }
 
-  for (const cat of Store.data.categories) {
-    // Category spacer row
-    const catRow = document.createElement('div');
-    catRow.className = 'gantt-category-row';
-    catRow.style.width = totalWidth + 'px';
-    container.appendChild(catRow);
+  const layout = Store.getRenderedLayout();
 
-    if (cat.collapsed) continue;
+  for (const item of layout) {
+    if (item.type === 'pinned-header' || item.type === 'category-header') {
+      const catRow = document.createElement('div');
+      catRow.className = 'gantt-category-row';
+      catRow.style.width = totalWidth + 'px';
+      container.appendChild(catRow);
 
-    for (const proj of cat.projects) {
+    } else if (item.type === 'project') {
+      const proj = item.proj;
       const { tasks, laneCount } = layoutTasks(proj.tasks);
       const rowHeight = Math.max(1, laneCount) * 36 + 4;
 
@@ -37,7 +38,6 @@ export function renderGantt(container) {
       projRow.style.width = totalWidth + 'px';
       projRow.style.height = rowHeight + 'px';
 
-      // Week grid lines + current week highlight
       for (let w = 0; w < totalWeeks; w++) {
         const line = document.createElement('div');
         line.className = 'gantt-grid-line';
@@ -47,7 +47,6 @@ export function renderGantt(container) {
         projRow.appendChild(line);
       }
 
-      // Task bars
       for (const task of tasks) {
         const bar = document.createElement('div');
         bar.className = 'task-bar';
@@ -57,6 +56,7 @@ export function renderGantt(container) {
         bar.style.setProperty('--lane', task._lane || 0);
         bar.style.backgroundColor = task.color;
         bar.style.color = getContrastColor(task.color);
+        bar.style.setProperty('--bar-color', task.color);
 
         const label = document.createElement('span');
         label.className = 'task-label';
@@ -71,21 +71,18 @@ export function renderGantt(container) {
         resizeHandle.className = 'resize-handle resize-handle-right';
         bar.appendChild(resizeHandle);
 
-        // Left click -> show task popover with notes & links
         bar.addEventListener('click', (e) => {
           if (e.target.classList.contains('resize-handle')) return;
           e.stopPropagation();
           showTaskPopover(e, task);
         });
 
-        // Double-click to edit
         bar.addEventListener('dblclick', (e) => {
           e.stopPropagation();
           closeAllPopovers();
           showEditTaskModal(task);
         });
 
-        // Right-click context menu
         bar.addEventListener('contextmenu', (e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -95,7 +92,6 @@ export function renderGantt(container) {
         projRow.appendChild(bar);
       }
 
-      // Double-click on empty area to add task
       projRow.addEventListener('dblclick', (e) => {
         if (e.target === projRow || e.target.classList.contains('gantt-grid-line')) {
           const rect = projRow.getBoundingClientRect();
@@ -106,20 +102,14 @@ export function renderGantt(container) {
       });
 
       container.appendChild(projRow);
+
+    } else if (item.type === 'add-project' || item.type === 'add-category') {
+      const addRow = document.createElement('div');
+      addRow.className = 'gantt-add-row';
+      addRow.style.width = totalWidth + 'px';
+      container.appendChild(addRow);
     }
-
-    // Add project spacer
-    const addRow = document.createElement('div');
-    addRow.className = 'gantt-add-row';
-    addRow.style.width = totalWidth + 'px';
-    container.appendChild(addRow);
   }
-
-  // Add category spacer
-  const addCatRow = document.createElement('div');
-  addCatRow.className = 'gantt-add-row';
-  addCatRow.style.width = totalWidth + 'px';
-  container.appendChild(addCatRow);
 
   // Today marker
   if (todayWeek >= 0) {
