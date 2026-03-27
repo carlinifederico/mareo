@@ -134,10 +134,12 @@ function renderProjectRow(proj, cat, pinned) {
     const preview = document.createElement('div');
     preview.className = 'project-notes-preview';
 
-    for (let i = 0; i < Math.min(notes.length, 3); i++) {
+    for (let i = 0; i < notes.length; i++) {
       const note = notes[i];
       const noteItem = document.createElement('div');
       noteItem.className = 'note-preview-item' + (note.done ? ' done' : '');
+      noteItem.draggable = true;
+      noteItem.dataset.noteId = note.id;
 
       const checkbox = document.createElement('input');
       checkbox.type = 'checkbox';
@@ -149,41 +151,69 @@ function renderProjectRow(proj, cat, pinned) {
         document.dispatchEvent(new Event('mareo:render'));
       });
 
-      const text = document.createElement('span');
-      text.className = 'note-preview-text';
-      text.textContent = note.title || note.content || 'Untitled';
+      const textInput = document.createElement('input');
+      textInput.type = 'text';
+      textInput.className = 'note-preview-text';
+      textInput.value = note.title || note.content || '';
+      textInput.placeholder = 'Note...';
+      textInput.addEventListener('change', () => {
+        Store.updateProjectNote(proj.id, note.id, { title: textInput.value });
+      });
+      textInput.addEventListener('focus', () => { noteItem.draggable = false; });
+      textInput.addEventListener('blur', () => { noteItem.draggable = true; });
 
-      const arrows = document.createElement('span');
-      arrows.className = 'note-reorder-arrows';
-
-      if (i > 0) {
-        const up = document.createElement('button');
-        up.className = 'btn-icon note-reorder-btn';
-        up.textContent = '▲';
-        up.addEventListener('click', (e) => {
-          e.stopPropagation();
-          Store.reorderProjectNote(proj.id, note.id, -1);
-          document.dispatchEvent(new Event('mareo:render'));
-        });
-        arrows.appendChild(up);
-      }
-      if (i < notes.length - 1) {
-        const down = document.createElement('button');
-        down.className = 'btn-icon note-reorder-btn';
-        down.textContent = '▼';
-        down.addEventListener('click', (e) => {
-          e.stopPropagation();
-          Store.reorderProjectNote(proj.id, note.id, 1);
-          document.dispatchEvent(new Event('mareo:render'));
-        });
-        arrows.appendChild(down);
-      }
+      const delBtn = document.createElement('button');
+      delBtn.className = 'btn-icon note-preview-delete';
+      delBtn.textContent = '✕';
+      delBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        Store.removeProjectNote(proj.id, note.id);
+        document.dispatchEvent(new Event('mareo:render'));
+      });
 
       noteItem.appendChild(checkbox);
-      noteItem.appendChild(text);
-      noteItem.appendChild(arrows);
+      noteItem.appendChild(textInput);
+      noteItem.appendChild(delBtn);
       preview.appendChild(noteItem);
     }
+
+    // Note drag reorder within preview
+    let dragNoteId = null;
+    preview.addEventListener('dragstart', (e) => {
+      const item = e.target.closest('.note-preview-item');
+      if (!item) return;
+      dragNoteId = item.dataset.noteId;
+      item.classList.add('dragging');
+      e.stopPropagation();
+    });
+    preview.addEventListener('dragend', (e) => {
+      const item = e.target.closest('.note-preview-item');
+      if (item) item.classList.remove('dragging');
+      preview.querySelectorAll('.note-preview-item').forEach(n => n.classList.remove('drag-over'));
+      dragNoteId = null;
+    });
+    preview.addEventListener('dragover', (e) => {
+      const item = e.target.closest('.note-preview-item');
+      if (!item || item.dataset.noteId === dragNoteId) return;
+      e.preventDefault();
+      e.stopPropagation();
+      preview.querySelectorAll('.note-preview-item').forEach(n => n.classList.remove('drag-over'));
+      item.classList.add('drag-over');
+    });
+    preview.addEventListener('drop', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const item = e.target.closest('.note-preview-item');
+      if (!item || item.dataset.noteId === dragNoteId || !dragNoteId) return;
+      const allNotes = proj.projectNotes || [];
+      const fromIdx = allNotes.findIndex(n => n.id === dragNoteId);
+      const toIdx = allNotes.findIndex(n => n.id === item.dataset.noteId);
+      if (fromIdx < 0 || toIdx < 0) return;
+      const [moved] = allNotes.splice(fromIdx, 1);
+      allNotes.splice(toIdx, 0, moved);
+      Store.save();
+      document.dispatchEvent(new Event('mareo:render'));
+    });
 
     // Add note button
     const addBtn = document.createElement('div');

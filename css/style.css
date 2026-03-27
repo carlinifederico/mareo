@@ -529,9 +529,13 @@ html, body {
   color: var(--text-muted);
   padding: 2px 6px;
   border-radius: 4px;
-  cursor: pointer;
+  cursor: grab;
   line-height: 1.4;
+  position: relative;
 }
+
+.note-preview-item.dragging { opacity: 0.4; }
+.note-preview-item.drag-over { box-shadow: 0 -2px 0 0 var(--accent); }
 
 .note-preview-item.done .note-preview-text {
   text-decoration: line-through;
@@ -539,10 +543,38 @@ html, body {
 }
 
 .note-preview-text {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-family: inherit;
+  padding: 1px 2px;
+  outline: none;
+  border-radius: 3px;
+  cursor: text;
 }
+
+.note-preview-text:focus {
+  background: rgba(255,255,255,0.05);
+  color: var(--text);
+}
+
+.note-preview-text::placeholder { color: rgba(122, 114, 148, 0.4); }
+
+.note-preview-delete {
+  font-size: 8px !important;
+  padding: 0 3px !important;
+  opacity: 0;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+  flex-shrink: 0;
+}
+
+.note-preview-item:hover .note-preview-delete { opacity: 0.7; }
+.note-preview-delete:hover { opacity: 1 !important; color: var(--danger) !important; }
 
 .note-preview-check {
   appearance: none;
@@ -574,28 +606,6 @@ html, body {
 .note-preview-item:hover {
   color: var(--text);
   background: rgba(167, 139, 250, 0.08);
-}
-
-.note-reorder-arrows {
-  display: flex;
-  gap: 1px;
-  margin-left: auto;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-
-.note-preview-item:hover .note-reorder-arrows { opacity: 1; }
-
-.note-reorder-btn {
-  font-size: 7px !important;
-  padding: 0 2px !important;
-  line-height: 1;
-  color: var(--text-muted);
-  cursor: pointer;
-}
-
-.note-reorder-btn:hover {
-  color: var(--accent) !important;
 }
 
 /* Notes view reorder */
