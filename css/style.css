@@ -689,18 +689,28 @@ html, body {
   pointer-events: none;
 }
 
-.gantt-grid-line.current-week-col {
+.gantt-grid-line.current-week-col,
+.gantt-grid-line.current-day-col {
   background: linear-gradient(180deg, rgba(167, 139, 250, 0.08), rgba(99, 102, 241, 0.04));
   border-left: 1px solid rgba(167, 139, 250, 0.12);
   border-right: 1px solid rgba(167, 139, 250, 0.12);
 }
 
+.gantt-grid-line.day-line {
+  border-right: 1px solid rgba(255,255,255,0.03);
+}
+
+.gantt-grid-line.day-line.weekend-col {
+  background: rgba(167, 139, 250, 0.03);
+}
+
+.gantt-grid-line.day-line.week-start {
+  border-left: 1px solid rgba(255,255,255,0.1);
+}
+
 /* === Task Bars === */
 .task-bar {
   position: absolute;
-  top: calc(var(--lane, 0) * 36px + 4px);
-  left: calc(var(--start-week) * var(--week-width));
-  width: calc(var(--duration) * var(--week-width));
   height: 32px;
   border-radius: 10px;
   display: flex;
@@ -2132,6 +2142,10 @@ html, body {
   background: rgba(167, 139, 250, 0.2);
   color: var(--accent);
   font-weight: 700;
+}
+
+.timeline-day-cell.monday {
+  border-left: 1px solid rgba(255,255,255,0.12);
 }
 
 /* === "+" More views dropdown === */

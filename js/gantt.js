@@ -1,14 +1,17 @@
 import { Store } from './store.js';
-import { getWeekWidth, getTotalWeeks, getTodayWeekIndex } from './timeline.js';
+import { getWeekWidth, isDayMode, getTotalColumns, getColumnWidth, taskToPixels, getTodayColumnIndex, getTodayWeekIndex } from './timeline.js';
 import { showAddTaskModal } from './sidebar.js';
 import { showModal } from './modal.js';
 
 export function renderGantt(container) {
   container.innerHTML = '';
+  const year = Store.data.currentYear;
   const weekWidth = getWeekWidth();
-  const totalWeeks = getTotalWeeks();
-  const totalWidth = totalWeeks * weekWidth;
-  const todayWeek = getTodayWeekIndex(Store.data.currentYear);
+  const colWidth = getColumnWidth();
+  const totalCols = getTotalColumns(year);
+  const totalWidth = totalCols * colWidth;
+  const dayMode = isDayMode();
+  const todayCol = getTodayColumnIndex(year);
 
   // Update CSS variable for dynamic zoom
   document.documentElement.style.setProperty('--week-width', weekWidth + 'px');
@@ -41,22 +44,46 @@ export function renderGantt(container) {
       projRow.style.width = totalWidth + 'px';
       projRow.style.height = rowHeight + 'px';
 
-      for (let w = 0; w < totalWeeks; w++) {
-        const line = document.createElement('div');
-        line.className = 'gantt-grid-line';
-        if (w === todayWeek) line.classList.add('current-week-col');
-        line.style.left = (w * weekWidth) + 'px';
-        line.style.width = weekWidth + 'px';
-        projRow.appendChild(line);
+      // Grid lines
+      if (dayMode) {
+        // Day-level grid lines
+        const jan1 = new Date(year, 0, 1);
+        for (let d = 0; d < totalCols; d++) {
+          const date = new Date(jan1);
+          date.setDate(jan1.getDate() + d);
+          const dow = date.getDay();
+
+          const line = document.createElement('div');
+          line.className = 'gantt-grid-line day-line';
+          if (dow === 0 || dow === 6) line.classList.add('weekend-col');
+          if (dow === 1) line.classList.add('week-start');
+          if (d === todayCol) line.classList.add('current-day-col');
+          line.style.left = (d * colWidth) + 'px';
+          line.style.width = colWidth + 'px';
+          projRow.appendChild(line);
+        }
+      } else {
+        // Week-level grid lines
+        const todayWeek = getTodayWeekIndex(year);
+        for (let w = 0; w < totalCols; w++) {
+          const line = document.createElement('div');
+          line.className = 'gantt-grid-line';
+          if (w === todayWeek) line.classList.add('current-week-col');
+          line.style.left = (w * colWidth) + 'px';
+          line.style.width = colWidth + 'px';
+          projRow.appendChild(line);
+        }
       }
 
+      // Task bars
       for (const task of tasks) {
+        const pos = taskToPixels(task.startWeek, task.durationWeeks, year);
         const bar = document.createElement('div');
         bar.className = 'task-bar';
         bar.dataset.taskId = task.id;
-        bar.style.setProperty('--start-week', task.startWeek);
-        bar.style.setProperty('--duration', task.durationWeeks);
-        bar.style.setProperty('--lane', task._lane || 0);
+        bar.style.left = pos.left + 'px';
+        bar.style.width = pos.width + 'px';
+        bar.style.top = ((task._lane || 0) * 36 + 4) + 'px';
         bar.style.backgroundColor = task.color;
         bar.style.color = getContrastColor(task.color);
         bar.style.setProperty('--bar-color', task.color);
@@ -99,7 +126,7 @@ export function renderGantt(container) {
         if (e.target === projRow || e.target.classList.contains('gantt-grid-line')) {
           const rect = projRow.getBoundingClientRect();
           const x = e.clientX - rect.left + projRow.parentElement.scrollLeft;
-          const week = Math.floor(x / weekWidth);
+          const week = dayMode ? Math.floor(x / colWidth / 7) : Math.floor(x / colWidth);
           showAddTaskModal(proj.id, week);
         }
       });
@@ -115,10 +142,10 @@ export function renderGantt(container) {
   }
 
   // Today marker
-  if (todayWeek >= 0) {
+  if (todayCol >= 0) {
     const marker = document.createElement('div');
     marker.className = 'today-marker';
-    marker.style.left = ((todayWeek + 0.5) * weekWidth) + 'px';
+    marker.style.left = ((todayCol + 0.5) * colWidth) + 'px';
     container.appendChild(marker);
   }
 }
