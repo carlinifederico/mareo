@@ -710,7 +710,7 @@ html, body {
 }
 
 .timeline-month-row {
-  display: flex;
+  position: relative;
   height: 26px;
 }
 
@@ -722,6 +722,9 @@ html, body {
   font-size: 11px;
   border-right: 1px solid var(--border);
   color: var(--text);
+  height: 100%;
+  top: 0;
+  overflow: hidden;
 }
 
 .timeline-month-cell.current-month {
@@ -731,7 +734,7 @@ html, body {
 }
 
 .timeline-week-row {
-  display: flex;
+  position: relative;
   height: 26px;
 }
 
@@ -742,6 +745,9 @@ html, body {
   font-size: 9px;
   color: var(--text-muted);
   border-right: 1px solid rgba(255,255,255,0.05);
+  height: 100%;
+  top: 0;
+  overflow: hidden;
 }
 
 .timeline-week-cell.current-week {
@@ -2206,7 +2212,7 @@ html, body {
 
 /* === Day-level zoom row === */
 .timeline-day-row {
-  display: flex;
+  position: relative;
   height: 20px;
 }
 
@@ -2217,6 +2223,9 @@ html, body {
   font-size: 8px;
   color: var(--text-muted);
   border-right: 1px solid rgba(255,255,255,0.03);
+  height: 100%;
+  top: 0;
+  overflow: hidden;
 }
 
 .timeline-day-cell.weekend {
