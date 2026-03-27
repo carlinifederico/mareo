@@ -219,16 +219,14 @@ function initApp() {
   // Project name click
   setSidebarProjectClickHandler((e, proj) => showProjectLinksDropdown(e, proj));
 
-  // Scroll sync
+  // Scroll sync (sidebar vertical only — header scrolls naturally with timeline-area)
   const sidebarScroll = document.getElementById('sidebar-scroll');
-  const timelineHeader = document.querySelector('.timeline-header-wrapper');
 
   let syncing = false;
   timelineArea.addEventListener('scroll', () => {
     if (syncing) return;
     syncing = true;
     sidebarScroll.scrollTop = timelineArea.scrollTop;
-    timelineHeader.scrollLeft = timelineArea.scrollLeft;
     syncing = false;
   });
   sidebarScroll.addEventListener('scroll', () => {
