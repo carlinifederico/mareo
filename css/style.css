@@ -690,7 +690,6 @@ html, body {
 }
 
 .gantt-grid-line.current-week-col {
-  width: 40px;
   background: linear-gradient(180deg, rgba(167, 139, 250, 0.08), rgba(99, 102, 241, 0.04));
   border-left: 1px solid rgba(167, 139, 250, 0.12);
   border-right: 1px solid rgba(167, 139, 250, 0.12);
@@ -2135,6 +2134,60 @@ html, body {
   font-weight: 700;
 }
 
+/* === "+" More views dropdown === */
+.view-tab-more {
+  position: relative;
+  display: inline-flex;
+}
+
+.view-tab-plus {
+  font-size: 14px;
+  font-weight: 700;
+  min-width: 32px;
+  opacity: 0.6;
+}
+
+.view-tab-plus:hover {
+  opacity: 1;
+}
+
+.view-tab-more-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: rgba(17, 17, 25, 0.97);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 4px;
+  min-width: 120px;
+  z-index: 300;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.view-tab-more-menu.open {
+  display: flex;
+  flex-direction: column;
+}
+
+.view-tab-more-item {
+  padding: 8px 14px;
+  font-size: 12px;
+  color: var(--text);
+  background: none;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+}
+
+.view-tab-more-item:hover {
+  background: var(--bg-hover);
+  color: var(--accent);
+}
+
 /* === Mobile menu button (hidden on desktop) === */
 .mobile-menu-btn {
   display: none;
@@ -2342,11 +2395,95 @@ html, body {
   /* Notes */
   .notes-grid {
     grid-template-columns: 1fr !important;
+    padding: 8px !important;
+    gap: 10px !important;
   }
 
   .notes-toolbar {
     flex-wrap: wrap;
     gap: 8px;
+    padding: 8px !important;
+  }
+
+  .note-card,
+  .note-project-card {
+    border-radius: 14px;
+  }
+
+  .note-project-card {
+    padding: 10px !important;
+  }
+
+  .note-project-title {
+    font-size: 13px;
+    word-break: break-word;
+  }
+
+  .note-project-category {
+    font-size: 9px;
+  }
+
+  .project-note-item {
+    padding: 8px 0;
+  }
+
+  .project-note-title {
+    font-size: 13px !important;
+    padding: 4px 0 !important;
+  }
+
+  .project-note-content {
+    font-size: 12px !important;
+    padding: 4px 0 4px 24px !important;
+    min-height: 32px;
+  }
+
+  .project-note-check {
+    width: 20px;
+    height: 20px;
+    min-width: 20px;
+    margin-top: 6px;
+  }
+
+  .project-note-check:checked::after {
+    font-size: 13px;
+    top: 0;
+    left: 3px;
+  }
+
+  .note-title {
+    font-size: 15px !important;
+    padding: 10px 12px 4px !important;
+  }
+
+  .note-content {
+    font-size: 13px !important;
+    padding: 4px 12px 10px !important;
+    min-height: 60px;
+  }
+
+  .note-actions {
+    opacity: 1 !important;
+    padding: 6px 8px 0;
+  }
+
+  .note-colors {
+    opacity: 1 !important;
+    padding: 4px 12px 10px;
+  }
+
+  .notes-section-header {
+    font-size: 11px !important;
+    padding: 8px !important;
+  }
+
+  /* + dropdown on mobile */
+  .view-tab-more-menu {
+    position: fixed;
+    top: auto;
+    bottom: 60px;
+    left: 16px;
+    right: 16px;
   }
 }
 

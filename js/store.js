@@ -347,6 +347,18 @@ export const Store = {
     this.save();
   },
 
+  moveProjectToCategory(projectId, fromCatId, toCatId, targetIndex) {
+    const fromCat = this._findCategory(fromCatId);
+    const toCat = this._findCategory(toCatId);
+    if (!fromCat || !toCat) return;
+    const idx = fromCat.projects.findIndex(p => p.id === projectId);
+    if (idx < 0) return;
+    const [proj] = fromCat.projects.splice(idx, 1);
+    const insertAt = Math.min(targetIndex, toCat.projects.length);
+    toCat.projects.splice(insertAt, 0, proj);
+    this.save();
+  },
+
   getRenderedLayout() {
     const layout = [];
     const pinnedIds = this.data.pinnedProjects || [];

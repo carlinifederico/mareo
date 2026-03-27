@@ -2,6 +2,7 @@ import { Store } from './store.js';
 import { getWeekWidth } from './timeline.js';
 
 let dragState = null;
+const DRAG_THRESHOLD = 8; // px before drag starts
 
 export function initDragDrop() {
   document.addEventListener('pointerdown', onPointerDown);
@@ -15,13 +16,11 @@ function onPointerDown(e) {
 
   const isResizeRight = e.target.classList.contains('resize-handle-right');
   const isResizeLeft = e.target.classList.contains('resize-handle-left');
-  const isResize = isResizeRight || isResizeLeft;
   const taskId = bar.dataset.taskId;
   const task = Store._findTask(taskId);
   if (!task) return;
 
-  e.preventDefault();
-  bar.setPointerCapture(e.pointerId);
+  const isTouch = e.pointerType === 'touch';
 
   let mode = 'move';
   if (isResizeRight) mode = 'resize-right';
@@ -34,17 +33,33 @@ function onPointerDown(e) {
     initialStartWeek: task.startWeek,
     initialDuration: task.durationWeeks,
     pointerStartX: e.clientX,
-    weekWidth: getWeekWidth()
+    weekWidth: getWeekWidth(),
+    started: false,   // drag hasn't visually started yet
+    isTouch,
+    pointerId: e.pointerId
   };
 
-  bar.classList.add('dragging');
+  // Don't preventDefault or capture yet — allow scrolling until threshold met
 }
 
 function onPointerMove(e) {
   if (!dragState) return;
 
-  const deltaX = e.clientX - dragState.pointerStartX;
-  const deltaWeeks = Math.round(deltaX / dragState.weekWidth);
+  const deltaX = Math.abs(e.clientX - dragState.pointerStartX);
+
+  // Haven't exceeded threshold yet — let the browser scroll
+  if (!dragState.started) {
+    const threshold = dragState.isTouch ? DRAG_THRESHOLD * 2 : DRAG_THRESHOLD;
+    if (deltaX < threshold) return;
+
+    // Threshold exceeded — start drag
+    dragState.started = true;
+    dragState.bar.setPointerCapture(dragState.pointerId);
+    dragState.bar.classList.add('dragging');
+  }
+
+  const dx = e.clientX - dragState.pointerStartX;
+  const deltaWeeks = Math.round(dx / dragState.weekWidth);
 
   if (dragState.mode === 'move') {
     const newStart = Math.max(0, Math.min(52, dragState.initialStartWeek + deltaWeeks));
@@ -62,6 +77,12 @@ function onPointerMove(e) {
 
 function onPointerUp(e) {
   if (!dragState) return;
+
+  // If drag never started (threshold not met), just clean up
+  if (!dragState.started) {
+    dragState = null;
+    return;
+  }
 
   const deltaX = e.clientX - dragState.pointerStartX;
   const deltaWeeks = Math.round(deltaX / dragState.weekWidth);

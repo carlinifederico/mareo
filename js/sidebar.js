@@ -166,12 +166,14 @@ function renderProjectRow(proj, cat, pinned) {
 function initSidebarDragDrop(container) {
   let draggedId = null;
   let draggedPinned = false;
+  let draggedCatId = null;
 
   container.addEventListener('dragstart', (e) => {
     const row = e.target.closest('.sidebar-project');
     if (!row) return;
     draggedId = row.dataset.projectId;
     draggedPinned = row.dataset.pinned === '1';
+    draggedCatId = row.dataset.categoryId;
     row.classList.add('dragging');
     e.dataTransfer.effectAllowed = 'move';
   });
@@ -181,22 +183,16 @@ function initSidebarDragDrop(container) {
     if (row) row.classList.remove('dragging');
     container.querySelectorAll('.sidebar-project').forEach(r => r.classList.remove('drag-over'));
     draggedId = null;
+    draggedCatId = null;
   });
 
   container.addEventListener('dragover', (e) => {
     const row = e.target.closest('.sidebar-project');
     if (!row || row.dataset.projectId === draggedId) return;
 
-    // Only allow drop in same zone (pinned↔pinned or same category)
     const targetPinned = row.dataset.pinned === '1';
-    if (draggedPinned !== targetPinned) {
-      if (!draggedPinned && !targetPinned && row.dataset.categoryId !== document.querySelector(`.sidebar-project[data-project-id="${draggedId}"]`)?.dataset.categoryId) return;
-      if (draggedPinned !== targetPinned) return;
-    }
-    if (!draggedPinned && !targetPinned) {
-      const draggedRow = container.querySelector(`.sidebar-project[data-project-id="${draggedId}"]`);
-      if (draggedRow && draggedRow.dataset.categoryId !== row.dataset.categoryId) return;
-    }
+    // Pinned can only reorder among pinned
+    if (draggedPinned !== targetPinned) return;
 
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
@@ -210,6 +206,7 @@ function initSidebarDragDrop(container) {
     if (!row || row.dataset.projectId === draggedId) return;
 
     const targetId = row.dataset.projectId;
+    const targetCatId = row.dataset.categoryId;
 
     if (draggedPinned) {
       // Reorder within pinned
@@ -220,16 +217,14 @@ function initSidebarDragDrop(container) {
       pinned.splice(fromIdx, 1);
       pinned.splice(toIdx, 0, draggedId);
       Store.reorderPinnedProjects(pinned);
+    } else if (draggedCatId === targetCatId) {
+      // Reorder within same category
+      const targetActualIdx = Store._findCategory(targetCatId).projects.findIndex(p => p.id === targetId);
+      Store.reorderProject(targetCatId, draggedId, targetActualIdx);
     } else {
-      // Reorder within category
-      const catId = row.dataset.categoryId;
-      const cat = Store._findCategory(catId);
-      if (!cat) return;
-      const unpinnedProjects = cat.projects.filter(p => !Store.isProjectPinned(p.id));
-      const targetUnpinnedIdx = unpinnedProjects.findIndex(p => p.id === targetId);
-      // Find actual target index in cat.projects
-      const targetActualIdx = cat.projects.findIndex(p => p.id === targetId);
-      Store.reorderProject(catId, draggedId, targetActualIdx);
+      // Move to different category
+      const targetActualIdx = Store._findCategory(targetCatId).projects.findIndex(p => p.id === targetId);
+      Store.moveProjectToCategory(draggedId, draggedCatId, targetCatId, targetActualIdx);
     }
 
     document.dispatchEvent(new Event('mareo:render'));

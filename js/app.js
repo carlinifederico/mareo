@@ -77,12 +77,30 @@ function initApp() {
   });
 
   // View tabs
-  document.querySelectorAll('.view-tab').forEach(tab => {
+  document.querySelectorAll('.view-tab[data-view]').forEach(tab => {
     tab.addEventListener('click', () => {
       viewTabsNav.classList.remove('open');
       switchView(tab.dataset.view);
     });
   });
+
+  // "+" more views dropdown
+  const moreBtn = document.querySelector('.view-tab-plus');
+  const moreMenu = document.getElementById('view-tab-more-menu');
+  if (moreBtn && moreMenu) {
+    moreBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      moreMenu.classList.toggle('open');
+    });
+    document.querySelectorAll('.view-tab-more-item').forEach(item => {
+      item.addEventListener('click', () => {
+        moreMenu.classList.remove('open');
+        viewTabsNav.classList.remove('open');
+        switchView(item.dataset.view);
+      });
+    });
+    document.addEventListener('click', () => moreMenu.classList.remove('open'));
+  }
 
   document.addEventListener('mareo:switchView', (e) => {
     switchView(e.detail);
