@@ -328,10 +328,35 @@ function syncRowHeights() {
   }
 }
 
+let _activeDropdownProjId = null;
+
 function showProjectLinksDropdown(e, proj) {
-  document.querySelectorAll('.project-links-dropdown').forEach(d => d.remove());
+  const existing = document.querySelector('.project-links-dropdown');
+
+  // Toggle: if clicking the same project, close and return
+  if (existing && _activeDropdownProjId === proj.id) {
+    existing.remove();
+    _activeDropdownProjId = null;
+    return;
+  }
+
+  // Close any existing dropdown
+  if (existing) existing.remove();
+  _activeDropdownProjId = proj.id;
+
   const dropdown = document.createElement('div');
   dropdown.className = 'project-links-dropdown';
+
+  // Close button
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'btn-icon dropdown-close-btn';
+  closeBtn.textContent = '✕';
+  closeBtn.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    dropdown.remove();
+    _activeDropdownProjId = null;
+  });
+  dropdown.appendChild(closeBtn);
 
   if (proj.links && proj.links.length > 0) {
     for (const link of proj.links) {
@@ -351,7 +376,7 @@ function showProjectLinksDropdown(e, proj) {
   editBtn.className = 'dropdown-edit-btn';
   editBtn.textContent = '⚙ Manage Links';
   editBtn.addEventListener('click', (ev) => {
-    ev.stopPropagation(); dropdown.remove(); showLinksModal(proj);
+    ev.stopPropagation(); dropdown.remove(); _activeDropdownProjId = null; showLinksModal(proj);
   });
   dropdown.appendChild(editBtn);
 
@@ -362,10 +387,17 @@ function showProjectLinksDropdown(e, proj) {
   dropdown.style.zIndex = '10000';
 
   document.body.appendChild(dropdown);
+
+  // Close on click outside
   setTimeout(() => {
-    document.addEventListener('click', (ev) => {
-      if (!dropdown.contains(ev.target)) dropdown.remove();
-    }, { once: true });
+    const closeHandler = (ev) => {
+      if (!dropdown.contains(ev.target) && !ev.target.closest('.project-name')) {
+        dropdown.remove();
+        _activeDropdownProjId = null;
+        document.removeEventListener('mousedown', closeHandler);
+      }
+    };
+    document.addEventListener('mousedown', closeHandler);
   });
 }
 

@@ -1102,6 +1102,25 @@ html, body {
   color: var(--text);
 }
 
+.dropdown-close-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  font-size: 10px !important;
+  color: var(--text-muted);
+  opacity: 0.6;
+  z-index: 1;
+}
+
+.dropdown-close-btn:hover {
+  opacity: 1;
+  color: var(--danger);
+}
+
+.project-links-dropdown {
+  position: relative;
+}
+
 /* === Modal === */
 .modal-overlay {
   position: fixed;
