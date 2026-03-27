@@ -188,6 +188,38 @@ function initApp() {
   document.getElementById('btn-export').addEventListener('click', exportData);
   document.getElementById('btn-import').addEventListener('click', importData);
 
+  // Sidebar resize handle
+  const resizeHandle = document.getElementById('sidebar-resize-handle');
+  const sidebar = document.querySelector('.sidebar');
+  if (resizeHandle && sidebar) {
+    let resizing = false;
+    let startX = 0;
+    let startW = 0;
+
+    resizeHandle.addEventListener('pointerdown', (e) => {
+      resizing = true;
+      startX = e.clientX;
+      startW = sidebar.getBoundingClientRect().width;
+      resizeHandle.classList.add('active');
+      resizeHandle.setPointerCapture(e.pointerId);
+      document.body.style.cursor = 'col-resize';
+      e.preventDefault();
+    });
+
+    resizeHandle.addEventListener('pointermove', (e) => {
+      if (!resizing) return;
+      const newW = Math.max(80, Math.min(window.innerWidth * 0.5, startW + e.clientX - startX));
+      sidebar.style.width = newW + 'px';
+      document.documentElement.style.setProperty('--sidebar-width', newW + 'px');
+    });
+
+    resizeHandle.addEventListener('pointerup', () => {
+      resizing = false;
+      resizeHandle.classList.remove('active');
+      document.body.style.cursor = '';
+    });
+  }
+
   // Project name click
   setSidebarProjectClickHandler((e, proj) => showProjectLinksDropdown(e, proj));
 

@@ -377,7 +377,8 @@ html, body {
 /* === Sidebar === */
 .sidebar {
   width: var(--sidebar-width);
-  min-width: var(--sidebar-width);
+  min-width: 80px;
+  max-width: 50vw;
   background: rgba(10, 8, 18, 0.92);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
@@ -385,6 +386,21 @@ html, body {
   display: flex;
   flex-direction: column;
   z-index: 50;
+}
+
+/* Sidebar resize handle */
+.sidebar-resize-handle {
+  width: 5px;
+  cursor: col-resize;
+  background: transparent;
+  flex-shrink: 0;
+  z-index: 51;
+  transition: background 0.2s ease;
+}
+
+.sidebar-resize-handle:hover,
+.sidebar-resize-handle.active {
+  background: var(--accent);
 }
 
 .sidebar-header {
@@ -568,9 +584,10 @@ html, body {
   font-size: 11px;
   text-transform: uppercase;
   cursor: pointer;
-  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  word-break: break-word;
+  line-height: 1.3;
   text-align: center;
 }
 
@@ -2264,6 +2281,16 @@ html, body {
 
   .mobile-menu-btn {
     display: block;
+  }
+
+  .sidebar-resize-handle {
+    display: none;
+  }
+
+  .project-name {
+    font-size: 10px;
+    white-space: normal;
+    text-align: left;
   }
 
   .toolbar {
