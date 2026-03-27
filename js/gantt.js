@@ -1,19 +1,21 @@
 import { Store } from './store.js';
-import { getWeekWidth, getDayWidth, isDayMode, getTotalDays, getTotalWidth, taskToPixels, getTodayDayIndex, getTodayWeekIndex } from './timeline.js';
+import { getWeekWidth, getDayWidth, isDayMode, getTotalWeeks, getTotalWidth, taskToPixels, getTodayPixelX, getTodayWeekIndex } from './timeline.js';
 import { showAddTaskModal } from './sidebar.js';
 import { showModal } from './modal.js';
 
 export function renderGantt(container) {
   container.innerHTML = '';
   const year = Store.data.currentYear;
+  const ww = getWeekWidth();
   const dw = getDayWidth();
-  const totalDays = getTotalDays(year);
-  const totalWidth = getTotalWidth(year);
+  const totalWeeks = getTotalWeeks();
+  const totalWidth = getTotalWidth();
   const dayMode = isDayMode();
-  const todayDoy = getTodayDayIndex(year);
+  const todayWeek = getTodayWeekIndex(year);
+  const todayPx = getTodayPixelX(year);
 
   // Update CSS variable for dynamic zoom
-  document.documentElement.style.setProperty('--week-width', getWeekWidth() + 'px');
+  document.documentElement.style.setProperty('--week-width', ww + 'px');
 
   if (Store.data.categories.length === 0) {
     const empty = document.createElement('div');
@@ -43,10 +45,12 @@ export function renderGantt(container) {
       projRow.style.width = totalWidth + 'px';
       projRow.style.height = rowHeight + 'px';
 
-      // Grid lines — always day-based
+      // Grid lines
       if (dayMode) {
+        // Day-level: one line per day within the 53-week span
         const jan1 = new Date(year, 0, 1);
-        for (let d = 0; d < totalDays; d++) {
+        const numDays = ((year % 4 === 0 && year % 100 !== 0) || year % 400 === 0) ? 366 : 365;
+        for (let d = 0; d < numDays; d++) {
           const date = new Date(jan1);
           date.setDate(jan1.getDate() + d);
           const dow = date.getDay();
@@ -55,37 +59,22 @@ export function renderGantt(container) {
           line.className = 'gantt-grid-line day-line';
           if (dow === 0 || dow === 6) line.classList.add('weekend-col');
           if (dow === 1) line.classList.add('week-start');
-          if (d === todayDoy) line.classList.add('current-day-col');
+          if (todayPx >= 0 && d * dw <= todayPx && todayPx < (d + 1) * dw) {
+            line.classList.add('current-day-col');
+          }
           line.style.left = (d * dw) + 'px';
           line.style.width = dw + 'px';
           projRow.appendChild(line);
         }
       } else {
-        // Week mode: draw month-based grid (4 columns per month)
-        for (let m = 0; m < 12; m++) {
-          const firstDay = new Date(year, m, 1);
-          const lastDay = new Date(year, m + 1, 0);
-          const startDoy = Math.floor((firstDay - new Date(year, 0, 1)) / 86400000);
-          const dayCount = lastDay.getDate();
-          const weeksInMonth = 4;
-          const baseDays = Math.floor(dayCount / weeksInMonth);
-          let rem = dayCount - baseDays * weeksInMonth;
-          let dayOff = startDoy;
-
-          for (let w = 0; w < weeksInMonth; w++) {
-            const wDays = baseDays + (rem > 0 ? 1 : 0);
-            if (rem > 0) rem--;
-
-            const line = document.createElement('div');
-            line.className = 'gantt-grid-line';
-            if (todayDoy >= dayOff && todayDoy < dayOff + wDays) {
-              line.classList.add('current-week-col');
-            }
-            line.style.left = (dayOff * dw) + 'px';
-            line.style.width = (wDays * dw) + 'px';
-            projRow.appendChild(line);
-            dayOff += wDays;
-          }
+        // Week-level: one line per week (same coordinate system as tasks)
+        for (let w = 0; w < totalWeeks; w++) {
+          const line = document.createElement('div');
+          line.className = 'gantt-grid-line';
+          if (w === todayWeek) line.classList.add('current-week-col');
+          line.style.left = (w * ww) + 'px';
+          line.style.width = ww + 'px';
+          projRow.appendChild(line);
         }
       }
 
@@ -140,7 +129,7 @@ export function renderGantt(container) {
         if (e.target === projRow || e.target.classList.contains('gantt-grid-line')) {
           const rect = projRow.getBoundingClientRect();
           const x = e.clientX - rect.left + projRow.parentElement.scrollLeft;
-          const week = Math.floor(x / dw / 7);
+          const week = Math.floor(x / ww);
           showAddTaskModal(proj.id, week);
         }
       });
@@ -156,10 +145,10 @@ export function renderGantt(container) {
   }
 
   // Today marker
-  if (todayDoy >= 0) {
+  if (todayPx >= 0) {
     const marker = document.createElement('div');
     marker.className = 'today-marker';
-    marker.style.left = ((todayDoy + 0.5) * dw) + 'px';
+    marker.style.left = todayPx + 'px';
     container.appendChild(marker);
   }
 }

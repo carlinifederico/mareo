@@ -1,6 +1,6 @@
 import { Store } from './store.js';
 import { Auth } from './auth.js';
-import { renderTimelineHeader, getWeekWidth, getDayWidth, setWeekWidth, resetWeekWidth, getDefaultWeekWidth, getTodayWeekIndex, getTodayDayIndex, isDayMode, getTotalWidth } from './timeline.js';
+import { renderTimelineHeader, getWeekWidth, getDayWidth, setWeekWidth, resetWeekWidth, getDefaultWeekWidth, getTodayWeekIndex, getTodayPixelX, isDayMode, getTotalWidth } from './timeline.js';
 import { renderSidebar, setSidebarProjectClickHandler } from './sidebar.js';
 import { renderGantt } from './gantt.js';
 import { initDragDrop } from './dragdrop.js';
@@ -129,7 +129,7 @@ function initApp() {
     e.preventDefault();
     const oldWeekWidth = getWeekWidth();
     const year = Store.data.currentYear;
-    const oldTotalWidth = getTotalWidth(year);
+    const oldTotalWidth = getTotalWidth();
 
     const rect = timelineArea.getBoundingClientRect();
     const mouseX = e.clientX - rect.left + timelineArea.scrollLeft;
@@ -140,7 +140,7 @@ function initApp() {
 
     if (getWeekWidth() !== oldWeekWidth) {
       render();
-      const newTotalWidth = getTotalWidth(year);
+      const newTotalWidth = getTotalWidth();
       const newScrollLeft = fraction * newTotalWidth - (e.clientX - rect.left);
       timelineArea.scrollLeft = Math.max(0, newScrollLeft);
     }
@@ -271,11 +271,9 @@ function scrollToToday() {
   const now = new Date();
   if (Store.data.currentYear !== now.getFullYear()) return;
   const timelineArea = document.getElementById('timeline-area');
-  const dw = getDayWidth();
-  const todayDoy = getTodayDayIndex(now.getFullYear());
-  if (todayDoy < 0) return;
-  const targetX = (todayDoy + 0.5) * dw - timelineArea.clientWidth / 2;
-  timelineArea.scrollTo({ left: Math.max(0, targetX), behavior: 'smooth' });
+  const todayPx = getTodayPixelX(now.getFullYear());
+  if (todayPx < 0) return;
+  timelineArea.scrollTo({ left: Math.max(0, todayPx - timelineArea.clientWidth / 2), behavior: 'smooth' });
 }
 
 function switchView(view) {

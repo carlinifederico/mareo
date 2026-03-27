@@ -1,5 +1,5 @@
 import { Store } from './store.js';
-import { getDayWidth, isDayMode, taskToPixels } from './timeline.js';
+import { getWeekWidth, getDayWidth, isDayMode, taskToPixels } from './timeline.js';
 
 let dragState = null;
 const DRAG_THRESHOLD = 8;
@@ -21,16 +21,14 @@ function onPointerDown(e) {
   if (!task) return;
 
   const isTouch = e.pointerType === 'touch';
-  const dayMode = isDayMode();
   const pos = taskToPixels(task.startWeek, task.durationWeeks);
-  const dw = getDayWidth();
 
   let mode = 'move';
   if (isResizeRight) mode = 'resize-right';
   else if (isResizeLeft) mode = 'resize-left';
 
-  // Snap unit: 1 day in day mode, 7 days (1 week) in week mode
-  const snapDays = dayMode ? 1 : 7;
+  // In day mode snap to days, in week mode snap to weeks
+  const snapPx = isDayMode() ? getDayWidth() : getWeekWidth();
 
   dragState = {
     taskId, bar, mode,
@@ -39,8 +37,8 @@ function onPointerDown(e) {
     initialLeft: pos.left,
     initialWidth: pos.width,
     pointerStartX: e.clientX,
-    dayWidth: dw,
-    snapDays,
+    snapPx,
+    weekWidth: getWeekWidth(),
     started: false,
     isTouch,
     pointerId: e.pointerId
@@ -60,16 +58,15 @@ function onPointerMove(e) {
   }
 
   const dx = e.clientX - dragState.pointerStartX;
-  const snapPx = dragState.snapDays * dragState.dayWidth;
-  const snaps = Math.round(dx / snapPx);
-  const pxDelta = snaps * snapPx;
+  const snaps = Math.round(dx / dragState.snapPx);
+  const pxDelta = snaps * dragState.snapPx;
 
   if (dragState.mode === 'move') {
     dragState.bar.style.left = Math.max(0, dragState.initialLeft + pxDelta) + 'px';
   } else if (dragState.mode === 'resize-right') {
-    dragState.bar.style.width = Math.max(snapPx, dragState.initialWidth + pxDelta) + 'px';
+    dragState.bar.style.width = Math.max(dragState.snapPx, dragState.initialWidth + pxDelta) + 'px';
   } else if (dragState.mode === 'resize-left') {
-    const maxPx = dragState.initialWidth - snapPx;
+    const maxPx = dragState.initialWidth - dragState.snapPx;
     const minPx = -dragState.initialLeft;
     const clamped = Math.max(minPx, Math.min(maxPx, pxDelta));
     dragState.bar.style.left = (dragState.initialLeft + clamped) + 'px';
@@ -82,9 +79,8 @@ function onPointerUp(e) {
   if (!dragState.started) { dragState = null; return; }
 
   const dx = e.clientX - dragState.pointerStartX;
-  const snapPx = dragState.snapDays * dragState.dayWidth;
-  const snaps = Math.round(dx / snapPx);
-  const deltaWeeks = Math.round(snaps * dragState.snapDays / 7);
+  // Always convert back to whole weeks for storage
+  const deltaWeeks = Math.round(dx / dragState.weekWidth);
 
   if (dragState.mode === 'move') {
     const newStart = Math.max(0, Math.min(52, dragState.initialStartWeek + deltaWeeks));
