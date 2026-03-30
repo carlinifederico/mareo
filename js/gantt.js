@@ -1,5 +1,5 @@
 import { Store } from './store.js';
-import { getWeekWidth, getDayWidth, isDayMode, getTotalWeeks, getTotalWidth, taskToPixels, getTodayPixelX, getTodayWeekIndex } from './timeline.js';
+import { getWeekWidth, getDayWidth, isDayMode, getTotalWeeks, getTotalWidth, taskToPixels, taskToDisplayPixels, getTodayPixelX, getTodayWeekIndex } from './timeline.js';
 import { showAddTaskModal } from './sidebar.js';
 import { showModal } from './modal.js';
 
@@ -80,7 +80,7 @@ export function renderGantt(container) {
 
       // Task bars
       for (const task of tasks) {
-        const pos = taskToPixels(task.startWeek, task.durationWeeks, year);
+        const pos = taskToDisplayPixels(task.startDay, task.durationDays);
         const bar = document.createElement('div');
         bar.className = 'task-bar';
         bar.dataset.taskId = task.id;
@@ -129,8 +129,8 @@ export function renderGantt(container) {
         if (e.target === projRow || e.target.classList.contains('gantt-grid-line')) {
           const rect = projRow.getBoundingClientRect();
           const x = e.clientX - rect.left + projRow.parentElement.scrollLeft;
-          const week = Math.floor(x / ww);
-          showAddTaskModal(proj.id, week);
+          const day = Math.floor(x / dw);
+          showAddTaskModal(proj.id, day);
         }
       });
 
@@ -295,14 +295,26 @@ function closeAllPopovers() {
 }
 
 function layoutTasks(tasks) {
-  const sorted = [...tasks].sort((a, b) => a.startWeek - b.startWeek);
+  const dayMode = isDayMode();
+  const sorted = [...tasks].sort((a, b) => (a.startDay || 0) - (b.startDay || 0));
   const lanes = [];
 
   for (const task of sorted) {
+    const start = task.startDay || 0;
+    const dur = task.durationDays || 7;
+    // Use display boundaries for lane collision detection
+    let laneStart, laneEnd;
+    if (dayMode) {
+      laneStart = start;
+      laneEnd = start + dur;
+    } else {
+      laneStart = Math.floor(start / 7) * 7;
+      laneEnd = (Math.floor((start + dur - 1) / 7) + 1) * 7;
+    }
     let placed = false;
     for (let i = 0; i < lanes.length; i++) {
-      if (task.startWeek >= lanes[i]) {
-        lanes[i] = task.startWeek + task.durationWeeks;
+      if (laneStart >= lanes[i]) {
+        lanes[i] = laneEnd;
         task._lane = i;
         placed = true;
         break;
@@ -310,7 +322,7 @@ function layoutTasks(tasks) {
     }
     if (!placed) {
       task._lane = lanes.length;
-      lanes.push(task.startWeek + task.durationWeeks);
+      lanes.push(laneEnd);
     }
   }
 
@@ -322,15 +334,15 @@ function showEditTaskModal(task) {
     title: 'Edit Task',
     fields: [
       { name: 'label', label: 'Label', type: 'text', value: task.label },
-      { name: 'startWeek', label: 'Start Week (1-53)', type: 'number', value: task.startWeek + 1, min: 1, max: 53 },
-      { name: 'durationWeeks', label: 'Duration (weeks)', type: 'number', value: task.durationWeeks, min: 1, max: 52 },
+      { name: 'startDay', label: 'Start Day (1-366)', type: 'number', value: (task.startDay || 0) + 1, min: 1, max: 366 },
+      { name: 'durationDays', label: 'Duration (days)', type: 'number', value: task.durationDays || 7, min: 1, max: 366 },
       { name: 'color', label: 'Color', type: 'color', value: task.color }
     ],
     onSave: (values) => {
       Store.updateTask(task.id, {
         label: values.label.trim() || task.label,
-        startWeek: parseInt(values.startWeek) - 1,
-        durationWeeks: parseInt(values.durationWeeks),
+        startDay: parseInt(values.startDay) - 1,
+        durationDays: parseInt(values.durationDays),
         color: values.color
       });
       document.dispatchEvent(new Event('mareo:render'));

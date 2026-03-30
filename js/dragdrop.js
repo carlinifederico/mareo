@@ -1,5 +1,5 @@
 import { Store } from './store.js';
-import { getWeekWidth, getDayWidth, isDayMode, taskToPixels } from './timeline.js';
+import { getDayWidth, isDayMode, taskToPixels, taskToDisplayPixels, getWeekWidth } from './timeline.js';
 
 let dragState = null;
 const DRAG_THRESHOLD = 8;
@@ -21,24 +21,28 @@ function onPointerDown(e) {
   if (!task) return;
 
   const isTouch = e.pointerType === 'touch';
-  const pos = taskToPixels(task.startWeek, task.durationWeeks);
+  const dayMode = isDayMode();
+  const dw = getDayWidth();
+  const ww = getWeekWidth();
+  const pos = taskToDisplayPixels(task.startDay, task.durationDays);
+  // In week mode, snap unit is a week (7 days); in day mode, snap unit is 1 day
+  const snapDays = dayMode ? 1 : 7;
 
   let mode = 'move';
   if (isResizeRight) mode = 'resize-right';
   else if (isResizeLeft) mode = 'resize-left';
 
-  // In day mode snap to days, in week mode snap to weeks
-  const snapPx = isDayMode() ? getDayWidth() : getWeekWidth();
-
   dragState = {
     taskId, bar, mode,
-    initialStartWeek: task.startWeek,
-    initialDuration: task.durationWeeks,
+    initialStartDay: task.startDay || 0,
+    initialDuration: task.durationDays || 7,
     initialLeft: pos.left,
     initialWidth: pos.width,
     pointerStartX: e.clientX,
-    snapPx,
-    weekWidth: getWeekWidth(),
+    dayWidth: dw,
+    snapDays,
+    snapWidth: dayMode ? dw : ww,
+    dayMode,
     started: false,
     isTouch,
     pointerId: e.pointerId
@@ -58,15 +62,16 @@ function onPointerMove(e) {
   }
 
   const dx = e.clientX - dragState.pointerStartX;
-  const snaps = Math.round(dx / dragState.snapPx);
-  const pxDelta = snaps * dragState.snapPx;
+  const sw = dragState.snapWidth;
+  const deltaSnaps = Math.round(dx / sw);
+  const pxDelta = deltaSnaps * sw;
 
   if (dragState.mode === 'move') {
     dragState.bar.style.left = Math.max(0, dragState.initialLeft + pxDelta) + 'px';
   } else if (dragState.mode === 'resize-right') {
-    dragState.bar.style.width = Math.max(dragState.snapPx, dragState.initialWidth + pxDelta) + 'px';
+    dragState.bar.style.width = Math.max(sw, dragState.initialWidth + pxDelta) + 'px';
   } else if (dragState.mode === 'resize-left') {
-    const maxPx = dragState.initialWidth - dragState.snapPx;
+    const maxPx = dragState.initialWidth - sw;
     const minPx = -dragState.initialLeft;
     const clamped = Math.max(minPx, Math.min(maxPx, pxDelta));
     dragState.bar.style.left = (dragState.initialLeft + clamped) + 'px';
@@ -79,21 +84,31 @@ function onPointerUp(e) {
   if (!dragState.started) { dragState = null; return; }
 
   const dx = e.clientX - dragState.pointerStartX;
-  // Always convert back to whole weeks for storage
-  const deltaWeeks = Math.round(dx / dragState.weekWidth);
+  const snap = dragState.snapDays;
+  const deltaSnaps = Math.round(dx / dragState.snapWidth);
+  const deltaDays = deltaSnaps * snap;
 
   if (dragState.mode === 'move') {
-    const newStart = Math.max(0, Math.min(52, dragState.initialStartWeek + deltaWeeks));
-    Store.updateTask(dragState.taskId, { startWeek: newStart });
+    let newStart;
+    if (dragState.dayMode) {
+      newStart = Math.max(0, dragState.initialStartDay + deltaDays);
+    } else {
+      // In week mode, move by whole weeks but keep within-week offset
+      const initialWeek = Math.floor(dragState.initialStartDay / 7);
+      const offset = dragState.initialStartDay - initialWeek * 7;
+      const newWeek = Math.max(0, initialWeek + deltaSnaps);
+      newStart = newWeek * 7 + offset;
+    }
+    Store.updateTask(dragState.taskId, { startDay: newStart });
   } else if (dragState.mode === 'resize-right') {
-    const newDuration = Math.max(1, dragState.initialDuration + deltaWeeks);
-    Store.updateTask(dragState.taskId, { durationWeeks: newDuration });
+    const newDuration = Math.max(snap, dragState.initialDuration + deltaDays);
+    Store.updateTask(dragState.taskId, { durationDays: newDuration });
   } else if (dragState.mode === 'resize-left') {
-    const maxDelta = dragState.initialDuration - 1;
-    const clamped = Math.max(-dragState.initialStartWeek, Math.min(maxDelta, deltaWeeks));
+    const maxDelta = dragState.initialDuration - snap;
+    const clamped = Math.max(-dragState.initialStartDay, Math.min(maxDelta, deltaDays));
     Store.updateTask(dragState.taskId, {
-      startWeek: dragState.initialStartWeek + clamped,
-      durationWeeks: dragState.initialDuration - clamped
+      startDay: dragState.initialStartDay + clamped,
+      durationDays: dragState.initialDuration - clamped
     });
   }
 

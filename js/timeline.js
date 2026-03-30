@@ -29,12 +29,27 @@ const TOTAL_WEEKS = 53;
 export function getTotalWeeks() { return TOTAL_WEEKS; }
 export function getTotalWidth() { return TOTAL_WEEKS * _weekWidth; }
 
-// Task position: startWeek maps to day = startWeek * 7
-export function taskToPixels(startWeek, durationWeeks) {
+// Task position: day-based
+export function taskToPixels(startDay, durationDays) {
   const dw = getDayWidth();
   return {
-    left: startWeek * 7 * dw,
-    width: durationWeeks * 7 * dw
+    left: startDay * dw,
+    width: durationDays * dw
+  };
+}
+
+// Display position: snaps to week boundaries when zoomed out
+export function taskToDisplayPixels(startDay, durationDays) {
+  if (isDayMode()) {
+    return taskToPixels(startDay, durationDays);
+  }
+  // Snap to week boundaries
+  const ww = _weekWidth;
+  const startWeek = Math.floor(startDay / 7);
+  const endWeek = Math.floor((startDay + durationDays - 1) / 7);
+  return {
+    left: startWeek * ww,
+    width: (endWeek - startWeek + 1) * ww
   };
 }
 
