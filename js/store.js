@@ -7,6 +7,11 @@ export const Store = {
   _uid: null,
   _storageKey: null,
   _saveTimer: null,
+  _undoStack: [],
+  _redoStack: [],
+  _lastSnapshot: null,
+  _undoTimer: null,
+  _skipUndo: false,
 
   async load(uid) {
     this._uid = uid;
@@ -72,13 +77,68 @@ export const Store = {
     // Save to both
     this.save();
 
+    // Initialize undo snapshot
+    this._undoStack = [];
+    this._redoStack = [];
+    this._lastSnapshot = JSON.stringify(this.data);
+
     return this.data;
   },
 
   save() {
     localStorage.setItem(this._storageKey, JSON.stringify(this.data));
     this._debouncedFirestoreSave();
+    if (!this._skipUndo) {
+      if (this._undoTimer) clearTimeout(this._undoTimer);
+      this._undoTimer = setTimeout(() => this._commitUndo(), 500);
+    }
   },
+
+  _commitUndo() {
+    if (this._undoTimer) { clearTimeout(this._undoTimer); this._undoTimer = null; }
+    const current = JSON.stringify(this.data);
+    if (this._lastSnapshot && this._lastSnapshot !== current) {
+      this._undoStack.push(this._lastSnapshot);
+      if (this._undoStack.length > 30) this._undoStack.shift();
+      this._redoStack = [];
+    }
+    this._lastSnapshot = current;
+  },
+
+  undo() {
+    this._commitUndo();
+    if (this._undoStack.length === 0) return false;
+    const currentYear = this.data.currentYear;
+    const currentView = this.data.currentView;
+    this._redoStack.push(JSON.stringify(this.data));
+    this.data = JSON.parse(this._undoStack.pop());
+    this.data.currentYear = currentYear;
+    this.data.currentView = currentView;
+    this._lastSnapshot = JSON.stringify(this.data);
+    this._skipUndo = true;
+    this.save();
+    this._skipUndo = false;
+    return true;
+  },
+
+  redo() {
+    if (this._redoStack.length === 0) return false;
+    const currentYear = this.data.currentYear;
+    const currentView = this.data.currentView;
+    this._undoStack.push(JSON.stringify(this.data));
+    if (this._undoStack.length > 30) this._undoStack.shift();
+    this.data = JSON.parse(this._redoStack.pop());
+    this.data.currentYear = currentYear;
+    this.data.currentView = currentView;
+    this._lastSnapshot = JSON.stringify(this.data);
+    this._skipUndo = true;
+    this.save();
+    this._skipUndo = false;
+    return true;
+  },
+
+  canUndo() { return this._undoStack.length > 0; },
+  canRedo() { return this._redoStack.length > 0; },
 
   _debouncedFirestoreSave() {
     if (this._saveTimer) clearTimeout(this._saveTimer);
@@ -90,8 +150,8 @@ export const Store = {
     }, 1500);
   },
 
-  setYear(year) { this.data.currentYear = year; this.save(); },
-  setView(view) { this.data.currentView = view; this.save(); },
+  setYear(year) { this.data.currentYear = year; this._skipUndo = true; this.save(); this._skipUndo = false; },
+  setView(view) { this.data.currentView = view; this._skipUndo = true; this.save(); this._skipUndo = false; },
 
   // --- Categories ---
   addCategory(name) {

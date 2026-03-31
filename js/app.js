@@ -258,6 +258,23 @@ function initApp() {
     renderNotes(document.getElementById('notes-grid'), e.target.value);
   });
 
+  // Undo / Redo
+  document.getElementById('btn-undo').addEventListener('click', () => {
+    if (Store.undo()) { render(); updateUndoButtons(); }
+  });
+  document.getElementById('btn-redo').addEventListener('click', () => {
+    if (Store.redo()) { render(); updateUndoButtons(); }
+  });
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+      e.preventDefault();
+      if (Store.undo()) { render(); updateUndoButtons(); }
+    } else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.shiftKey && e.key === 'z') || (e.shiftKey && e.key === 'Z'))) {
+      e.preventDefault();
+      if (Store.redo()) { render(); updateUndoButtons(); }
+    }
+  });
+
   // Listen for render events
   document.addEventListener('mareo:render', () => render());
 
@@ -292,8 +309,14 @@ function switchView(view) {
   render();
 }
 
+function updateUndoButtons() {
+  document.getElementById('btn-undo').disabled = !Store.canUndo();
+  document.getElementById('btn-redo').disabled = !Store.canRedo();
+}
+
 function render() {
   if (!Store.data) return;
+  updateUndoButtons();
 
   const year = Store.data.currentYear;
   document.getElementById('current-year').textContent = year;

@@ -318,6 +318,19 @@ html, body {
   box-shadow: 0 0 12px rgba(167, 139, 250, 0.1);
 }
 
+.btn-undo-redo {
+  font-size: 16px;
+  padding: 4px 8px;
+  min-width: 32px;
+  line-height: 1;
+}
+
+.btn-undo-redo:disabled {
+  opacity: 0.3;
+  cursor: default;
+  pointer-events: none;
+}
+
 .btn-danger {
   background: var(--danger);
   color: #fff;
