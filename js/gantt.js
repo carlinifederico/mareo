@@ -180,7 +180,7 @@ function showTaskPopover(e, task) {
 
   const deleteBtn = document.createElement('button');
   deleteBtn.className = 'btn-icon popover-delete-btn';
-  deleteBtn.textContent = '✕';
+  deleteBtn.textContent = '🗑';
   deleteBtn.title = 'Delete task';
   deleteBtn.addEventListener('click', (ev) => {
     ev.stopPropagation();
@@ -191,8 +191,18 @@ function showTaskPopover(e, task) {
     }
   });
 
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'btn-icon';
+  closeBtn.textContent = '✕';
+  closeBtn.title = 'Close';
+  closeBtn.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    popover.remove();
+  });
+
   actions.appendChild(editBtn);
   actions.appendChild(deleteBtn);
+  actions.appendChild(closeBtn);
   header.appendChild(actions);
   popover.appendChild(header);
 
@@ -321,19 +331,36 @@ function layoutTasks(tasks) {
   return { tasks: sorted, laneCount: lanes.length };
 }
 
+function _doyToDateStr(year, doy) {
+  const d = new Date(year, 0, 1);
+  d.setDate(d.getDate() + doy);
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
+function _dateStrToDoy(year, dateStr) {
+  const parts = dateStr.split('-');
+  const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+  const jan1 = new Date(year, 0, 1);
+  return Math.floor((d - jan1) / 86400000);
+}
+
 function showEditTaskModal(task) {
+  const year = Store.data.currentYear;
+  const dateStr = _doyToDateStr(year, task.startDay || 0);
   showModal({
     title: 'Edit Task',
     fields: [
       { name: 'label', label: 'Label', type: 'text', value: task.label },
-      { name: 'startDay', label: 'Start Day (1-366)', type: 'number', value: (task.startDay || 0) + 1, min: 1, max: 366 },
+      { name: 'startDate', label: 'Start Date', type: 'date', value: dateStr },
       { name: 'durationDays', label: 'Duration (days)', type: 'number', value: task.durationDays || 7, min: 1, max: 366 },
       { name: 'color', label: 'Color', type: 'color', value: task.color }
     ],
     onSave: (values) => {
       Store.updateTask(task.id, {
         label: values.label.trim() || task.label,
-        startDay: parseInt(values.startDay) - 1,
+        startDay: _dateStrToDoy(year, values.startDate),
         durationDays: parseInt(values.durationDays),
         color: values.color
       });

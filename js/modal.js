@@ -86,7 +86,7 @@ export function showModal({ title, fields, onSave, onDelete }) {
   });
 
   // Focus first text input
-  const firstInput = form.querySelector('input[type="text"], input[type="number"]');
+  const firstInput = form.querySelector('input[type="text"], input[type="number"], input[type="date"]');
   if (firstInput) firstInput.focus();
 
   // Escape to close

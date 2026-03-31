@@ -458,26 +458,43 @@ function showEditProjectModal(proj) {
   });
 }
 
-export function showAddTaskModal(projectId, startWeek) {
+export function showAddTaskModal(projectId, startDay) {
   const proj = Store._findProject(projectId);
+  const year = Store.data.currentYear;
+  const dateStr = _doyToDateStr(year, startDay != null ? startDay : 0);
   showModal({
     title: 'Add Task',
     fields: [
       { name: 'label', label: 'Label', type: 'text', value: '' },
-      { name: 'startWeek', label: 'Start Week (1-53)', type: 'number', value: startWeek != null ? startWeek + 1 : 1, min: 1, max: 53 },
-      { name: 'durationWeeks', label: 'Duration (weeks)', type: 'number', value: 2, min: 1, max: 52 },
+      { name: 'startDate', label: 'Start Date', type: 'date', value: dateStr },
+      { name: 'durationDays', label: 'Duration (days)', type: 'number', value: 7, min: 1, max: 366 },
       { name: 'color', label: 'Color', type: 'color', value: proj ? proj.color : '#bdc3c7' }
     ],
     onSave: (values) => {
       Store.addTask(projectId, {
         label: values.label.trim() || 'New Task',
-        startWeek: parseInt(values.startWeek) - 1,
-        durationWeeks: parseInt(values.durationWeeks),
+        startDay: _dateStrToDoy(year, values.startDate),
+        durationDays: parseInt(values.durationDays),
         color: values.color
       });
       document.dispatchEvent(new Event('mareo:render'));
     }
   });
+}
+
+function _doyToDateStr(year, doy) {
+  const d = new Date(year, 0, 1);
+  d.setDate(d.getDate() + doy);
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
+function _dateStrToDoy(year, dateStr) {
+  const parts = dateStr.split('-');
+  const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+  const jan1 = new Date(year, 0, 1);
+  return Math.floor((d - jan1) / 86400000);
 }
 
 function closeAllMenus() {
