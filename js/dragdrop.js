@@ -1,5 +1,5 @@
 import { Store } from './store.js';
-import { getDayWidth, isDayMode, taskToPixels, taskToDisplayPixels, getWeekWidth } from './timeline.js';
+import { getDayWidth, taskToPixels, taskToDisplayPixels } from './timeline.js';
 
 let dragState = null;
 const DRAG_THRESHOLD = 8;
@@ -21,12 +21,8 @@ function onPointerDown(e) {
   if (!task) return;
 
   const isTouch = e.pointerType === 'touch';
-  const dayMode = isDayMode();
   const dw = getDayWidth();
-  const ww = getWeekWidth();
   const pos = taskToDisplayPixels(task.startDay, task.durationDays);
-  // In week mode, snap unit is a week (7 days); in day mode, snap unit is 1 day
-  const snapDays = dayMode ? 1 : 7;
 
   let mode = 'move';
   if (isResizeRight) mode = 'resize-right';
@@ -40,9 +36,8 @@ function onPointerDown(e) {
     initialWidth: pos.width,
     pointerStartX: e.clientX,
     dayWidth: dw,
-    snapDays,
-    snapWidth: dayMode ? dw : ww,
-    dayMode,
+    snapDays: 1,
+    snapWidth: dw,
     started: false,
     isTouch,
     pointerId: e.pointerId
@@ -89,16 +84,7 @@ function onPointerUp(e) {
   const deltaDays = deltaSnaps * snap;
 
   if (dragState.mode === 'move') {
-    let newStart;
-    if (dragState.dayMode) {
-      newStart = Math.max(0, dragState.initialStartDay + deltaDays);
-    } else {
-      // In week mode, move by whole weeks but keep within-week offset
-      const initialWeek = Math.floor(dragState.initialStartDay / 7);
-      const offset = dragState.initialStartDay - initialWeek * 7;
-      const newWeek = Math.max(0, initialWeek + deltaSnaps);
-      newStart = newWeek * 7 + offset;
-    }
+    const newStart = Math.max(0, dragState.initialStartDay + deltaDays);
     Store.updateTask(dragState.taskId, { startDay: newStart });
   } else if (dragState.mode === 'resize-right') {
     const newDuration = Math.max(snap, dragState.initialDuration + deltaDays);

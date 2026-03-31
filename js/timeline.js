@@ -40,17 +40,7 @@ export function taskToPixels(startDay, durationDays) {
 
 // Display position: snaps to week boundaries when zoomed out
 export function taskToDisplayPixels(startDay, durationDays) {
-  if (isDayMode()) {
-    return taskToPixels(startDay, durationDays);
-  }
-  // Snap to week boundaries
-  const ww = _weekWidth;
-  const startWeek = Math.floor(startDay / 7);
-  const endWeek = Math.floor((startDay + durationDays - 1) / 7);
-  return {
-    left: startWeek * ww,
-    width: (endWeek - startWeek + 1) * ww
-  };
+  return taskToPixels(startDay, durationDays);
 }
 
 // Calendar helpers

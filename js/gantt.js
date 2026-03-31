@@ -295,22 +295,14 @@ function closeAllPopovers() {
 }
 
 function layoutTasks(tasks) {
-  const dayMode = isDayMode();
   const sorted = [...tasks].sort((a, b) => (a.startDay || 0) - (b.startDay || 0));
   const lanes = [];
 
   for (const task of sorted) {
     const start = task.startDay || 0;
     const dur = task.durationDays || 7;
-    // Use display boundaries for lane collision detection
-    let laneStart, laneEnd;
-    if (dayMode) {
-      laneStart = start;
-      laneEnd = start + dur;
-    } else {
-      laneStart = Math.floor(start / 7) * 7;
-      laneEnd = (Math.floor((start + dur - 1) / 7) + 1) * 7;
-    }
+    const laneStart = start;
+    const laneEnd = start + dur;
     let placed = false;
     for (let i = 0; i < lanes.length; i++) {
       if (laneStart >= lanes[i]) {
