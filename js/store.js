@@ -285,7 +285,8 @@ export const Store = {
       durationDays: task.durationDays || 7,
       color: task.color || proj.color,
       notes: task.notes || '',
-      links: task.links || []
+      links: task.links || [],
+      deadline: task.deadline || null
     };
     proj.tasks.push(t);
     this.save();

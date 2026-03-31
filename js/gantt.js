@@ -90,11 +90,14 @@ export function renderGantt(container) {
         bar.style.backgroundColor = task.color;
         bar.style.color = getContrastColor(task.color);
         bar.style.setProperty('--bar-color', task.color);
-        bar.title = task.label;
+        // Tooltip with name + dates + deadline
+        const startDateStr = _formatDateReadable(year, task.startDay || 0);
+        const endDateStr = _formatDateReadable(year, (task.startDay || 0) + (task.durationDays || 1) - 1);
+        let tooltip = task.label + '\n' + startDateStr + (task.durationDays > 1 ? ' – ' + endDateStr : '');
+        if (task.deadline) tooltip += '\nDeadline: ' + task.deadline;
+        bar.title = tooltip;
 
-        if (pos.width < 20) {
-          bar.classList.add('task-bar-dot');
-        } else if (pos.width < 40) {
+        if (pos.width < 40) {
           bar.classList.add('task-bar-compact');
         }
 
@@ -212,6 +215,14 @@ function showTaskPopover(e, task) {
   actions.appendChild(closeBtn);
   header.appendChild(actions);
   popover.appendChild(header);
+
+  // Deadline display
+  if (task.deadline) {
+    const deadlineRow = document.createElement('div');
+    deadlineRow.className = 'popover-deadline';
+    deadlineRow.textContent = 'Deadline: ' + task.deadline;
+    popover.appendChild(deadlineRow);
+  }
 
   // Description / Notes
   const notesLabel = document.createElement('div');
@@ -338,6 +349,14 @@ function layoutTasks(tasks) {
   return { tasks: sorted, laneCount: lanes.length };
 }
 
+const _monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function _formatDateReadable(year, doy) {
+  const d = new Date(year, 0, 1);
+  d.setDate(d.getDate() + doy);
+  return _monthNames[d.getMonth()] + ' ' + d.getDate();
+}
+
 function _doyToDateStr(year, doy) {
   const d = new Date(year, 0, 1);
   d.setDate(d.getDate() + doy);
@@ -362,6 +381,7 @@ function showEditTaskModal(task) {
       { name: 'label', label: 'Label', type: 'text', value: task.label },
       { name: 'startDate', label: 'Start Date', type: 'date', value: dateStr },
       { name: 'durationDays', label: 'Duration (days)', type: 'number', value: task.durationDays || 7, min: 1, max: 366 },
+      { name: 'deadline', label: 'Deadline', type: 'date', value: task.deadline || '' },
       { name: 'color', label: 'Color', type: 'color', value: task.color }
     ],
     onSave: (values) => {
@@ -369,6 +389,7 @@ function showEditTaskModal(task) {
         label: values.label.trim() || task.label,
         startDay: _dateStrToDoy(year, values.startDate),
         durationDays: parseInt(values.durationDays),
+        deadline: values.deadline || null,
         color: values.color
       });
       document.dispatchEvent(new Event('mareo:render'));
@@ -388,6 +409,10 @@ function showTaskContextMenu(e, task) {
     <div class="context-menu-item" data-action="edit">Edit Task</div>
     <div class="context-menu-item" data-action="notes">Notes</div>
     <div class="context-menu-item" data-action="links">Links</div>
+    <div class="context-menu-item context-menu-deadline">
+      <label>Deadline</label>
+      <input type="date" class="context-menu-date" value="${task.deadline || ''}">
+    </div>
     <div class="context-menu-item danger" data-action="delete">Delete Task</div>
   `;
   menu.style.position = 'fixed';
@@ -395,8 +420,16 @@ function showTaskContextMenu(e, task) {
   menu.style.top = e.clientY + 'px';
   menu.style.zIndex = '10000';
 
+  const deadlineInput = menu.querySelector('.context-menu-date');
+  deadlineInput.addEventListener('change', () => {
+    Store.updateTask(task.id, { deadline: deadlineInput.value || null });
+    document.dispatchEvent(new Event('mareo:render'));
+  });
+  deadlineInput.addEventListener('click', (ev) => ev.stopPropagation());
+
   menu.addEventListener('click', (ev) => {
     const action = ev.target.dataset.action;
+    if (!action) return;
     if (action === 'edit') {
       showEditTaskModal(task);
     } else if (action === 'notes') {

@@ -856,14 +856,7 @@ html, body {
 
 .task-bar-compact {
   padding: 0 2px;
-  justify-content: center;
-}
-
-.task-bar-dot {
-  padding: 0;
-  border-radius: 50%;
-  min-width: 12px;
-  width: 12px !important;
+  min-width: 24px;
   justify-content: center;
 }
 
@@ -1077,6 +1070,33 @@ html, body {
 }
 .context-menu-item.danger { color: var(--danger); }
 .context-menu-item.danger:hover { border-left-color: var(--danger); }
+
+.context-menu-deadline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: default;
+}
+.context-menu-deadline:hover { padding-left: 16px; border-left-color: transparent; }
+.context-menu-deadline label { font-size: 12px; color: var(--text-muted); }
+.context-menu-date {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.popover-deadline {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 4px 0 2px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
 
 /* === Project Links Dropdown === */
 .project-links-dropdown {
