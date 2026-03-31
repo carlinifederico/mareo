@@ -90,6 +90,13 @@ export function renderGantt(container) {
         bar.style.backgroundColor = task.color;
         bar.style.color = getContrastColor(task.color);
         bar.style.setProperty('--bar-color', task.color);
+        bar.title = task.label;
+
+        if (pos.width < 20) {
+          bar.classList.add('task-bar-dot');
+        } else if (pos.width < 40) {
+          bar.classList.add('task-bar-compact');
+        }
 
         const label = document.createElement('span');
         label.className = 'task-label';

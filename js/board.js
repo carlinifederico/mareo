@@ -139,7 +139,7 @@ function createBoardCard(card) {
 
   const colorRow = document.createElement('div');
   colorRow.className = 'board-card-colors';
-  const colors = ['#1f2b47', '#2d4a3e', '#4a2d2d', '#3d3a4a', '#2d3f4a', '#4a3d2d'];
+  const colors = ['#111119', '#0f2a1f', '#2a1520', '#1a1430', '#0f1a2d', '#2a1a0f'];
   for (const c of colors) {
     const dot = document.createElement('div');
     dot.className = 'color-dot';

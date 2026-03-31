@@ -841,6 +841,19 @@ html, body {
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
 }
 
+.task-bar-compact {
+  padding: 0 2px;
+  justify-content: center;
+}
+
+.task-bar-dot {
+  padding: 0;
+  border-radius: 50%;
+  min-width: 12px;
+  width: 12px !important;
+  justify-content: center;
+}
+
 .task-bar::after {
   content: '';
   position: absolute;

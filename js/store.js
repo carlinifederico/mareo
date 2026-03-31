@@ -57,6 +57,15 @@ export const Store = {
     for (const cat of this.data.categories) {
       for (const proj of cat.projects) {
         if (!proj.projectNotes) proj.projectNotes = [];
+        // Migrate tasks from week-based to day-based
+        for (const task of proj.tasks) {
+          if (task.startWeek != null && task.startDay == null) {
+            task.startDay = task.startWeek * 7;
+            task.durationDays = (task.durationWeeks || 1) * 7;
+            delete task.startWeek;
+            delete task.durationWeeks;
+          }
+        }
       }
     }
 
@@ -205,15 +214,15 @@ export const Store = {
     this.save();
   },
 
-  // --- Tasks ---
+  // --- Tasks (day-based: startDay, durationDays) ---
   addTask(projectId, task) {
     const proj = this._findProject(projectId);
     if (!proj) return null;
     const t = {
       id: 'task-' + crypto.randomUUID(),
       label: task.label || 'New Task',
-      startWeek: task.startWeek || 0,
-      durationWeeks: task.durationWeeks || 2,
+      startDay: task.startDay || 0,
+      durationDays: task.durationDays || 7,
       color: task.color || proj.color,
       notes: task.notes || '',
       links: task.links || []
