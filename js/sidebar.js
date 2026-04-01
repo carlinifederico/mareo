@@ -58,10 +58,12 @@ export function renderSidebar(container) {
       const detailRow = document.createElement('div');
       detailRow.className = 'sidebar-detail-tasks';
 
-      const header = document.createElement('div');
-      header.className = 'detail-tasks-header';
-      header.textContent = 'Detail Tasks';
-      detailRow.appendChild(header);
+      if (detailTasks.length > 0) {
+        const header = document.createElement('div');
+        header.className = 'detail-tasks-header';
+        header.textContent = 'sub-calendar';
+        detailRow.appendChild(header);
+      }
 
       for (const task of detailTasks) {
         const taskItem = document.createElement('div');
@@ -74,7 +76,7 @@ export function renderSidebar(container) {
 
         const nameEl = document.createElement('span');
         nameEl.className = 'detail-task-name';
-        nameEl.textContent = task.label;
+        nameEl.textContent = task.label || 'Untitled';
         taskItem.appendChild(nameEl);
 
         const delBtn = document.createElement('button');
@@ -92,7 +94,7 @@ export function renderSidebar(container) {
 
       const addBtn = document.createElement('div');
       addBtn.className = 'note-preview-add';
-      addBtn.textContent = '+ Detail Task';
+      addBtn.textContent = '+ Sub-task';
       addBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         showAddTaskModal(proj.id, 0, 'detail');
@@ -419,7 +421,7 @@ function showProjectMenu(e, proj, cat) {
   menu.innerHTML = `
     <div class="context-menu-item" data-action="edit">Edit Project</div>
     <div class="context-menu-item" data-action="addtask">Add Task</div>
-    <div class="context-menu-item" data-action="adddetail">Add Detail Task</div>
+    <div class="context-menu-item" data-action="adddetail">Add Sub-task</div>
     <div class="context-menu-item danger" data-action="delete">Delete Project</div>
   `;
 

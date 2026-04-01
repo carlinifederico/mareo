@@ -3,6 +3,71 @@ import { getWeekWidth, getDayWidth, isDayMode, getTotalWeeks, getTotalWidth, tas
 import { showAddTaskModal } from './sidebar.js';
 import { showModal } from './modal.js';
 
+function createTaskInline(projId, day, taskType, row, laneHeight) {
+  const proj = Store._findProject(projId);
+  if (!proj) return;
+  const year = Store.data.currentYear;
+  const newTask = Store.addTask(projId, {
+    label: '',
+    startDay: day,
+    durationDays: taskType === 'detail' ? 5 : 7,
+    color: taskType === 'detail' ? '#6b7280' : proj.color,
+    type: taskType || 'main'
+  });
+  if (!newTask) return;
+
+  // Re-render to get the bar in place, then focus its label for inline edit
+  document.dispatchEvent(new Event('mareo:render'));
+  requestAnimationFrame(() => {
+    const bar = document.querySelector(`.task-bar[data-task-id="${newTask.id}"]`);
+    if (!bar) return;
+    startInlineEdit(bar, newTask);
+  });
+}
+
+function startInlineEdit(bar, task) {
+  const labelEl = bar.querySelector('.task-label');
+  if (!labelEl) return;
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'task-inline-input';
+  input.value = task.label;
+  input.placeholder = 'Task name...';
+
+  labelEl.style.display = 'none';
+  bar.insertBefore(input, labelEl);
+  input.focus();
+  input.select();
+
+  const commit = () => {
+    const val = input.value.trim() || 'New Task';
+    Store.updateTask(task.id, { label: val });
+    input.remove();
+    labelEl.style.display = '';
+    labelEl.textContent = val;
+    document.dispatchEvent(new Event('mareo:render'));
+  };
+
+  input.addEventListener('blur', commit);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+    if (e.key === 'Escape') {
+      input.removeEventListener('blur', commit);
+      if (!task.label) {
+        Store.removeTask(task.id);
+      }
+      input.remove();
+      labelEl.style.display = '';
+      document.dispatchEvent(new Event('mareo:render'));
+    }
+  });
+  // Prevent drag from starting while editing
+  input.addEventListener('pointerdown', (e) => e.stopPropagation());
+  input.addEventListener('click', (e) => e.stopPropagation());
+  input.addEventListener('dblclick', (e) => e.stopPropagation());
+}
+
 export function renderGantt(container) {
   container.innerHTML = '';
   const year = Store.data.currentYear;
@@ -57,9 +122,14 @@ export function renderGantt(container) {
           const rect = projRow.getBoundingClientRect();
           const x = e.clientX - rect.left + projRow.parentElement.scrollLeft;
           const day = Math.floor(x / dw);
-          showAddTaskModal(proj.id, day);
+          createTaskInline(proj.id, day, 'main', projRow, 36);
         }
       });
+
+      // Mark if next item is detail-tasks (for visual attachment)
+      if (proj.notesExpanded) {
+        projRow.classList.add('has-detail-row');
+      }
 
       container.appendChild(projRow);
 
@@ -67,7 +137,7 @@ export function renderGantt(container) {
       const proj = item.proj;
       const detailTasks = proj.tasks.filter(t => t.type === 'detail');
       const { tasks: dtSorted, laneCount: dtLanes } = layoutTasks(detailTasks);
-      const dtRowHeight = Math.max(1, dtLanes) * 30 + 4;
+      const dtRowHeight = Math.max(1, dtLanes) * 24 + 4;
 
       const detailRow = document.createElement('div');
       detailRow.className = 'gantt-project-row gantt-detail-row';
@@ -79,7 +149,7 @@ export function renderGantt(container) {
       renderGridLines(detailRow, dayMode, year, dw, ww, totalWeeks, todayPx, todayWeek);
 
       for (const task of dtSorted) {
-        const bar = createTaskBar(task, 30, year);
+        const bar = createTaskBar(task, 24, year);
         bar.classList.add('task-bar-detail');
         detailRow.appendChild(bar);
       }
@@ -89,7 +159,7 @@ export function renderGantt(container) {
           const rect = detailRow.getBoundingClientRect();
           const x = e.clientX - rect.left + detailRow.parentElement.scrollLeft;
           const day = Math.floor(x / dw);
-          showAddTaskModal(proj.id, day, 'detail');
+          createTaskInline(proj.id, day, 'detail', detailRow, 24);
         }
       });
 
@@ -440,7 +510,7 @@ function showTaskContextMenu(e, task) {
   const menu = document.createElement('div');
   menu.className = 'context-menu';
   const taskType = task.type || 'main';
-  const toggleLabel = taskType === 'main' ? 'Move to Detail' : 'Move to Main';
+  const toggleLabel = taskType === 'main' ? 'Move to Sub-calendar' : 'Move to Main';
   menu.innerHTML = `
     <div class="context-menu-item" data-action="edit">Edit Task</div>
     <div class="context-menu-item" data-action="toggle-type">${toggleLabel}</div>
