@@ -2334,6 +2334,21 @@ html, body {
   display: inline-flex;
 }
 
+.view-tab .tab-close {
+  display: none;
+  margin-left: 4px;
+  font-size: 10px;
+  opacity: 0.4;
+  cursor: pointer;
+  line-height: 1;
+}
+.view-tab:hover .tab-close {
+  display: inline;
+}
+.view-tab .tab-close:hover {
+  opacity: 1;
+}
+
 .view-tab-plus {
   font-size: 14px;
   font-weight: 700;

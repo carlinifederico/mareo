@@ -48,7 +48,8 @@ export const Store = {
         categories: [],
         notes: [],
         boardCards: [],
-        expensesMonths: {}
+        expensesMonths: {},
+        visibleTabs: ['timeline', 'notes', 'expenses', 'balance']
       };
     }
 
@@ -59,6 +60,7 @@ export const Store = {
     if (!this.data.currentView) this.data.currentView = 'timeline';
     if (!this.data.categories) this.data.categories = [];
     if (!this.data.pinnedProjects) this.data.pinnedProjects = [];
+    if (!this.data.visibleTabs) this.data.visibleTabs = ['timeline', 'notes', 'expenses', 'balance'];
     for (const cat of this.data.categories) {
       for (const proj of cat.projects) {
         if (!proj.projectNotes) proj.projectNotes = [];
@@ -110,10 +112,12 @@ export const Store = {
     if (this._undoStack.length === 0) return false;
     const currentYear = this.data.currentYear;
     const currentView = this.data.currentView;
+    const visibleTabs = this.data.visibleTabs;
     this._redoStack.push(JSON.stringify(this.data));
     this.data = JSON.parse(this._undoStack.pop());
     this.data.currentYear = currentYear;
     this.data.currentView = currentView;
+    this.data.visibleTabs = visibleTabs;
     this._lastSnapshot = JSON.stringify(this.data);
     this._skipUndo = true;
     this.save();
@@ -125,11 +129,13 @@ export const Store = {
     if (this._redoStack.length === 0) return false;
     const currentYear = this.data.currentYear;
     const currentView = this.data.currentView;
+    const visibleTabs = this.data.visibleTabs;
     this._undoStack.push(JSON.stringify(this.data));
     if (this._undoStack.length > 30) this._undoStack.shift();
     this.data = JSON.parse(this._redoStack.pop());
     this.data.currentYear = currentYear;
     this.data.currentView = currentView;
+    this.data.visibleTabs = visibleTabs;
     this._lastSnapshot = JSON.stringify(this.data);
     this._skipUndo = true;
     this.save();
@@ -152,6 +158,7 @@ export const Store = {
 
   setYear(year) { this.data.currentYear = year; this._skipUndo = true; this.save(); this._skipUndo = false; },
   setView(view) { this.data.currentView = view; this._skipUndo = true; this.save(); this._skipUndo = false; },
+  setVisibleTabs(tabs) { this.data.visibleTabs = tabs; this._skipUndo = true; this.save(); this._skipUndo = false; },
 
   // --- Categories ---
   addCategory(name) {
@@ -369,6 +376,7 @@ export const Store = {
     this.data = parsed;
     if (!this.data.notes) this.data.notes = [];
     if (!this.data.boardCards) this.data.boardCards = [];
+    if (!this.data.visibleTabs) this.data.visibleTabs = ['timeline', 'notes', 'expenses', 'balance'];
     this.save();
   },
 

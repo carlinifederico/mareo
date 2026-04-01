@@ -16,6 +16,14 @@ window._mareoModules = { Store };
 let currentView = 'timeline';
 let appInitialized = false;
 
+const ALL_VIEWS = [
+  { id: 'timeline', label: 'Timeline' },
+  { id: 'notes',    label: 'Notes' },
+  { id: 'expenses', label: 'Expenses' },
+  { id: 'balance',  label: 'Balance' },
+  { id: 'board',    label: 'Board' },
+];
+
 // Auth flow: show login or app
 Auth.init(
   // On sign in
@@ -36,12 +44,16 @@ Auth.init(
     await Store.load(user.uid);
     ensureCurrentMonth();
     currentView = Store.data.currentView || 'timeline';
+    if (!Store.data.visibleTabs.includes(currentView)) {
+      currentView = Store.data.visibleTabs[0];
+    }
 
     if (!appInitialized) {
       initApp();
       appInitialized = true;
     }
 
+    renderTabs();
     switchView(currentView);
     render();
   },
@@ -76,31 +88,10 @@ function initApp() {
     viewTabsNav.classList.toggle('open');
   });
 
-  // View tabs
-  document.querySelectorAll('.view-tab[data-view]').forEach(tab => {
-    tab.addEventListener('click', () => {
-      viewTabsNav.classList.remove('open');
-      switchView(tab.dataset.view);
-    });
+  document.addEventListener('click', (e) => {
+    const menu = document.querySelector('.view-tab-more-menu');
+    if (menu) menu.classList.remove('open');
   });
-
-  // "+" more views dropdown
-  const moreBtn = document.querySelector('.view-tab-plus');
-  const moreMenu = document.getElementById('view-tab-more-menu');
-  if (moreBtn && moreMenu) {
-    moreBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      moreMenu.classList.toggle('open');
-    });
-    document.querySelectorAll('.view-tab-more-item').forEach(item => {
-      item.addEventListener('click', () => {
-        moreMenu.classList.remove('open');
-        viewTabsNav.classList.remove('open');
-        switchView(item.dataset.view);
-      });
-    });
-    document.addEventListener('click', () => moreMenu.classList.remove('open'));
-  }
 
   document.addEventListener('mareo:switchView', (e) => {
     switchView(e.detail);
@@ -294,19 +285,112 @@ function scrollToToday() {
 function switchView(view) {
   currentView = view;
   Store.setView(view);
-
-  document.querySelectorAll('.view-tab').forEach(t => {
-    t.classList.toggle('active', t.dataset.view === view);
-  });
+  renderTabs();
 
   document.querySelectorAll('.view-container').forEach(v => {
     v.classList.toggle('active', v.id === 'view-' + view);
   });
 
-  // Year nav only in timeline
   document.getElementById('year-nav').style.display = view === 'timeline' ? 'flex' : 'none';
 
   render();
+}
+
+function renderTabs() {
+  const nav = document.getElementById('view-tabs-nav');
+  nav.innerHTML = '';
+
+  const visibleTabs = Store.data.visibleTabs || ['timeline'];
+  const hiddenViews = ALL_VIEWS.filter(v => !visibleTabs.includes(v.id));
+
+  for (const viewId of visibleTabs) {
+    const viewDef = ALL_VIEWS.find(v => v.id === viewId);
+    if (!viewDef) continue;
+
+    const btn = document.createElement('button');
+    btn.className = 'view-tab' + (viewId === currentView ? ' active' : '');
+    btn.dataset.view = viewId;
+
+    const label = document.createTextNode(viewDef.label);
+    btn.appendChild(label);
+
+    if (visibleTabs.length > 1) {
+      const close = document.createElement('span');
+      close.className = 'tab-close';
+      close.textContent = '×';
+      close.addEventListener('click', (e) => {
+        e.stopPropagation();
+        removeTab(viewId);
+      });
+      btn.appendChild(close);
+    }
+
+    btn.addEventListener('click', () => {
+      nav.classList.remove('open');
+      switchView(viewId);
+    });
+
+    btn.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      if (visibleTabs.length <= 1) return;
+      removeTab(viewId);
+    });
+
+    nav.appendChild(btn);
+  }
+
+  if (hiddenViews.length > 0) {
+    const moreDiv = document.createElement('div');
+    moreDiv.className = 'view-tab-more';
+
+    const plusBtn = document.createElement('button');
+    plusBtn.className = 'view-tab view-tab-plus';
+    plusBtn.textContent = '+';
+
+    const menu = document.createElement('div');
+    menu.className = 'view-tab-more-menu';
+
+    for (const view of hiddenViews) {
+      const item = document.createElement('button');
+      item.className = 'view-tab-more-item';
+      item.dataset.view = view.id;
+      item.textContent = view.label;
+      item.addEventListener('click', (e) => {
+        e.stopPropagation();
+        addTab(view.id);
+      });
+      menu.appendChild(item);
+    }
+
+    plusBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      menu.classList.toggle('open');
+    });
+
+    moreDiv.appendChild(plusBtn);
+    moreDiv.appendChild(menu);
+    nav.appendChild(moreDiv);
+  }
+}
+
+function addTab(viewId) {
+  const tabs = [...Store.data.visibleTabs];
+  if (!tabs.includes(viewId)) {
+    tabs.push(viewId);
+    Store.setVisibleTabs(tabs);
+  }
+  renderTabs();
+  switchView(viewId);
+}
+
+function removeTab(viewId) {
+  const tabs = Store.data.visibleTabs.filter(id => id !== viewId);
+  Store.setVisibleTabs(tabs);
+  if (currentView === viewId) {
+    switchView(tabs[0]);
+  } else {
+    renderTabs();
+  }
 }
 
 function updateUndoButtons() {
@@ -444,6 +528,7 @@ function importData() {
     try {
       const text = await file.text();
       Store.importJSON(text);
+      renderTabs();
       render();
     } catch (err) { alert('Error importing file: ' + err.message); }
   });
