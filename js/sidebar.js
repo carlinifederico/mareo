@@ -52,6 +52,55 @@ export function renderSidebar(container) {
     } else if (item.type === 'project') {
       container.appendChild(renderProjectRow(item.proj, item.cat, item.pinned));
 
+    } else if (item.type === 'detail-tasks') {
+      const proj = item.proj;
+      const detailTasks = proj.tasks.filter(t => t.type === 'detail');
+      const detailRow = document.createElement('div');
+      detailRow.className = 'sidebar-detail-tasks';
+
+      const header = document.createElement('div');
+      header.className = 'detail-tasks-header';
+      header.textContent = 'Detail Tasks';
+      detailRow.appendChild(header);
+
+      for (const task of detailTasks) {
+        const taskItem = document.createElement('div');
+        taskItem.className = 'detail-task-item';
+
+        const dot = document.createElement('span');
+        dot.className = 'detail-task-dot';
+        dot.style.backgroundColor = task.color;
+        taskItem.appendChild(dot);
+
+        const nameEl = document.createElement('span');
+        nameEl.className = 'detail-task-name';
+        nameEl.textContent = task.label;
+        taskItem.appendChild(nameEl);
+
+        const delBtn = document.createElement('button');
+        delBtn.className = 'btn-icon note-preview-delete';
+        delBtn.textContent = '✕';
+        delBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          Store.removeTask(task.id);
+          document.dispatchEvent(new Event('mareo:render'));
+        });
+        taskItem.appendChild(delBtn);
+
+        detailRow.appendChild(taskItem);
+      }
+
+      const addBtn = document.createElement('div');
+      addBtn.className = 'note-preview-add';
+      addBtn.textContent = '+ Detail Task';
+      addBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showAddTaskModal(proj.id, 0, 'detail');
+      });
+      detailRow.appendChild(addBtn);
+
+      container.appendChild(detailRow);
+
     } else if (item.type === 'add-project') {
       const addProjBtn = document.createElement('div');
       addProjBtn.className = 'sidebar-add-project';
@@ -370,6 +419,7 @@ function showProjectMenu(e, proj, cat) {
   menu.innerHTML = `
     <div class="context-menu-item" data-action="edit">Edit Project</div>
     <div class="context-menu-item" data-action="addtask">Add Task</div>
+    <div class="context-menu-item" data-action="adddetail">Add Detail Task</div>
     <div class="context-menu-item danger" data-action="delete">Delete Project</div>
   `;
 
@@ -379,6 +429,11 @@ function showProjectMenu(e, proj, cat) {
       showEditProjectModal(proj);
     } else if (action === 'addtask') {
       showAddTaskModal(proj.id);
+    } else if (action === 'adddetail') {
+      if (!proj.notesExpanded) {
+        Store.updateProject(proj.id, { notesExpanded: true });
+      }
+      showAddTaskModal(proj.id, 0, 'detail');
     } else if (action === 'delete') {
       if (confirm(`Delete project "${proj.name}"?`)) {
         Store.removeProject(proj.id);
@@ -458,16 +513,17 @@ function showEditProjectModal(proj) {
   });
 }
 
-export function showAddTaskModal(projectId, startDay) {
+export function showAddTaskModal(projectId, startDay, taskType) {
   const proj = Store._findProject(projectId);
   const year = Store.data.currentYear;
   const dateStr = _doyToDateStr(year, startDay != null ? startDay : 0);
+  const isDetail = taskType === 'detail';
   showModal({
-    title: 'Add Task',
+    title: isDetail ? 'Add Detail Task' : 'Add Task',
     fields: [
       { name: 'label', label: 'Label', type: 'text', value: '' },
       { name: 'startDate', label: 'Start Date', type: 'date', value: dateStr },
-      { name: 'durationDays', label: 'Duration (days)', type: 'number', value: 7, min: 1, max: 366 },
+      { name: 'durationDays', label: 'Duration (days)', type: 'number', value: isDetail ? 3 : 7, min: 1, max: 366 },
       { name: 'color', label: 'Color', type: 'color', value: proj ? proj.color : '#bdc3c7' }
     ],
     onSave: (values) => {
@@ -475,7 +531,8 @@ export function showAddTaskModal(projectId, startDay) {
         label: values.label.trim() || 'New Task',
         startDay: _dateStrToDoy(year, values.startDate),
         durationDays: parseInt(values.durationDays),
-        color: values.color
+        color: values.color,
+        type: taskType || 'main'
       });
       document.dispatchEvent(new Event('mareo:render'));
     }

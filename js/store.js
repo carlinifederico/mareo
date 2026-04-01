@@ -293,7 +293,8 @@ export const Store = {
       color: task.color || proj.color,
       notes: task.notes || '',
       links: task.links || [],
-      deadline: task.deadline || null
+      deadline: task.deadline || null,
+      type: task.type || 'main'
     };
     proj.tasks.push(t);
     this.save();
@@ -483,6 +484,9 @@ export const Store = {
         const cat = this._findCategoryForProject(pid);
         if (proj && cat) {
           layout.push({ type: 'project', proj, cat, pinned: true });
+          if (proj.notesExpanded) {
+            layout.push({ type: 'detail-tasks', proj, cat, pinned: true });
+          }
         }
       }
     }
@@ -495,6 +499,9 @@ export const Store = {
         for (const proj of cat.projects) {
           if (!pinnedIds.includes(proj.id)) {
             layout.push({ type: 'project', proj, cat, pinned: false });
+            if (proj.notesExpanded) {
+              layout.push({ type: 'detail-tasks', proj, cat, pinned: false });
+            }
           }
         }
         layout.push({ type: 'add-project', cat });

@@ -546,6 +546,56 @@ html, body {
   padding: 0 4px 6px 19px;
 }
 
+.sidebar-detail-tasks {
+  padding: 2px 4px 6px 19px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.01);
+}
+
+.detail-tasks-header {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.4;
+  padding: 2px 6px;
+}
+
+.detail-task-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  color: var(--text-muted);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.detail-task-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.detail-task-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.detail-task-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detail-task-item .note-preview-delete {
+  display: none;
+}
+.detail-task-item:hover .note-preview-delete {
+  display: inline-flex;
+}
+
 .note-preview-item {
   display: flex;
   align-items: center;
@@ -802,6 +852,19 @@ html, body {
   position: relative;
   min-height: var(--row-height);
   border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+
+.gantt-detail-row {
+  background: rgba(255, 255, 255, 0.015);
+  border-top: 1px dashed rgba(255, 255, 255, 0.08);
+}
+
+.task-bar-detail {
+  height: 24px !important;
+  opacity: 0.8;
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  font-size: 0.85em;
 }
 
 .gantt-add-row { height: 28px; }

@@ -36,7 +36,8 @@ export function renderGantt(container) {
 
     } else if (item.type === 'project') {
       const proj = item.proj;
-      const { tasks, laneCount } = layoutTasks(proj.tasks);
+      const mainTasks = proj.tasks.filter(t => (t.type || 'main') === 'main');
+      const { tasks, laneCount } = layoutTasks(mainTasks);
       const rowHeight = Math.max(1, laneCount) * 36 + 4;
 
       const projRow = document.createElement('div');
@@ -45,94 +46,10 @@ export function renderGantt(container) {
       projRow.style.width = totalWidth + 'px';
       projRow.style.height = rowHeight + 'px';
 
-      // Grid lines
-      if (dayMode) {
-        // Day-level: one line per day within the 53-week span
-        const jan1 = new Date(year, 0, 1);
-        const numDays = ((year % 4 === 0 && year % 100 !== 0) || year % 400 === 0) ? 366 : 365;
-        for (let d = 0; d < numDays; d++) {
-          const date = new Date(jan1);
-          date.setDate(jan1.getDate() + d);
-          const dow = date.getDay();
+      renderGridLines(projRow, dayMode, year, dw, ww, totalWeeks, todayPx, todayWeek);
 
-          const line = document.createElement('div');
-          line.className = 'gantt-grid-line day-line';
-          if (dow === 0 || dow === 6) line.classList.add('weekend-col');
-          if (dow === 1) line.classList.add('week-start');
-          if (todayPx >= 0 && d * dw <= todayPx && todayPx < (d + 1) * dw) {
-            line.classList.add('current-day-col');
-          }
-          line.style.left = (d * dw) + 'px';
-          line.style.width = dw + 'px';
-          projRow.appendChild(line);
-        }
-      } else {
-        // Week-level: one line per week (same coordinate system as tasks)
-        for (let w = 0; w < totalWeeks; w++) {
-          const line = document.createElement('div');
-          line.className = 'gantt-grid-line';
-          if (w === todayWeek) line.classList.add('current-week-col');
-          line.style.left = (w * ww) + 'px';
-          line.style.width = ww + 'px';
-          projRow.appendChild(line);
-        }
-      }
-
-      // Task bars
       for (const task of tasks) {
-        const pos = taskToDisplayPixels(task.startDay, task.durationDays);
-        const bar = document.createElement('div');
-        bar.className = 'task-bar';
-        bar.dataset.taskId = task.id;
-        bar.style.left = pos.left + 'px';
-        bar.style.width = pos.width + 'px';
-        bar.style.top = ((task._lane || 0) * 36 + 4) + 'px';
-        bar.style.backgroundColor = task.color;
-        bar.style.color = getContrastColor(task.color);
-        bar.style.setProperty('--bar-color', task.color);
-        // Tooltip with name + dates + deadline
-        const startDateStr = _formatDateReadable(year, task.startDay || 0);
-        const endDateStr = _formatDateReadable(year, (task.startDay || 0) + (task.durationDays || 1) - 1);
-        let tooltip = task.label + '\n' + startDateStr + (task.durationDays > 1 ? ' – ' + endDateStr : '');
-        if (task.deadline) tooltip += '\nDeadline: ' + task.deadline;
-        bar.title = tooltip;
-
-        if (pos.width < 40) {
-          bar.classList.add('task-bar-compact');
-        }
-
-        const label = document.createElement('span');
-        label.className = 'task-label';
-        label.textContent = task.label;
-        bar.appendChild(label);
-
-        const resizeHandleLeft = document.createElement('div');
-        resizeHandleLeft.className = 'resize-handle resize-handle-left';
-        bar.appendChild(resizeHandleLeft);
-
-        const resizeHandle = document.createElement('div');
-        resizeHandle.className = 'resize-handle resize-handle-right';
-        bar.appendChild(resizeHandle);
-
-        bar.addEventListener('click', (e) => {
-          if (e.target.classList.contains('resize-handle')) return;
-          e.stopPropagation();
-          showTaskPopover(e, task);
-        });
-
-        bar.addEventListener('dblclick', (e) => {
-          e.stopPropagation();
-          closeAllPopovers();
-          showEditTaskModal(task);
-        });
-
-        bar.addEventListener('contextmenu', (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          showTaskContextMenu(e, task);
-        });
-
-        projRow.appendChild(bar);
+        projRow.appendChild(createTaskBar(task, 36, year));
       }
 
       projRow.addEventListener('dblclick', (e) => {
@@ -145,6 +62,38 @@ export function renderGantt(container) {
       });
 
       container.appendChild(projRow);
+
+    } else if (item.type === 'detail-tasks') {
+      const proj = item.proj;
+      const detailTasks = proj.tasks.filter(t => t.type === 'detail');
+      const { tasks: dtSorted, laneCount: dtLanes } = layoutTasks(detailTasks);
+      const dtRowHeight = Math.max(1, dtLanes) * 30 + 4;
+
+      const detailRow = document.createElement('div');
+      detailRow.className = 'gantt-project-row gantt-detail-row';
+      detailRow.dataset.projectId = proj.id;
+      detailRow.dataset.rowType = 'detail';
+      detailRow.style.width = totalWidth + 'px';
+      detailRow.style.height = dtRowHeight + 'px';
+
+      renderGridLines(detailRow, dayMode, year, dw, ww, totalWeeks, todayPx, todayWeek);
+
+      for (const task of dtSorted) {
+        const bar = createTaskBar(task, 30, year);
+        bar.classList.add('task-bar-detail');
+        detailRow.appendChild(bar);
+      }
+
+      detailRow.addEventListener('dblclick', (e) => {
+        if (e.target === detailRow || e.target.classList.contains('gantt-grid-line')) {
+          const rect = detailRow.getBoundingClientRect();
+          const x = e.clientX - rect.left + detailRow.parentElement.scrollLeft;
+          const day = Math.floor(x / dw);
+          showAddTaskModal(proj.id, day, 'detail');
+        }
+      });
+
+      container.appendChild(detailRow);
 
     } else if (item.type === 'add-project' || item.type === 'add-category') {
       const addRow = document.createElement('div');
@@ -322,6 +271,91 @@ function closeAllPopovers() {
   document.querySelectorAll('.task-popover').forEach(p => p.remove());
 }
 
+function renderGridLines(row, dayMode, year, dw, ww, totalWeeks, todayPx, todayWeek) {
+  if (dayMode) {
+    const jan1 = new Date(year, 0, 1);
+    const numDays = ((year % 4 === 0 && year % 100 !== 0) || year % 400 === 0) ? 366 : 365;
+    for (let d = 0; d < numDays; d++) {
+      const date = new Date(jan1);
+      date.setDate(jan1.getDate() + d);
+      const dow = date.getDay();
+      const line = document.createElement('div');
+      line.className = 'gantt-grid-line day-line';
+      if (dow === 0 || dow === 6) line.classList.add('weekend-col');
+      if (dow === 1) line.classList.add('week-start');
+      if (todayPx >= 0 && d * dw <= todayPx && todayPx < (d + 1) * dw) {
+        line.classList.add('current-day-col');
+      }
+      line.style.left = (d * dw) + 'px';
+      line.style.width = dw + 'px';
+      row.appendChild(line);
+    }
+  } else {
+    for (let w = 0; w < totalWeeks; w++) {
+      const line = document.createElement('div');
+      line.className = 'gantt-grid-line';
+      if (w === todayWeek) line.classList.add('current-week-col');
+      line.style.left = (w * ww) + 'px';
+      line.style.width = ww + 'px';
+      row.appendChild(line);
+    }
+  }
+}
+
+function createTaskBar(task, laneHeight, year) {
+  const pos = taskToDisplayPixels(task.startDay, task.durationDays);
+  const bar = document.createElement('div');
+  bar.className = 'task-bar';
+  bar.dataset.taskId = task.id;
+  bar.style.left = pos.left + 'px';
+  bar.style.width = pos.width + 'px';
+  bar.style.top = ((task._lane || 0) * laneHeight + 4) + 'px';
+  bar.style.backgroundColor = task.color;
+  bar.style.color = getContrastColor(task.color);
+  bar.style.setProperty('--bar-color', task.color);
+
+  const startDateStr = _formatDateReadable(year, task.startDay || 0);
+  const endDateStr = _formatDateReadable(year, (task.startDay || 0) + (task.durationDays || 1) - 1);
+  let tooltip = task.label + '\n' + startDateStr + (task.durationDays > 1 ? ' – ' + endDateStr : '');
+  if (task.deadline) tooltip += '\nDeadline: ' + task.deadline;
+  bar.title = tooltip;
+
+  if (pos.width < 40) bar.classList.add('task-bar-compact');
+
+  const label = document.createElement('span');
+  label.className = 'task-label';
+  label.textContent = task.label;
+  bar.appendChild(label);
+
+  const resizeHandleLeft = document.createElement('div');
+  resizeHandleLeft.className = 'resize-handle resize-handle-left';
+  bar.appendChild(resizeHandleLeft);
+
+  const resizeHandle = document.createElement('div');
+  resizeHandle.className = 'resize-handle resize-handle-right';
+  bar.appendChild(resizeHandle);
+
+  bar.addEventListener('click', (e) => {
+    if (e.target.classList.contains('resize-handle')) return;
+    e.stopPropagation();
+    showTaskPopover(e, task);
+  });
+
+  bar.addEventListener('dblclick', (e) => {
+    e.stopPropagation();
+    closeAllPopovers();
+    showEditTaskModal(task);
+  });
+
+  bar.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    showTaskContextMenu(e, task);
+  });
+
+  return bar;
+}
+
 function layoutTasks(tasks) {
   const sorted = [...tasks].sort((a, b) => (a.startDay || 0) - (b.startDay || 0));
   const lanes = [];
@@ -405,8 +439,11 @@ function showTaskContextMenu(e, task) {
   document.querySelectorAll('.context-menu').forEach(m => m.remove());
   const menu = document.createElement('div');
   menu.className = 'context-menu';
+  const taskType = task.type || 'main';
+  const toggleLabel = taskType === 'main' ? 'Move to Detail' : 'Move to Main';
   menu.innerHTML = `
     <div class="context-menu-item" data-action="edit">Edit Task</div>
+    <div class="context-menu-item" data-action="toggle-type">${toggleLabel}</div>
     <div class="context-menu-item" data-action="notes">Notes</div>
     <div class="context-menu-item" data-action="links">Links</div>
     <div class="context-menu-item context-menu-deadline">
@@ -432,6 +469,10 @@ function showTaskContextMenu(e, task) {
     if (!action) return;
     if (action === 'edit') {
       showEditTaskModal(task);
+    } else if (action === 'toggle-type') {
+      const newType = (task.type || 'main') === 'main' ? 'detail' : 'main';
+      Store.updateTask(task.id, { type: newType });
+      document.dispatchEvent(new Event('mareo:render'));
     } else if (action === 'notes') {
       menu.remove();
       showTaskPopover(e, task);
