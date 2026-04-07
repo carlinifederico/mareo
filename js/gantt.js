@@ -3,16 +3,32 @@ import { getWeekWidth, getDayWidth, isDayMode, getTotalWeeks, getTotalWidth, tas
 import { showAddTaskModal } from './sidebar.js';
 import { showModal } from './modal.js';
 
-function createTaskInline(projId, day, taskType, row, laneHeight) {
+const LANE_HEIGHTS = [36, 28, 22, 18, 16, 16];
+const DURATIONS = [7, 5, 3, 2, 2, 2];
+
+function lightenColor(hex, amount) {
+  if (!hex || hex[0] !== '#') return '#aaaaaa';
+  let r = parseInt(hex.slice(1, 3), 16);
+  let g = parseInt(hex.slice(3, 5), 16);
+  let b = parseInt(hex.slice(5, 7), 16);
+  r = Math.round(r + (255 - r) * amount);
+  g = Math.round(g + (255 - g) * amount);
+  b = Math.round(b + (255 - b) * amount);
+  return '#' + [r, g, b].map(c => c.toString(16).padStart(2, '0')).join('');
+}
+
+function createTaskInline(projId, day, parentId) {
   const proj = Store._findProject(projId);
   if (!proj) return;
-  const year = Store.data.currentYear;
+  const parent = parentId ? Store._findTask(parentId) : null;
+  const depth = parent ? Store.getTaskDepth(parent.id) + 1 : 0;
+  const color = parent ? lightenColor(parent.color, 0.2) : proj.color;
   const newTask = Store.addTask(projId, {
     label: '',
     startDay: day,
-    durationDays: taskType === 'detail' ? 5 : 7,
-    color: taskType === 'detail' ? '#6b7280' : proj.color,
-    type: taskType || 'main'
+    durationDays: DURATIONS[Math.min(depth, DURATIONS.length - 1)],
+    color: color,
+    parentId: parentId || null
   });
   if (!newTask) return;
 
@@ -101,8 +117,8 @@ export function renderGantt(container) {
 
     } else if (item.type === 'project') {
       const proj = item.proj;
-      const mainTasks = proj.tasks.filter(t => (t.type || 'main') === 'main');
-      const { tasks, laneCount } = layoutTasks(mainTasks);
+      const rootTasks = proj.tasks.filter(t => !t.parentId);
+      const { tasks, laneCount } = layoutTasks(rootTasks);
       const rowHeight = Math.max(1, laneCount) * 36 + 4;
 
       const projRow = document.createElement('div');
@@ -114,7 +130,7 @@ export function renderGantt(container) {
       renderGridLines(projRow, dayMode, year, dw, ww, totalWeeks, todayPx, todayWeek);
 
       for (const task of tasks) {
-        projRow.appendChild(createTaskBar(task, 36, year));
+        projRow.appendChild(createTaskBar(task, 36, year, proj));
       }
 
       projRow.addEventListener('dblclick', (e) => {
@@ -122,48 +138,49 @@ export function renderGantt(container) {
           const rect = projRow.getBoundingClientRect();
           const x = e.clientX - rect.left + projRow.parentElement.scrollLeft;
           const day = Math.floor(x / dw);
-          createTaskInline(proj.id, day, 'main', projRow, 36);
+          createTaskInline(proj.id, day, null);
         }
       });
 
-      // Mark if next item is detail-tasks (for visual attachment)
       if (proj.notesExpanded) {
         projRow.classList.add('has-detail-row');
       }
 
       container.appendChild(projRow);
 
-    } else if (item.type === 'detail-tasks') {
-      const proj = item.proj;
-      const detailTasks = proj.tasks.filter(t => t.type === 'detail');
-      const { tasks: dtSorted, laneCount: dtLanes } = layoutTasks(detailTasks);
-      const dtRowHeight = Math.max(1, dtLanes) * 24 + 4;
+    } else if (item.type === 'task-children') {
+      const { proj, parentTask, depth } = item;
+      const children = proj.tasks.filter(t => t.parentId === parentTask.id);
+      const lh = LANE_HEIGHTS[Math.min(depth, LANE_HEIGHTS.length - 1)];
+      const { tasks: childSorted, laneCount: childLanes } = layoutTasks(children);
+      const childRowHeight = Math.max(1, childLanes) * lh + 4;
 
-      const detailRow = document.createElement('div');
-      detailRow.className = 'gantt-project-row gantt-detail-row';
-      detailRow.dataset.projectId = proj.id;
-      detailRow.dataset.rowType = 'detail';
-      detailRow.style.width = totalWidth + 'px';
-      detailRow.style.height = dtRowHeight + 'px';
+      const childRow = document.createElement('div');
+      childRow.className = `gantt-project-row gantt-subtask-row depth-${depth}`;
+      childRow.dataset.projectId = proj.id;
+      childRow.dataset.parentTaskId = parentTask.id;
+      childRow.dataset.depth = depth;
+      childRow.style.width = totalWidth + 'px';
+      childRow.style.height = childRowHeight + 'px';
 
-      renderGridLines(detailRow, dayMode, year, dw, ww, totalWeeks, todayPx, todayWeek);
+      renderGridLines(childRow, dayMode, year, dw, ww, totalWeeks, todayPx, todayWeek);
 
-      for (const task of dtSorted) {
-        const bar = createTaskBar(task, 24, year);
-        bar.classList.add('task-bar-detail');
-        detailRow.appendChild(bar);
+      for (const task of childSorted) {
+        const bar = createTaskBar(task, lh, year, proj);
+        bar.classList.add('task-bar-sub', `depth-${depth}`);
+        childRow.appendChild(bar);
       }
 
-      detailRow.addEventListener('dblclick', (e) => {
-        if (e.target === detailRow || e.target.classList.contains('gantt-grid-line')) {
-          const rect = detailRow.getBoundingClientRect();
-          const x = e.clientX - rect.left + detailRow.parentElement.scrollLeft;
+      childRow.addEventListener('dblclick', (e) => {
+        if (e.target === childRow || e.target.classList.contains('gantt-grid-line')) {
+          const rect = childRow.getBoundingClientRect();
+          const x = e.clientX - rect.left + childRow.parentElement.scrollLeft;
           const day = Math.floor(x / dw);
-          createTaskInline(proj.id, day, 'detail', detailRow, 24);
+          createTaskInline(proj.id, day, parentTask.id);
         }
       });
 
-      container.appendChild(detailRow);
+      container.appendChild(childRow);
 
     } else if (item.type === 'add-project' || item.type === 'add-category') {
       const addRow = document.createElement('div');
@@ -372,7 +389,7 @@ function renderGridLines(row, dayMode, year, dw, ww, totalWeeks, todayPx, todayW
   }
 }
 
-function createTaskBar(task, laneHeight, year) {
+function createTaskBar(task, laneHeight, year, proj) {
   const pos = taskToDisplayPixels(task.startDay, task.durationDays);
   const bar = document.createElement('div');
   bar.className = 'task-bar';
@@ -391,6 +408,21 @@ function createTaskBar(task, laneHeight, year) {
   bar.title = tooltip;
 
   if (pos.width < 40) bar.classList.add('task-bar-compact');
+
+  // Expand toggle for tasks with children
+  const hasChildren = proj && proj.tasks.some(t => t.parentId === task.id);
+  if (hasChildren) {
+    const toggle = document.createElement('span');
+    toggle.className = 'task-expand-toggle';
+    toggle.textContent = task.expanded ? '\u25BE' : '\u25B8';
+    toggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      Store.toggleTaskExpanded(task.id);
+      document.dispatchEvent(new Event('mareo:render'));
+    });
+    toggle.addEventListener('pointerdown', (e) => e.stopPropagation());
+    bar.appendChild(toggle);
+  }
 
   const label = document.createElement('span');
   label.className = 'task-label';
@@ -509,18 +541,19 @@ function showTaskContextMenu(e, task) {
   document.querySelectorAll('.context-menu').forEach(m => m.remove());
   const menu = document.createElement('div');
   menu.className = 'context-menu';
-  const taskType = task.type || 'main';
-  const toggleLabel = taskType === 'main' ? 'Move to Sub-calendar' : 'Move to Main';
+  const depth = Store.getTaskDepth(task.id);
+  const hasChildren = Store._findProjectForTask(task.id)?.tasks.some(t => t.parentId === task.id);
+  const showAddSub = depth < 5;
   menu.innerHTML = `
     <div class="context-menu-item" data-action="edit">Edit Task</div>
-    <div class="context-menu-item" data-action="toggle-type">${toggleLabel}</div>
+    ${showAddSub ? '<div class="context-menu-item" data-action="add-subtask">Add Subtask</div>' : ''}
     <div class="context-menu-item" data-action="notes">Notes</div>
     <div class="context-menu-item" data-action="links">Links</div>
     <div class="context-menu-item context-menu-deadline">
       <label>Deadline</label>
       <input type="date" class="context-menu-date" value="${task.deadline || ''}">
     </div>
-    <div class="context-menu-item danger" data-action="delete">Delete Task</div>
+    <div class="context-menu-item danger" data-action="delete">Delete${hasChildren ? ' (+ subtasks)' : ''}</div>
   `;
   menu.style.position = 'fixed';
   menu.style.left = e.clientX + 'px';
@@ -539,10 +572,15 @@ function showTaskContextMenu(e, task) {
     if (!action) return;
     if (action === 'edit') {
       showEditTaskModal(task);
-    } else if (action === 'toggle-type') {
-      const newType = (task.type || 'main') === 'main' ? 'detail' : 'main';
-      Store.updateTask(task.id, { type: newType });
-      document.dispatchEvent(new Event('mareo:render'));
+    } else if (action === 'add-subtask') {
+      const proj = Store._findProjectForTask(task.id);
+      if (proj) {
+        // Auto-expand the task and project to show the new subtask row
+        if (!task.expanded) Store.updateTask(task.id, { expanded: true });
+        const p = Store._findProject(proj.id);
+        if (p && !p.notesExpanded) Store.updateProject(proj.id, { notesExpanded: true });
+        createTaskInline(proj.id, task.startDay, task.id);
+      }
     } else if (action === 'notes') {
       menu.remove();
       showTaskPopover(e, task);

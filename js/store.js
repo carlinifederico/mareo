@@ -64,14 +64,17 @@ export const Store = {
     for (const cat of this.data.categories) {
       for (const proj of cat.projects) {
         if (!proj.projectNotes) proj.projectNotes = [];
-        // Migrate tasks from week-based to day-based
         for (const task of proj.tasks) {
+          // Migrate tasks from week-based to day-based
           if (task.startWeek != null && task.startDay == null) {
             task.startDay = task.startWeek * 7;
             task.durationDays = (task.durationWeeks || 1) * 7;
             delete task.startWeek;
             delete task.durationWeeks;
           }
+          // Migrate to nested subtask model
+          if (task.parentId === undefined) task.parentId = null;
+          if (task.expanded === undefined) task.expanded = false;
         }
       }
     }
@@ -294,7 +297,8 @@ export const Store = {
       notes: task.notes || '',
       links: task.links || [],
       deadline: task.deadline || null,
-      type: task.type || 'main'
+      parentId: task.parentId || null,
+      expanded: task.expanded || false
     };
     proj.tasks.push(t);
     this.save();
@@ -302,9 +306,25 @@ export const Store = {
   },
 
   removeTask(taskId) {
+    const idsToRemove = new Set([taskId]);
+    // Cascade: collect all descendants
+    let added = true;
+    while (added) {
+      added = false;
+      for (const cat of this.data.categories) {
+        for (const proj of cat.projects) {
+          for (const t of proj.tasks) {
+            if (t.parentId && idsToRemove.has(t.parentId) && !idsToRemove.has(t.id)) {
+              idsToRemove.add(t.id);
+              added = true;
+            }
+          }
+        }
+      }
+    }
     for (const cat of this.data.categories) {
       for (const proj of cat.projects) {
-        proj.tasks = proj.tasks.filter(t => t.id !== taskId);
+        proj.tasks = proj.tasks.filter(t => !idsToRemove.has(t.id));
       }
     }
     this.save();
@@ -418,6 +438,26 @@ export const Store = {
     return null;
   },
 
+  getTaskDepth(taskId) {
+    let depth = 0;
+    let task = this._findTask(taskId);
+    while (task && task.parentId) {
+      depth++;
+      task = this._findTask(task.parentId);
+    }
+    return depth;
+  },
+
+  toggleTaskExpanded(taskId) {
+    const task = this._findTask(taskId);
+    if (task) {
+      task.expanded = !task.expanded;
+      this._skipUndo = true;
+      this.save();
+      this._skipUndo = false;
+    }
+  },
+
   getAllProjects() {
     const projects = [];
     for (const cat of this.data.categories) {
@@ -476,6 +516,18 @@ export const Store = {
     const layout = [];
     const pinnedIds = this.data.pinnedProjects || [];
 
+    const emitChildRows = (proj, cat, pinned, parentTasks, depth) => {
+      if (depth > 5) return;
+      const sorted = [...parentTasks].sort((a, b) => (a.startDay || 0) - (b.startDay || 0));
+      for (const task of sorted) {
+        const children = proj.tasks.filter(t => t.parentId === task.id);
+        if (children.length > 0 && task.expanded) {
+          layout.push({ type: 'task-children', proj, cat, pinned, parentTask: task, depth });
+          emitChildRows(proj, cat, pinned, children, depth + 1);
+        }
+      }
+    };
+
     // Pinned section
     if (pinnedIds.length > 0) {
       layout.push({ type: 'pinned-header' });
@@ -485,7 +537,8 @@ export const Store = {
         if (proj && cat) {
           layout.push({ type: 'project', proj, cat, pinned: true });
           if (proj.notesExpanded) {
-            layout.push({ type: 'detail-tasks', proj, cat, pinned: true });
+            const rootTasks = proj.tasks.filter(t => !t.parentId);
+            emitChildRows(proj, cat, true, rootTasks, 1);
           }
         }
       }
@@ -500,7 +553,8 @@ export const Store = {
           if (!pinnedIds.includes(proj.id)) {
             layout.push({ type: 'project', proj, cat, pinned: false });
             if (proj.notesExpanded) {
-              layout.push({ type: 'detail-tasks', proj, cat, pinned: false });
+              const rootTasks = proj.tasks.filter(t => !t.parentId);
+              emitChildRows(proj, cat, false, rootTasks, 1);
             }
           }
         }

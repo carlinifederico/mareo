@@ -52,27 +52,45 @@ export function renderSidebar(container) {
     } else if (item.type === 'project') {
       container.appendChild(renderProjectRow(item.proj, item.cat, item.pinned));
 
-    } else if (item.type === 'detail-tasks') {
-      const proj = item.proj;
-      const detailTasks = proj.tasks.filter(t => t.type === 'detail');
-      const detailRow = document.createElement('div');
-      detailRow.className = 'sidebar-detail-tasks';
+    } else if (item.type === 'task-children') {
+      const { proj, parentTask, depth } = item;
+      const children = proj.tasks.filter(t => t.parentId === parentTask.id);
+      const groupRow = document.createElement('div');
+      groupRow.className = `sidebar-subtask-group depth-${depth}`;
+      groupRow.style.marginLeft = (12 + depth * 8) + 'px';
 
-      if (detailTasks.length > 0) {
-        const header = document.createElement('div');
-        header.className = 'detail-tasks-header';
-        header.textContent = 'sub-calendar';
-        detailRow.appendChild(header);
-      }
+      const header = document.createElement('div');
+      header.className = 'subtask-group-header';
+      const dot = document.createElement('span');
+      dot.className = 'detail-task-dot';
+      dot.style.backgroundColor = parentTask.color;
+      header.appendChild(dot);
+      const headerText = document.createElement('span');
+      headerText.textContent = (parentTask.label || 'Untitled') + ' subtasks';
+      header.appendChild(headerText);
+      groupRow.appendChild(header);
 
-      for (const task of detailTasks) {
+      for (const task of children) {
         const taskItem = document.createElement('div');
         taskItem.className = 'detail-task-item';
 
-        const dot = document.createElement('span');
-        dot.className = 'detail-task-dot';
-        dot.style.backgroundColor = task.color;
-        taskItem.appendChild(dot);
+        const childDot = document.createElement('span');
+        childDot.className = 'detail-task-dot';
+        childDot.style.backgroundColor = task.color;
+        taskItem.appendChild(childDot);
+
+        const hasGrandchildren = proj.tasks.some(t => t.parentId === task.id);
+        if (hasGrandchildren) {
+          const toggle = document.createElement('span');
+          toggle.className = 'subtask-toggle';
+          toggle.textContent = task.expanded ? '\u25BC' : '\u25B6';
+          toggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            Store.toggleTaskExpanded(task.id);
+            document.dispatchEvent(new Event('mareo:render'));
+          });
+          taskItem.appendChild(toggle);
+        }
 
         const nameEl = document.createElement('span');
         nameEl.className = 'detail-task-name';
@@ -81,7 +99,7 @@ export function renderSidebar(container) {
 
         const delBtn = document.createElement('button');
         delBtn.className = 'btn-icon note-preview-delete';
-        delBtn.textContent = '✕';
+        delBtn.textContent = '\u2715';
         delBtn.addEventListener('click', (e) => {
           e.stopPropagation();
           Store.removeTask(task.id);
@@ -89,19 +107,21 @@ export function renderSidebar(container) {
         });
         taskItem.appendChild(delBtn);
 
-        detailRow.appendChild(taskItem);
+        groupRow.appendChild(taskItem);
       }
 
-      const addBtn = document.createElement('div');
-      addBtn.className = 'note-preview-add';
-      addBtn.textContent = '+ Sub-task';
-      addBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        showAddTaskModal(proj.id, 0, 'detail');
-      });
-      detailRow.appendChild(addBtn);
+      if (depth < 5) {
+        const addBtn = document.createElement('div');
+        addBtn.className = 'note-preview-add';
+        addBtn.textContent = '+ Subtask';
+        addBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          showAddTaskModal(proj.id, parentTask.startDay || 0, null, parentTask.id);
+        });
+        groupRow.appendChild(addBtn);
+      }
 
-      container.appendChild(detailRow);
+      container.appendChild(groupRow);
 
     } else if (item.type === 'add-project') {
       const addProjBtn = document.createElement('div');
@@ -421,7 +441,6 @@ function showProjectMenu(e, proj, cat) {
   menu.innerHTML = `
     <div class="context-menu-item" data-action="edit">Edit Project</div>
     <div class="context-menu-item" data-action="addtask">Add Task</div>
-    <div class="context-menu-item" data-action="adddetail">Add Sub-task</div>
     <div class="context-menu-item danger" data-action="delete">Delete Project</div>
   `;
 
@@ -431,11 +450,6 @@ function showProjectMenu(e, proj, cat) {
       showEditProjectModal(proj);
     } else if (action === 'addtask') {
       showAddTaskModal(proj.id);
-    } else if (action === 'adddetail') {
-      if (!proj.notesExpanded) {
-        Store.updateProject(proj.id, { notesExpanded: true });
-      }
-      showAddTaskModal(proj.id, 0, 'detail');
     } else if (action === 'delete') {
       if (confirm(`Delete project "${proj.name}"?`)) {
         Store.removeProject(proj.id);
@@ -515,18 +529,21 @@ function showEditProjectModal(proj) {
   });
 }
 
-export function showAddTaskModal(projectId, startDay, taskType) {
+export function showAddTaskModal(projectId, startDay, taskType, parentId) {
   const proj = Store._findProject(projectId);
+  const parentTask = parentId ? Store._findTask(parentId) : null;
   const year = Store.data.currentYear;
   const dateStr = _doyToDateStr(year, startDay != null ? startDay : 0);
-  const isDetail = taskType === 'detail';
+  const isSubtask = !!parentId;
+  const defaultColor = parentTask ? _lightenColor(parentTask.color, 0.2) : (proj ? proj.color : '#bdc3c7');
+  const depth = parentTask ? Store.getTaskDepth(parentTask.id) + 1 : 0;
   showModal({
-    title: isDetail ? 'Add Detail Task' : 'Add Task',
+    title: isSubtask ? 'Add Subtask' : 'Add Task',
     fields: [
       { name: 'label', label: 'Label', type: 'text', value: '' },
       { name: 'startDate', label: 'Start Date', type: 'date', value: dateStr },
-      { name: 'durationDays', label: 'Duration (days)', type: 'number', value: isDetail ? 3 : 7, min: 1, max: 366 },
-      { name: 'color', label: 'Color', type: 'color', value: proj ? proj.color : '#bdc3c7' }
+      { name: 'durationDays', label: 'Duration (days)', type: 'number', value: Math.max(2, 7 - depth * 2), min: 1, max: 366 },
+      { name: 'color', label: 'Color', type: 'color', value: defaultColor }
     ],
     onSave: (values) => {
       Store.addTask(projectId, {
@@ -534,11 +551,22 @@ export function showAddTaskModal(projectId, startDay, taskType) {
         startDay: _dateStrToDoy(year, values.startDate),
         durationDays: parseInt(values.durationDays),
         color: values.color,
-        type: taskType || 'main'
+        parentId: parentId || null
       });
       document.dispatchEvent(new Event('mareo:render'));
     }
   });
+}
+
+function _lightenColor(hex, amount) {
+  if (!hex || hex[0] !== '#') return '#aaaaaa';
+  let r = parseInt(hex.slice(1, 3), 16);
+  let g = parseInt(hex.slice(3, 5), 16);
+  let b = parseInt(hex.slice(5, 7), 16);
+  r = Math.round(r + (255 - r) * amount);
+  g = Math.round(g + (255 - g) * amount);
+  b = Math.round(b + (255 - b) * amount);
+  return '#' + [r, g, b].map(c => c.toString(16).padStart(2, '0')).join('');
 }
 
 function _doyToDateStr(year, doy) {
