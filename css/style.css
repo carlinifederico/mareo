@@ -548,7 +548,7 @@ html, body {
 
 .sidebar-subtask-group {
   padding: 1px 4px 4px 8px;
-  border-left: 2px solid rgba(255, 255, 255, 0.05);
+  border-left: 3px solid rgba(167, 139, 250, 0.15);
   background: none;
 }
 
@@ -867,16 +867,16 @@ html, body {
   border-bottom: 1px solid rgba(255,255,255,0.03);
 }
 
-/* Subtask row depth styles */
+/* Subtask row depth styles — progressively lighter sub-calendar area */
 .gantt-subtask-row {
-  border-left: 2px solid rgba(255, 255, 255, 0.05);
+  border-left: 3px solid rgba(167, 139, 250, 0.15);
   border-bottom: none;
 }
-.gantt-subtask-row.depth-1 { background: rgba(255, 255, 255, 0.018); }
-.gantt-subtask-row.depth-2 { background: rgba(255, 255, 255, 0.012); }
-.gantt-subtask-row.depth-3 { background: rgba(255, 255, 255, 0.008); }
-.gantt-subtask-row.depth-4 { background: rgba(255, 255, 255, 0.005); }
-.gantt-subtask-row.depth-5 { background: rgba(255, 255, 255, 0.003); }
+.gantt-subtask-row.depth-1 { background: rgba(167, 139, 250, 0.04); }
+.gantt-subtask-row.depth-2 { background: rgba(167, 139, 250, 0.025); }
+.gantt-subtask-row.depth-3 { background: rgba(167, 139, 250, 0.015); }
+.gantt-subtask-row.depth-4 { background: rgba(167, 139, 250, 0.01); }
+.gantt-subtask-row.depth-5 { background: rgba(167, 139, 250, 0.006); }
 
 .gantt-project-row.has-detail-row {
   border-bottom: none;
@@ -910,6 +910,30 @@ html, body {
   flex-shrink: 0;
 }
 .task-expand-toggle:hover { opacity: 1; }
+
+/* "+" button on task bars to add subtask */
+.task-add-sub-btn {
+  display: none;
+  margin-left: auto;
+  padding: 0 4px;
+  font-size: 12px;
+  font-weight: 700;
+  opacity: 0.4;
+  cursor: pointer;
+  pointer-events: all;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.task-bar:hover .task-add-sub-btn {
+  display: inline;
+}
+.task-add-sub-btn:hover {
+  opacity: 1;
+}
+/* Hide "+" on very small bars */
+.task-bar-compact .task-add-sub-btn {
+  display: none !important;
+}
 
 .gantt-add-row { height: 28px; }
 

@@ -417,6 +417,10 @@ function createTaskBar(task, laneHeight, year, proj) {
     toggle.addEventListener('click', (e) => {
       e.stopPropagation();
       Store.toggleTaskExpanded(task.id);
+      // Also ensure project is expanded so child rows show
+      if (!task.expanded && proj && !proj.notesExpanded) {
+        Store.updateProject(proj.id, { notesExpanded: true });
+      }
       document.dispatchEvent(new Event('mareo:render'));
     });
     toggle.addEventListener('pointerdown', (e) => e.stopPropagation());
@@ -427,6 +431,28 @@ function createTaskBar(task, laneHeight, year, proj) {
   label.className = 'task-label';
   label.textContent = task.label;
   bar.appendChild(label);
+
+  // "+" button to add subtask (visible on hover, max depth 5)
+  const depth = proj ? Store.getTaskDepth(task.id) : 0;
+  if (depth < 5 && proj) {
+    const addBtn = document.createElement('span');
+    addBtn.className = 'task-add-sub-btn';
+    addBtn.textContent = '+';
+    addBtn.title = 'Add subtask';
+    addBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      // Auto-expand this task and all ancestors
+      let cur = task;
+      while (cur) {
+        if (!cur.expanded) Store.updateTask(cur.id, { expanded: true });
+        cur = cur.parentId ? Store._findTask(cur.parentId) : null;
+      }
+      if (!proj.notesExpanded) Store.updateProject(proj.id, { notesExpanded: true });
+      createTaskInline(proj.id, task.startDay, task.id);
+    });
+    addBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
+    bar.appendChild(addBtn);
+  }
 
   const resizeHandleLeft = document.createElement('div');
   resizeHandleLeft.className = 'resize-handle resize-handle-left';
