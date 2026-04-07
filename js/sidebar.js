@@ -116,7 +116,7 @@ export function renderSidebar(container) {
         addBtn.textContent = '+ Subtask';
         addBtn.addEventListener('click', (e) => {
           e.stopPropagation();
-          showAddTaskModal(proj.id, parentTask.startDay || 0, null, parentTask.id);
+          showAddTaskModal(proj.id, parentTask.startDay || 0, parentTask.id);
         });
         groupRow.appendChild(addBtn);
       }
@@ -441,6 +441,7 @@ function showProjectMenu(e, proj, cat) {
   menu.innerHTML = `
     <div class="context-menu-item" data-action="edit">Edit Project</div>
     <div class="context-menu-item" data-action="addtask">Add Task</div>
+    <div class="context-menu-item" data-action="expand-subcal">Show Sub-calendar</div>
     <div class="context-menu-item danger" data-action="delete">Delete Project</div>
   `;
 
@@ -449,7 +450,10 @@ function showProjectMenu(e, proj, cat) {
     if (action === 'edit') {
       showEditProjectModal(proj);
     } else if (action === 'addtask') {
-      showAddTaskModal(proj.id);
+      showAddTaskModal(proj.id, 0);
+    } else if (action === 'expand-subcal') {
+      Store.updateProject(proj.id, { notesExpanded: !proj.notesExpanded });
+      document.dispatchEvent(new Event('mareo:render'));
     } else if (action === 'delete') {
       if (confirm(`Delete project "${proj.name}"?`)) {
         Store.removeProject(proj.id);
@@ -529,7 +533,7 @@ function showEditProjectModal(proj) {
   });
 }
 
-export function showAddTaskModal(projectId, startDay, taskType, parentId) {
+export function showAddTaskModal(projectId, startDay, parentId) {
   const proj = Store._findProject(projectId);
   const parentTask = parentId ? Store._findTask(parentId) : null;
   const year = Store.data.currentYear;

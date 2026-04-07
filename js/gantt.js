@@ -1,6 +1,5 @@
 import { Store } from './store.js';
 import { getWeekWidth, getDayWidth, isDayMode, getTotalWeeks, getTotalWidth, taskToPixels, taskToDisplayPixels, getTodayPixelX, getTodayWeekIndex } from './timeline.js';
-import { showAddTaskModal } from './sidebar.js';
 import { showModal } from './modal.js';
 
 const LANE_HEIGHTS = [36, 28, 22, 18, 16, 16];
@@ -575,8 +574,12 @@ function showTaskContextMenu(e, task) {
     } else if (action === 'add-subtask') {
       const proj = Store._findProjectForTask(task.id);
       if (proj) {
-        // Auto-expand the task and project to show the new subtask row
-        if (!task.expanded) Store.updateTask(task.id, { expanded: true });
+        // Expand the task and all its ancestors so the new subtask row is visible
+        let cur = task;
+        while (cur) {
+          if (!cur.expanded) Store.updateTask(cur.id, { expanded: true });
+          cur = cur.parentId ? Store._findTask(cur.parentId) : null;
+        }
         const p = Store._findProject(proj.id);
         if (p && !p.notesExpanded) Store.updateProject(proj.id, { notesExpanded: true });
         createTaskInline(proj.id, task.startDay, task.id);
