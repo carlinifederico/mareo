@@ -168,6 +168,12 @@ export const Store = {
     }, 1500);
   },
 
+  async reload() {
+    if (!this._uid) return;
+    this.data = null;
+    await this.load(this._uid);
+  },
+
   setYear(year) { this.data.currentYear = year; this._skipUndo = true; this.save(); this._skipUndo = false; },
   setView(view) { this.data.currentView = view; this._skipUndo = true; this.save(); this._skipUndo = false; },
   setVisibleTabs(tabs) { this.data.visibleTabs = tabs; this._skipUndo = true; this.save(); this._skipUndo = false; },

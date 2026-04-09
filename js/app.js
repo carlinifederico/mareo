@@ -227,6 +227,23 @@ function initApp() {
     syncing = false;
   });
 
+  // Board: force reload from Firestore
+  document.getElementById('btn-board-sync').addEventListener('click', async () => {
+    const btn = document.getElementById('btn-board-sync');
+    btn.disabled = true;
+    const original = btn.textContent;
+    btn.textContent = '↻ Syncing...';
+    try {
+      await Store.reload();
+      render();
+    } catch (err) {
+      console.error('[board] sync failed:', err);
+    } finally {
+      btn.textContent = original;
+      btn.disabled = false;
+    }
+  });
+
   // Undo / Redo
   document.getElementById('btn-undo').addEventListener('click', () => {
     if (Store.undo()) { render(); updateUndoButtons(); }

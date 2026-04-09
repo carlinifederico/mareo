@@ -2,6 +2,7 @@ import { Store } from './store.js';
 
 let dragState = null;
 let boardZoom = 1;
+let boardCentered = false;
 
 export function renderBoard(container) {
   let wrapper = container.querySelector('.board-zoom-wrapper');
@@ -16,6 +17,10 @@ export function renderBoard(container) {
 
   const projects = Store.getAllProjects();
 
+  // Diagnostic: how many notes does the board see for each project?
+  console.log('[board] project notes count:',
+    projects.map(p => ({ id: p.id, name: p.name, notesCount: (p.projectNotes || []).length })));
+
   if (projects.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'empty-state';
@@ -24,8 +29,10 @@ export function renderBoard(container) {
     return;
   }
 
-  // Auto-position projects that have no saved position
-  let autoPx = 40, autoPy = 40;
+  // Auto-position projects that have no saved position — start near the
+  // center of the 3000x3000 wrapper so the board feels "centered" on first use
+  let autoPx = 1400, autoPy = 1400;
+  const positions = [];
   for (const proj of projects) {
     let x = proj.boardX;
     let y = proj.boardY;
@@ -33,13 +40,35 @@ export function renderBoard(container) {
       x = autoPx;
       y = autoPy;
       autoPx += 260;
-      if (autoPx > 1000) { autoPx = 40; autoPy += 240; }
-      // Persist the auto-assigned position
+      if (autoPx > 2400) { autoPx = 1400; autoPy += 240; }
       Store.updateProjectBoardPosition(proj.id, { x, y });
     }
+    positions.push({ x, y });
     const el = createProjectCard(proj, x, y);
     wrapper.appendChild(el);
   }
+
+  // Center scroll once per session on the bounding box of all cards
+  if (!boardCentered) {
+    boardCentered = true;
+    requestAnimationFrame(() => centerBoardOn(container, positions));
+  }
+}
+
+function centerBoardOn(canvas, positions) {
+  if (!positions.length) return;
+  const cardW = 240, cardH = 200; // approximate card size for centering math
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const { x, y } of positions) {
+    if (x < minX) minX = x;
+    if (y < minY) minY = y;
+    if (x + cardW > maxX) maxX = x + cardW;
+    if (y + cardH > maxY) maxY = y + cardH;
+  }
+  const cx = (minX + maxX) / 2;
+  const cy = (minY + maxY) / 2;
+  canvas.scrollLeft = Math.max(0, cx * boardZoom - canvas.clientWidth / 2);
+  canvas.scrollTop = Math.max(0, cy * boardZoom - canvas.clientHeight / 2);
 }
 
 function createProjectCard(proj, x, y) {
@@ -96,6 +125,12 @@ function createProjectCard(proj, x, y) {
   body.className = 'board-card-body';
 
   const notes = proj.projectNotes || [];
+  if (notes.length === 0) {
+    const placeholder = document.createElement('div');
+    placeholder.className = 'board-card-empty-notes';
+    placeholder.textContent = 'no notes yet';
+    body.appendChild(placeholder);
+  }
   for (const note of notes) {
     body.appendChild(createNoteRow(proj, note));
   }
