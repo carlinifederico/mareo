@@ -243,17 +243,23 @@ function renderProjectRow(proj, cat, pinned) {
         document.dispatchEvent(new Event('mareo:render'));
       });
 
-      const textInput = document.createElement('input');
-      textInput.type = 'text';
+      const textInput = document.createElement('textarea');
+      textInput.rows = 1;
       textInput.className = 'note-preview-text';
       textInput.value = note.title || note.content || '';
       textInput.placeholder = 'Note...';
       textInput.dataset.noteId = note.id;
+      const autoResize = () => {
+        textInput.style.height = 'auto';
+        textInput.style.height = textInput.scrollHeight + 'px';
+      };
       textInput.addEventListener('change', () => {
         Store.updateProjectNote(proj.id, note.id, { title: textInput.value });
       });
+      textInput.addEventListener('input', autoResize);
       textInput.addEventListener('focus', () => { noteItem.draggable = false; });
       textInput.addEventListener('blur', () => { noteItem.draggable = true; });
+      requestAnimationFrame(autoResize);
       textInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
           e.preventDefault();

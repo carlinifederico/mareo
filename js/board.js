@@ -3,6 +3,10 @@ import { Store } from './store.js';
 const GRID = 24; // matches the dot background in CSS
 const CLICK_DRAG_THRESHOLD = 4; // px movement before a click becomes a drag
 
+// Pinned row layout (world coordinates, offset is persisted in Store)
+const PIN_STEP     = 264; // 11 * GRID — horizontal spacing between pinned cards
+const PIN_HEADER_H = 28;  // label strip height above pinned cards
+
 let dragState = null;
 let marqueeState = null;
 let pendingClick = null;
@@ -32,9 +36,6 @@ export function renderBoard(container) {
   const pinnedProjects = pinnedIds.map(id => projById.get(id)).filter(Boolean);
   const unpinnedProjects = allProjects.filter(p => !pinnedIds.includes(p.id));
 
-  // Render pinned bar (sticky, outside the zoom/pan world)
-  renderPinnedBar(pinnedProjects);
-
   if (allProjects.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'empty-state';
@@ -43,10 +44,32 @@ export function renderBoard(container) {
     return;
   }
 
+  const positions = [];
+
+  // Pinned row: header label + horizontally aligned cards at a world offset
+  // that the user can drag (persisted in Store.data.pinnedBoardOffset).
+  if (pinnedProjects.length > 0) {
+    const offset = Store.data.pinnedBoardOffset || { x: 2500, y: 2700 };
+    const header = document.createElement('div');
+    header.className = 'board-pinned-header';
+    header.style.left = offset.x + 'px';
+    header.style.top  = (offset.y - PIN_HEADER_H - 6) + 'px';
+    header.style.width = (pinnedProjects.length * PIN_STEP - (PIN_STEP - 240)) + 'px';
+    header.textContent = '📌 PINNED';
+    wrapper.appendChild(header);
+
+    pinnedProjects.forEach((proj, i) => {
+      const x = offset.x + i * PIN_STEP;
+      const y = offset.y;
+      positions.push({ x, y });
+      const el = createProjectCard(proj, { x, y, isPinned: true });
+      wrapper.appendChild(el);
+    });
+  }
+
   // Unpinned: auto-position cards that have no saved position — start near the
   // center of the 6000x6000 wrapper so the board feels "centered" on first use
   let autoPx = snap(2900), autoPy = snap(2900);
-  const positions = [];
   for (const proj of unpinnedProjects) {
     let x = proj.boardX;
     let y = proj.boardY;
@@ -73,37 +96,16 @@ export function renderBoard(container) {
     const id = focusNoteIdAfterRender;
     focusNoteIdAfterRender = null;
     requestAnimationFrame(() => {
-      const input = document.querySelector(`.board-pinned-bar .note-preview-text[data-note-id="${id}"]`)
-                 || document.querySelector(`.board-zoom-wrapper .note-preview-text[data-note-id="${id}"]`);
-      if (input) { input.focus(); input.select(); }
+      const input = document.querySelector(`.board-zoom-wrapper .note-preview-text[data-note-id="${id}"]`);
+      if (input) { input.focus(); input.select(); autoResizeTextarea(input); }
     });
   }
 }
 
-function renderPinnedBar(pinnedProjects) {
-  const bar = document.getElementById('board-pinned-bar');
-  if (!bar) return;
-  bar.innerHTML = '';
-
-  if (pinnedProjects.length === 0) {
-    bar.classList.remove('has-pins');
-    return;
-  }
-  bar.classList.add('has-pins');
-
-  const label = document.createElement('div');
-  label.className = 'board-pinned-label';
-  label.textContent = '📌 PINNED';
-  bar.appendChild(label);
-
-  const strip = document.createElement('div');
-  strip.className = 'board-pinned-strip';
-  bar.appendChild(strip);
-
-  for (const proj of pinnedProjects) {
-    const el = createProjectCard(proj, { isPinned: true });
-    strip.appendChild(el);
-  }
+function autoResizeTextarea(el) {
+  if (!el) return;
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
 }
 
 function centerBoardOn(canvas, positions) {
@@ -159,11 +161,41 @@ function createProjectCard(proj, { x, y, isPinned = false } = {}) {
     if (e.button !== 0) return;
     e.stopPropagation();
 
-    // Pinned cards are locked in the sticky bar: no drag, no group select.
-    // A plain click on the header toggles minimize.
+    // Pinned cards: grabbing one starts a group drag of the ENTIRE pinned
+    // row (all pinned cards + the 📌 header label). A plain click (no
+    // movement) still toggles minimize on this card only.
     if (isPinned) {
-      Store.updateProjectBoardPosition(proj.id, { minimized: !minimized });
-      document.dispatchEvent(new Event('mareo:render'));
+      const wrapperEl = document.querySelector('.board-zoom-wrapper');
+      const pinnedCards = wrapperEl?.querySelectorAll('.board-card-pinned') || [];
+      const headerEl = wrapperEl?.querySelector('.board-pinned-header');
+      const groupEls = [];
+      for (const cardEl of pinnedCards) {
+        groupEls.push({
+          id: cardEl.dataset.projectId,
+          el: cardEl,
+          startLeft: parseInt(cardEl.style.left) || 0,
+          startTop: parseInt(cardEl.style.top) || 0,
+        });
+      }
+      if (headerEl) {
+        groupEls.push({
+          id: '__pinned_header__',
+          el: headerEl,
+          startLeft: parseInt(headerEl.style.left) || 0,
+          startTop: parseInt(headerEl.style.top) || 0,
+        });
+      }
+      dragState = {
+        primaryId: proj.id,
+        group: groupEls,
+        startClientX: e.clientX,
+        startClientY: e.clientY,
+        moved: false,
+        pointerId: e.pointerId,
+        isPinnedGroup: true,
+      };
+      pendingClick = { projectId: proj.id, minimized };
+      header.setPointerCapture(e.pointerId);
       return;
     }
 
@@ -270,8 +302,8 @@ function createNoteRow(proj, note) {
     document.dispatchEvent(new Event('mareo:render'));
   });
 
-  const textInput = document.createElement('input');
-  textInput.type = 'text';
+  const textInput = document.createElement('textarea');
+  textInput.rows = 1;
   textInput.className = 'note-preview-text';
   textInput.value = note.title || note.content || '';
   textInput.placeholder = 'Note...';
@@ -279,6 +311,7 @@ function createNoteRow(proj, note) {
   textInput.addEventListener('change', () => {
     Store.updateProjectNote(proj.id, note.id, { title: textInput.value });
   });
+  textInput.addEventListener('input', () => autoResizeTextarea(textInput));
   // Disable row dragging while typing
   textInput.addEventListener('focus', () => { row.draggable = false; });
   textInput.addEventListener('blur',  () => { row.draggable = true;  });
@@ -334,6 +367,8 @@ function createNoteRow(proj, note) {
   row.appendChild(textInput);
   row.appendChild(todayDot);
   row.appendChild(delBtn);
+  // Resize once attached so existing long text fits without scrolling
+  requestAnimationFrame(() => autoResizeTextarea(textInput));
   return row;
 }
 
@@ -404,11 +439,24 @@ export function initBoardDrag() {
   document.addEventListener('pointerup', (e) => {
     if (!dragState) return;
     if (dragState.moved) {
-      for (const g of dragState.group) {
-        const x = parseInt(g.el.style.left);
-        const y = parseInt(g.el.style.top);
-        Store.updateProjectBoardPosition(g.id, { x, y });
-        g.el.classList.remove('dragging');
+      if (dragState.isPinnedGroup) {
+        // Whole pinned row moved: persist a single group offset instead of
+        // per-card positions. Delta comes from any anchor element.
+        const anchor = dragState.group[0];
+        if (anchor) {
+          const dx = (parseInt(anchor.el.style.left) || 0) - anchor.startLeft;
+          const dy = (parseInt(anchor.el.style.top)  || 0) - anchor.startTop;
+          const old = Store.data.pinnedBoardOffset || { x: 2500, y: 2700 };
+          Store.updatePinnedBoardOffset(old.x + dx, old.y + dy);
+        }
+        for (const g of dragState.group) g.el.classList.remove('dragging');
+      } else {
+        for (const g of dragState.group) {
+          const x = parseInt(g.el.style.left);
+          const y = parseInt(g.el.style.top);
+          Store.updateProjectBoardPosition(g.id, { x, y });
+          g.el.classList.remove('dragging');
+        }
       }
     } else if (pendingClick) {
       Store.updateProjectBoardPosition(pendingClick.projectId, { minimized: !pendingClick.minimized });

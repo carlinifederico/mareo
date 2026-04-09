@@ -622,7 +622,7 @@ button, input, select, textarea {
 
 .note-preview-item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 5px;
   font-size: 10px;
   color: var(--text-muted);
@@ -631,6 +631,12 @@ button, input, select, textarea {
   cursor: grab;
   line-height: 1.4;
   position: relative;
+}
+.note-preview-item > .note-preview-check,
+.note-preview-item > .note-drag-grip,
+.note-preview-item > .note-preview-delete,
+.note-preview-item > .today-dot {
+  margin-top: 3px;
 }
 
 .note-preview-item.dragging { opacity: 0.4; }
@@ -653,6 +659,14 @@ button, input, select, textarea {
   outline: none;
   border-radius: 3px;
   cursor: text;
+  /* Textarea-specific: auto-wrap, no resize handle, no horizontal scroll */
+  resize: none;
+  overflow: hidden;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+  line-height: 1.4;
+  display: block;
 }
 
 .note-preview-text:focus {
@@ -1491,74 +1505,43 @@ button, input, select, textarea {
   z-index: 100;
 }
 
-/* Pinned sticky bar: lives above .board-canvas, outside the pan/zoom world */
-.board-pinned-bar {
-  display: none;
-  flex-direction: column;
-  gap: 6px;
-  padding: 10px 14px 12px;
-  border-bottom: 1px solid rgba(30, 26, 48, 0.5);
-  background: rgba(10, 8, 18, 0.92);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  z-index: 5;
-  flex: 0 0 auto;
-}
-.board-pinned-bar.has-pins { display: flex; }
-
-.board-pinned-label {
-  font-size: 9px;
+/* Pinned row (world coords) — label strip above + aligned pinned cards.
+   Entire group is drag-movable; persisted via Store.data.pinnedBoardOffset. */
+.board-pinned-header {
+  position: absolute;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 1.5px;
   color: var(--text-muted);
-  padding-left: 8px;
+  padding: 6px 10px;
   border-left: 3px solid var(--accent);
+  background: rgba(167, 139, 250, 0.06);
+  border-radius: 4px;
+  pointer-events: none;
   user-select: none;
 }
 
-.board-pinned-strip {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 12px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  padding: 4px 2px 6px;
-}
-.board-pinned-strip::-webkit-scrollbar { height: 6px; }
-.board-pinned-strip::-webkit-scrollbar-thumb {
-  background: rgba(167, 139, 250, 0.25);
-  border-radius: 3px;
-}
-
-/* Pinned cards inside the sticky strip: no absolute positioning, static flow */
-.board-pinned-strip .board-card-pinned {
-  position: static;
-  width: 240px;
-  flex: 0 0 240px;
-  max-height: 280px;
-  overflow: hidden;
+.board-card-pinned {
   box-shadow: 0 0 0 1px rgba(167, 139, 250, 0.25), var(--shadow-card);
 }
-.board-pinned-strip .board-card-pinned:hover { transform: none; }
-.board-pinned-strip .board-card-pinned .board-card-header,
-.board-pinned-strip .board-card-pinned .board-card-title { cursor: pointer; }
-.board-pinned-strip .board-card-pinned .board-card-body {
-  max-height: 220px;
-  overflow-y: auto;
-}
+.board-card-pinned .board-card-header,
+.board-card-pinned .board-card-title { cursor: grab; }
+.board-card-pinned.dragging .board-card-header,
+.board-card-pinned.dragging .board-card-title { cursor: grabbing; }
 
-/* Indented (sub-task) checklist rows — applies in Board and Timeline */
-.note-preview-item.indented { padding-left: 22px; }
+/* Indented (sub-task) checklist rows — applies in Board and Timeline.
+   Use margin-left so .board-project-card .board-note-row padding can't override. */
+.note-preview-item.indented { margin-left: 26px; }
+.board-project-card .board-note-row.indented { margin-left: 28px; }
 .note-preview-item.indented::before {
   content: '';
   position: absolute;
-  left: 10px;
-  top: 50%;
-  width: 8px;
+  left: -16px;
+  top: 10px;
+  width: 12px;
   height: 1px;
-  background: rgba(255,255,255,0.15);
+  background: rgba(255, 255, 255, 0.22);
 }
-.note-preview-item { position: relative; }
 
 /* Drag grip for board note rows (timeline already had .note-drag-grip) */
 .board-note-row .note-drag-grip {
@@ -3050,7 +3033,7 @@ button, input, select, textarea {
 
 .board-project-card .board-note-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 6px;
   padding: 3px 4px;
   border-radius: 3px;
@@ -3073,6 +3056,13 @@ button, input, select, textarea {
   padding: 2px 4px;
   outline: none;
   min-width: 0;
+  resize: none;
+  overflow: hidden;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+  line-height: 1.4;
+  display: block;
 }
 .board-project-card .note-preview-text:focus { background: var(--bg-hover); }
 

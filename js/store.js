@@ -60,6 +60,7 @@ export const Store = {
     if (!this.data.currentView) this.data.currentView = 'timeline';
     if (!this.data.categories) this.data.categories = [];
     if (!this.data.pinnedProjects) this.data.pinnedProjects = [];
+    if (!this.data.pinnedBoardOffset) this.data.pinnedBoardOffset = { x: 2500, y: 2700 };
     if (!this.data.visibleTabs) this.data.visibleTabs = ['timeline', 'board', 'expenses', 'balance'];
     // Notes view was removed — drop it from visibleTabs and currentView
     this.data.visibleTabs = this.data.visibleTabs.filter(v => v !== 'notes');
@@ -538,6 +539,11 @@ export const Store = {
 
   reorderPinnedProjects(orderedIds) {
     this.data.pinnedProjects = orderedIds;
+    this.save();
+  },
+
+  updatePinnedBoardOffset(x, y) {
+    this.data.pinnedBoardOffset = { x, y };
     this.save();
   },
 
