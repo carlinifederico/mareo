@@ -1486,6 +1486,30 @@ button, input, select, textarea {
   z-index: 100;
 }
 
+/* Pinned row: header strip + locked aligned cards */
+.board-pinned-header {
+  position: absolute;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--text-muted);
+  padding: 6px 10px;
+  border-left: 3px solid var(--accent);
+  background: rgba(167, 139, 250, 0.06);
+  border-radius: 4px;
+  pointer-events: none;
+  user-select: none;
+}
+
+.board-card-pinned {
+  box-shadow: 0 0 0 1px rgba(167, 139, 250, 0.25), var(--shadow-card);
+}
+
+.board-card-pinned .board-card-header,
+.board-card-pinned .board-card-title { cursor: pointer; }
+
+.board-card-pinned:hover { transform: none; }
+
 .board-card-delete {
   position: absolute;
   top: 4px;

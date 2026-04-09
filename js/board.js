@@ -3,6 +3,13 @@ import { Store } from './store.js';
 const GRID = 24; // matches the dot background in CSS
 const CLICK_DRAG_THRESHOLD = 4; // px movement before a click becomes a drag
 
+// Pinned-row layout (world coordinates). Pinned cards always render here,
+// overriding their saved boardX/boardY, so they stay aligned like Timeline.
+const PIN_X_START  = 2500;
+const PIN_Y        = 2700;
+const PIN_STEP     = 264; // 11 * GRID — matches auto-position cascade
+const PIN_HEADER_H = 28;
+
 let dragState = null;
 let marqueeState = null;
 let pendingClick = null;
@@ -23,13 +30,13 @@ export function renderBoard(container) {
   wrapper.style.transform = `scale(${boardZoom})`;
   wrapper.style.transformOrigin = '0 0';
 
-  const projects = Store.getAllProjects();
+  const allProjects = Store.getAllProjects();
 
   // Diagnostic: how many notes does the board see for each project?
   console.log('[board] project notes count:',
-    projects.map(p => ({ id: p.id, name: p.name, notesCount: (p.projectNotes || []).length })));
+    allProjects.map(p => ({ id: p.id, name: p.name, notesCount: (p.projectNotes || []).length })));
 
-  if (projects.length === 0) {
+  if (allProjects.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'empty-state';
     empty.textContent = 'No projects yet — add one from the Timeline sidebar';
@@ -37,11 +44,37 @@ export function renderBoard(container) {
     return;
   }
 
-  // Auto-position projects that have no saved position — start near the
+  // Partition into pinned (from Store.pinnedProjects order) and free cards
+  const pinnedIds = Store.data.pinnedProjects || [];
+  const projById = new Map(allProjects.map(p => [p.id, p]));
+  const pinnedProjects = pinnedIds.map(id => projById.get(id)).filter(Boolean);
+  const unpinnedProjects = allProjects.filter(p => !pinnedIds.includes(p.id));
+
+  const positions = [];
+
+  // Pinned row: header strip + horizontally-aligned cards at fixed world coords
+  if (pinnedProjects.length > 0) {
+    const header = document.createElement('div');
+    header.className = 'board-pinned-header';
+    header.style.left = PIN_X_START + 'px';
+    header.style.top  = (PIN_Y - PIN_HEADER_H - 6) + 'px';
+    header.style.width = (pinnedProjects.length * PIN_STEP - (PIN_STEP - 240)) + 'px';
+    header.textContent = '📌 PINNED';
+    wrapper.appendChild(header);
+
+    pinnedProjects.forEach((proj, i) => {
+      const x = PIN_X_START + i * PIN_STEP;
+      const y = PIN_Y;
+      positions.push({ x, y });
+      const el = createProjectCard(proj, x, y, true);
+      wrapper.appendChild(el);
+    });
+  }
+
+  // Unpinned: auto-position cards that have no saved position — start near the
   // center of the 6000x6000 wrapper so the board feels "centered" on first use
   let autoPx = snap(2900), autoPy = snap(2900);
-  const positions = [];
-  for (const proj of projects) {
+  for (const proj of unpinnedProjects) {
     let x = proj.boardX;
     let y = proj.boardY;
     if (x == null || y == null) {
@@ -52,7 +85,7 @@ export function renderBoard(container) {
       Store.updateProjectBoardPosition(proj.id, { x, y });
     }
     positions.push({ x, y });
-    const el = createProjectCard(proj, x, y);
+    const el = createProjectCard(proj, x, y, false);
     wrapper.appendChild(el);
   }
 
@@ -79,13 +112,14 @@ function centerBoardOn(canvas, positions) {
   canvas.scrollTop = Math.max(0, cy * boardZoom - canvas.clientHeight / 2);
 }
 
-function createProjectCard(proj, x, y) {
+function createProjectCard(proj, x, y, isPinned = false) {
   const minimized = !!proj.boardMinimized;
   const isSelected = selectedIds.has(proj.id);
   const el = document.createElement('div');
   el.className = 'board-card board-project-card'
     + (minimized ? ' minimized' : '')
-    + (isSelected ? ' selected' : '');
+    + (isSelected ? ' selected' : '')
+    + (isPinned ? ' board-card-pinned' : '');
   el.dataset.projectId = proj.id;
   el.style.left = x + 'px';
   el.style.top = y + 'px';
@@ -112,6 +146,14 @@ function createProjectCard(proj, x, y) {
   header.addEventListener('pointerdown', (e) => {
     if (e.button !== 0) return;
     e.stopPropagation();
+
+    // Pinned cards are locked to the aligned pinned row: no drag, no group
+    // selection. A plain click on the header toggles minimize.
+    if (isPinned) {
+      Store.updateProjectBoardPosition(proj.id, { minimized: !minimized });
+      document.dispatchEvent(new Event('mareo:render'));
+      return;
+    }
 
     // Shift+click → toggle this card in the selection, no drag, no minimize
     if (e.shiftKey) {
@@ -348,6 +390,7 @@ export function initBoardSelection() {
       if (!additive) selectedIds.clear();
       const cards = document.querySelectorAll('.board-project-card');
       for (const card of cards) {
+        if (card.classList.contains('board-card-pinned')) continue;
         const cx = parseInt(card.style.left) || 0;
         const cy = parseInt(card.style.top) || 0;
         const cw = card.offsetWidth;
