@@ -90,6 +90,7 @@ export function renderTodayPanel() {
   }
 
   panelEl.appendChild(body);
+  attachTodayReorderDnD(body);
   updateFabCount(items.length);
 }
 
@@ -97,10 +98,18 @@ function createTodayRow(item) {
   const { projectId, projectName, projectColor, note } = item;
   const row = document.createElement('div');
   row.className = 'today-row' + (note.done ? ' done' : '');
+  row.dataset.noteId = note.id;
+  row.draggable = true;
+
+  const grip = document.createElement('span');
+  grip.className = 'today-drag-grip';
+  grip.textContent = '⠿';
+  grip.title = 'Drag to reorder';
+  grip.addEventListener('pointerdown', (e) => e.stopPropagation());
 
   const checkbox = document.createElement('input');
   checkbox.type = 'checkbox';
-  checkbox.className = 'today-check';
+  checkbox.className = 'note-preview-check';
   checkbox.checked = !!note.done;
   checkbox.addEventListener('change', () => {
     Store.updateProjectNote(projectId, note.id, { done: checkbox.checked });
@@ -115,6 +124,9 @@ function createTodayRow(item) {
   text.addEventListener('change', () => {
     Store.updateProjectNote(projectId, note.id, { title: text.value });
   });
+  // Disable row dragging while typing
+  text.addEventListener('focus', () => { row.draggable = false; });
+  text.addEventListener('blur',  () => { row.draggable = true;  });
 
   const label = document.createElement('button');
   label.className = 'today-project-label';
@@ -146,11 +158,46 @@ function createTodayRow(item) {
     document.dispatchEvent(new Event('mareo:render'));
   });
 
+  row.appendChild(grip);
   row.appendChild(checkbox);
   row.appendChild(text);
   row.appendChild(label);
   row.appendChild(removeBtn);
   return row;
+}
+
+function attachTodayReorderDnD(body) {
+  let dragNoteId = null;
+  body.addEventListener('dragstart', (e) => {
+    const item = e.target.closest('.today-row');
+    if (!item) return;
+    dragNoteId = item.dataset.noteId;
+    item.classList.add('dragging');
+    if (e.dataTransfer) { e.dataTransfer.effectAllowed = 'move'; }
+    e.stopPropagation();
+  });
+  body.addEventListener('dragend', (e) => {
+    const item = e.target.closest('.today-row');
+    if (item) item.classList.remove('dragging');
+    body.querySelectorAll('.today-row').forEach(n => n.classList.remove('drag-over'));
+    dragNoteId = null;
+  });
+  body.addEventListener('dragover', (e) => {
+    const item = e.target.closest('.today-row');
+    if (!item || item.dataset.noteId === dragNoteId) return;
+    e.preventDefault();
+    e.stopPropagation();
+    body.querySelectorAll('.today-row').forEach(n => n.classList.remove('drag-over'));
+    item.classList.add('drag-over');
+  });
+  body.addEventListener('drop', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const item = e.target.closest('.today-row');
+    if (!item || !dragNoteId || item.dataset.noteId === dragNoteId) return;
+    Store.reorderTodayItem(dragNoteId, item.dataset.noteId);
+    document.dispatchEvent(new Event('mareo:render'));
+  });
 }
 
 function updateFabCount(n) {
@@ -184,23 +231,39 @@ async function popoutToPiP() {
     return;
   }
 
-  // Copy stylesheets to PiP window
+  // Hard-copy CSS custom properties from :root so the PiP has colors even
+  // before any stylesheet finishes loading.
+  const rootVars = [
+    '--bg', '--bg-surface', '--bg-hover', '--text', '--text-muted',
+    '--border', '--accent', '--accent-2', '--danger', '--coral',
+    '--mint', '--blue', '--cyan', '--pink', '--orange', '--lime'
+  ];
+  const srcStyle = getComputedStyle(document.documentElement);
+  for (const v of rootVars) {
+    const val = srcStyle.getPropertyValue(v);
+    if (val) pipWindow.document.documentElement.style.setProperty(v, val);
+  }
+
+  // Copy stylesheets to PiP window. Prefer inlining cssRules (works for
+  // same-origin sheets including file://) and fall back to <link> only if
+  // cssRules throws (CORS-protected cross-origin).
   for (const sheet of document.styleSheets) {
     try {
+      const css = [...sheet.cssRules].map(r => r.cssText).join('\n');
+      const style = pipWindow.document.createElement('style');
+      style.textContent = css;
+      pipWindow.document.head.appendChild(style);
+    } catch {
       if (sheet.href) {
         const link = pipWindow.document.createElement('link');
         link.rel = 'stylesheet';
         link.href = sheet.href;
         pipWindow.document.head.appendChild(link);
-      } else if (sheet.cssRules) {
-        const style = pipWindow.document.createElement('style');
-        style.textContent = [...sheet.cssRules].map(r => r.cssText).join('\n');
-        pipWindow.document.head.appendChild(style);
       }
-    } catch (err) {
-      // CORS-blocked stylesheets — skip silently
     }
   }
+
+  pipWindow.document.documentElement.classList.add('pip-mode');
   pipWindow.document.body.classList.add('pip-mode');
   pipWindow.document.body.appendChild(panelEl);
 

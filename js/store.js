@@ -61,6 +61,7 @@ export const Store = {
     if (!this.data.categories) this.data.categories = [];
     if (!this.data.pinnedProjects) this.data.pinnedProjects = [];
     if (!this.data.pinnedBoardOffset) this.data.pinnedBoardOffset = { x: 2500, y: 2700 };
+    if (!this.data.todayOrder) this.data.todayOrder = [];
     if (!this.data.visibleTabs) this.data.visibleTabs = ['timeline', 'board', 'expenses', 'balance'];
     // Notes view was removed — drop it from visibleTabs and currentView
     this.data.visibleTabs = this.data.visibleTabs.filter(v => v !== 'notes');
@@ -417,6 +418,23 @@ export const Store = {
     const note = (proj.projectNotes || []).find(n => n.id === noteId);
     if (!note) return;
     note.today = !note.today;
+    if (!this.data.todayOrder) this.data.todayOrder = [];
+    if (note.today) {
+      if (!this.data.todayOrder.includes(noteId)) this.data.todayOrder.push(noteId);
+    } else {
+      this.data.todayOrder = this.data.todayOrder.filter(id => id !== noteId);
+    }
+    this.save();
+  },
+
+  reorderTodayItem(fromNoteId, toNoteId) {
+    if (!this.data.todayOrder) this.data.todayOrder = [];
+    const order = this.data.todayOrder;
+    const fromIdx = order.indexOf(fromNoteId);
+    const toIdx   = order.indexOf(toNoteId);
+    if (fromIdx < 0 || toIdx < 0 || fromIdx === toIdx) return;
+    const [moved] = order.splice(fromIdx, 1);
+    order.splice(toIdx, 0, moved);
     this.save();
   },
 
@@ -436,6 +454,15 @@ export const Store = {
         }
       }
     }
+    const order = this.data.todayOrder || [];
+    items.sort((a, b) => {
+      const ai = order.indexOf(a.note.id);
+      const bi = order.indexOf(b.note.id);
+      if (ai === -1 && bi === -1) return 0;
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    });
     return items;
   },
 
@@ -448,6 +475,7 @@ export const Store = {
     this.data = parsed;
     if (!this.data.notes) this.data.notes = [];
     if (!this.data.boardCards) this.data.boardCards = [];
+    if (!this.data.todayOrder) this.data.todayOrder = [];
     if (!this.data.visibleTabs) this.data.visibleTabs = ['timeline', 'board', 'expenses', 'balance'];
     this.data.visibleTabs = this.data.visibleTabs.filter(v => v !== 'notes');
     this.save();

@@ -3256,12 +3256,19 @@ button, input, select, textarea {
 .today-row:hover { background: var(--bg-hover); }
 .today-row.done .today-text { text-decoration: line-through; color: var(--text-muted); }
 
-.today-check {
-  width: 12px;
-  height: 12px;
-  accent-color: var(--accent);
+.today-drag-grip {
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1;
+  cursor: grab;
+  user-select: none;
+  opacity: 0;
   flex-shrink: 0;
 }
+.today-row:hover .today-drag-grip { opacity: 0.6; }
+.today-drag-grip:hover { opacity: 1; color: var(--accent); }
+.today-row.dragging { opacity: 0.4; }
+.today-row.drag-over { box-shadow: inset 0 -2px 0 0 var(--accent); }
 
 .today-text {
   flex: 1;
