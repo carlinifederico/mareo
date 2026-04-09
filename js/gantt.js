@@ -133,6 +133,7 @@ export function renderGantt(container) {
       }
 
       projRow.addEventListener('dblclick', (e) => {
+        if (Store.isTimelineLocked()) return;
         if (e.target === projRow || e.target.classList.contains('gantt-grid-line')) {
           const rect = projRow.getBoundingClientRect();
           const x = e.clientX - rect.left + projRow.parentElement.scrollLeft;
@@ -171,6 +172,7 @@ export function renderGantt(container) {
       }
 
       childRow.addEventListener('dblclick', (e) => {
+        if (Store.isTimelineLocked()) return;
         if (e.target === childRow || e.target.classList.contains('gantt-grid-line')) {
           const rect = childRow.getBoundingClientRect();
           const x = e.clientX - rect.left + childRow.parentElement.scrollLeft;
@@ -463,18 +465,21 @@ function createTaskBar(task, laneHeight, year, proj) {
   bar.appendChild(resizeHandle);
 
   bar.addEventListener('click', (e) => {
+    if (Store.isTimelineLocked()) return;
     if (e.target.classList.contains('resize-handle')) return;
     e.stopPropagation();
     showTaskPopover(e, task);
   });
 
   bar.addEventListener('dblclick', (e) => {
+    if (Store.isTimelineLocked()) return;
     e.stopPropagation();
     closeAllPopovers();
     showEditTaskModal(task);
   });
 
   bar.addEventListener('contextmenu', (e) => {
+    if (Store.isTimelineLocked()) return;
     e.preventDefault();
     e.stopPropagation();
     showTaskContextMenu(e, task);

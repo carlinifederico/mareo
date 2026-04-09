@@ -172,6 +172,19 @@ function initApp() {
     applyTimelineDefaultView();
   });
 
+  // Edit-mode toggle: gates all Timeline mutations behind an explicit unlock
+  // so users don't accidentally drag a task bar or rename something while
+  // just viewing. Default is locked.
+  const btnEditMode = document.getElementById('btn-edit-mode');
+  if (btnEditMode) {
+    btnEditMode.addEventListener('click', () => {
+      Store.setTimelineLocked(!Store.isTimelineLocked());
+      refreshEditModeButton();
+      render();
+    });
+  }
+  refreshEditModeButton();
+
   // Import/Export
   document.getElementById('btn-export').addEventListener('click', exportData);
   document.getElementById('btn-import').addEventListener('click', importData);
@@ -303,6 +316,16 @@ function applyTimelineDefaultView() {
   });
 }
 
+function refreshEditModeButton() {
+  const locked = Store.isTimelineLocked();
+  document.body.classList.toggle('timeline-locked', locked);
+  const btn = document.getElementById('btn-edit-mode');
+  if (btn) {
+    btn.textContent = locked ? '🔒 LOCKED' : '✏️ EDITING';
+    btn.classList.toggle('editing', !locked);
+  }
+}
+
 function switchView(view) {
   currentView = view;
   Store.setView(view);
@@ -313,6 +336,7 @@ function switchView(view) {
   });
 
   document.getElementById('year-nav').style.display = view === 'timeline' ? 'flex' : 'none';
+  refreshEditModeButton();
 
   render();
 

@@ -147,12 +147,13 @@ export function renderSidebar(container) {
 }
 
 function renderProjectRow(proj, cat, pinned) {
+  const locked = Store.isTimelineLocked();
   const projRow = document.createElement('div');
   projRow.className = 'sidebar-project' + (pinned ? ' pinned' : '');
   projRow.dataset.projectId = proj.id;
   projRow.dataset.categoryId = cat.id;
   projRow.dataset.pinned = pinned ? '1' : '0';
-  projRow.draggable = true;
+  projRow.draggable = !locked;
 
   const header = document.createElement('div');
   header.className = 'sidebar-project-header';
@@ -225,7 +226,7 @@ function renderProjectRow(proj, cat, pinned) {
       noteItem.className = 'note-preview-item'
         + (note.done ? ' done' : '')
         + (depth > 0 ? ' indented' : '');
-      noteItem.draggable = true;
+      noteItem.draggable = !locked;
       noteItem.dataset.noteId = note.id;
       noteItem.dataset.depth = String(depth);
 
@@ -237,8 +238,10 @@ function renderProjectRow(proj, cat, pinned) {
       checkbox.type = 'checkbox';
       checkbox.className = 'note-preview-check';
       checkbox.checked = !!note.done;
+      checkbox.disabled = locked;
       checkbox.addEventListener('change', (e) => {
         e.stopPropagation();
+        if (Store.isTimelineLocked()) return;
         Store.updateProjectNote(proj.id, note.id, { done: checkbox.checked });
         document.dispatchEvent(new Event('mareo:render'));
       });
@@ -248,19 +251,22 @@ function renderProjectRow(proj, cat, pinned) {
       textInput.className = 'note-preview-text';
       textInput.value = note.title || note.content || '';
       textInput.placeholder = 'Note...';
+      textInput.readOnly = locked;
       textInput.dataset.noteId = note.id;
       const autoResize = () => {
         textInput.style.height = 'auto';
         textInput.style.height = textInput.scrollHeight + 'px';
       };
       textInput.addEventListener('change', () => {
+        if (Store.isTimelineLocked()) return;
         Store.updateProjectNote(proj.id, note.id, { title: textInput.value });
       });
       textInput.addEventListener('input', autoResize);
-      textInput.addEventListener('focus', () => { noteItem.draggable = false; });
-      textInput.addEventListener('blur', () => { noteItem.draggable = true; });
+      textInput.addEventListener('focus', () => { if (!Store.isTimelineLocked()) noteItem.draggable = false; });
+      textInput.addEventListener('blur',  () => { if (!Store.isTimelineLocked()) noteItem.draggable = true;  });
       requestAnimationFrame(autoResize);
       textInput.addEventListener('keydown', (e) => {
+        if (Store.isTimelineLocked()) return;
         if (e.key === 'Enter') {
           e.preventDefault();
           Store.updateProjectNote(proj.id, note.id, { title: textInput.value });
@@ -373,6 +379,7 @@ function initSidebarDragDrop(container) {
   let draggedCatId = null;
 
   container.addEventListener('dragstart', (e) => {
+    if (Store.isTimelineLocked()) { e.preventDefault(); return; }
     const row = e.target.closest('.sidebar-project');
     if (!row) return;
     draggedId = row.dataset.projectId;

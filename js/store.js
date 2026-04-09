@@ -62,6 +62,7 @@ export const Store = {
     if (!this.data.pinnedProjects) this.data.pinnedProjects = [];
     if (!this.data.pinnedBoardOffset) this.data.pinnedBoardOffset = { x: 2500, y: 2700 };
     if (!this.data.todayOrder) this.data.todayOrder = [];
+    if (this.data.timelineLocked === undefined) this.data.timelineLocked = true;
     if (!this.data.visibleTabs) this.data.visibleTabs = ['timeline', 'board', 'expenses', 'balance'];
     // Notes view was removed — drop it from visibleTabs and currentView
     this.data.visibleTabs = this.data.visibleTabs.filter(v => v !== 'notes');
@@ -201,6 +202,9 @@ export const Store = {
   setYear(year) { this.data.currentYear = year; this._skipUndo = true; this.save(); this._skipUndo = false; },
   setView(view) { this.data.currentView = view; this._skipUndo = true; this.save(); this._skipUndo = false; },
   setVisibleTabs(tabs) { this.data.visibleTabs = tabs; this._skipUndo = true; this.save(); this._skipUndo = false; },
+
+  isTimelineLocked() { return this.data.timelineLocked !== false; },
+  setTimelineLocked(v) { this.data.timelineLocked = !!v; this._skipUndo = true; this.save(); this._skipUndo = false; },
 
   // --- Categories ---
   addCategory(name) {
@@ -430,9 +434,11 @@ export const Store = {
   reorderTodayItem(fromNoteId, toNoteId) {
     if (!this.data.todayOrder) this.data.todayOrder = [];
     const order = this.data.todayOrder;
+    if (!order.includes(fromNoteId)) order.push(fromNoteId);
+    if (!order.includes(toNoteId))   order.push(toNoteId);
     const fromIdx = order.indexOf(fromNoteId);
     const toIdx   = order.indexOf(toNoteId);
-    if (fromIdx < 0 || toIdx < 0 || fromIdx === toIdx) return;
+    if (fromIdx === toIdx) return;
     const [moved] = order.splice(fromIdx, 1);
     order.splice(toIdx, 0, moved);
     this.save();
@@ -454,15 +460,16 @@ export const Store = {
         }
       }
     }
-    const order = this.data.todayOrder || [];
-    items.sort((a, b) => {
-      const ai = order.indexOf(a.note.id);
-      const bi = order.indexOf(b.note.id);
-      if (ai === -1 && bi === -1) return 0;
-      if (ai === -1) return 1;
-      if (bi === -1) return -1;
-      return ai - bi;
-    });
+    // Self-heal: ensure every visible Today note has a slot in todayOrder so
+    // reorderTodayItem can never silently bail on legacy/imported data.
+    if (!this.data.todayOrder) this.data.todayOrder = [];
+    const order = this.data.todayOrder;
+    let dirty = false;
+    for (const it of items) {
+      if (!order.includes(it.note.id)) { order.push(it.note.id); dirty = true; }
+    }
+    if (dirty) this.save();
+    items.sort((a, b) => order.indexOf(a.note.id) - order.indexOf(b.note.id));
     return items;
   },
 

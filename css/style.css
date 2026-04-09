@@ -3262,17 +3262,17 @@ button, input, select, textarea {
 
 .today-drag-grip {
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1;
   cursor: grab;
   user-select: none;
-  opacity: 0;
+  opacity: 0.45;
   flex-shrink: 0;
-  padding: 2px 2px;
-  margin-top: 2px;
+  padding: 4px 4px;
+  margin-top: 1px;
   touch-action: none;
 }
-.today-row:hover .today-drag-grip { opacity: 0.6; }
+.today-row:hover .today-drag-grip { opacity: 1; }
 .today-drag-grip:hover { opacity: 1; color: var(--accent); }
 .today-row.dragging { opacity: 0.4; }
 .today-row.drag-over { box-shadow: inset 0 -2px 0 0 var(--accent); }
@@ -3411,6 +3411,43 @@ body.pip-mode .today-panel {
   bottom: auto;
   right: auto;
 }
+
+/* ================================================
+   TIMELINE: edit-mode lock
+   ================================================ */
+.btn-edit-mode {
+  border-color: var(--border);
+  color: var(--text-muted);
+  font-size: 10px;
+  padding: 4px 10px;
+  letter-spacing: 0.5px;
+}
+.btn-edit-mode.editing {
+  border-color: var(--coral);
+  color: var(--coral);
+  box-shadow: 0 0 12px rgba(255, 77, 46, 0.35);
+}
+
+/* When the Timeline is locked, hide every destructive / mutation-only
+   affordance in the sidebar so users cannot accidentally bump them. */
+body.timeline-locked #view-timeline .proj-pin-btn,
+body.timeline-locked #view-timeline .proj-menu-btn,
+body.timeline-locked #view-timeline .cat-menu-btn,
+body.timeline-locked #view-timeline .note-preview-delete,
+body.timeline-locked #view-timeline .note-preview-add,
+body.timeline-locked #view-timeline .sidebar-add-project,
+body.timeline-locked #view-timeline .sidebar-add-category,
+body.timeline-locked #view-timeline .drag-handle,
+body.timeline-locked #view-timeline .note-drag-grip,
+body.timeline-locked #view-timeline .task-add-sub-btn {
+  display: none !important;
+}
+
+/* Visual cues that the Timeline is locked */
+body.timeline-locked #view-timeline .task-bar { cursor: default; }
+body.timeline-locked #view-timeline .sidebar-project { cursor: default; }
+body.timeline-locked #view-timeline .note-preview-text { cursor: default; }
+body.timeline-locked #view-timeline .note-preview-check { cursor: not-allowed; }
 
 /* ================================================
    BOARD: Mobile vertical list (≤640px)

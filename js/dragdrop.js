@@ -11,6 +11,7 @@ export function initDragDrop() {
 }
 
 function onPointerDown(e) {
+  if (Store.isTimelineLocked()) return;
   const bar = e.target.closest('.task-bar');
   if (!bar) return;
 
