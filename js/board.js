@@ -133,11 +133,9 @@ function createProjectCard(proj, { x, y, isPinned = false } = {}) {
     + (isSelected ? ' selected' : '')
     + (isPinned ? ' board-card-pinned' : '');
   el.dataset.projectId = proj.id;
-  if (!isPinned) {
-    el.style.left = x + 'px';
-    el.style.top = y + 'px';
-    el.style.width = '240px';
-  }
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+  el.style.width = '240px';
   el.style.borderLeft = `3px solid ${proj.color}`;
 
   // --- Header (drag handle + click to toggle minimize) ---

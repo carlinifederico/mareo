@@ -99,13 +99,11 @@ function createTodayRow(item) {
   const row = document.createElement('div');
   row.className = 'today-row' + (note.done ? ' done' : '');
   row.dataset.noteId = note.id;
-  row.draggable = true;
 
   const grip = document.createElement('span');
   grip.className = 'today-drag-grip';
   grip.textContent = '⠿';
   grip.title = 'Drag to reorder';
-  grip.addEventListener('pointerdown', (e) => e.stopPropagation());
 
   const checkbox = document.createElement('input');
   checkbox.type = 'checkbox';
@@ -124,9 +122,6 @@ function createTodayRow(item) {
   text.addEventListener('change', () => {
     Store.updateProjectNote(projectId, note.id, { title: text.value });
   });
-  // Disable row dragging while typing
-  text.addEventListener('focus', () => { row.draggable = false; });
-  text.addEventListener('blur',  () => { row.draggable = true;  });
 
   const label = document.createElement('button');
   label.className = 'today-project-label';
@@ -166,37 +161,65 @@ function createTodayRow(item) {
   return row;
 }
 
+// Pointer-based reorder (works both in the main window and inside a Document
+// Picture-in-Picture window, where HTML5 dragstart/drop events are unreliable).
 function attachTodayReorderDnD(body) {
-  let dragNoteId = null;
-  body.addEventListener('dragstart', (e) => {
-    const item = e.target.closest('.today-row');
-    if (!item) return;
-    dragNoteId = item.dataset.noteId;
-    item.classList.add('dragging');
-    if (e.dataTransfer) { e.dataTransfer.effectAllowed = 'move'; }
-    e.stopPropagation();
-  });
-  body.addEventListener('dragend', (e) => {
-    const item = e.target.closest('.today-row');
-    if (item) item.classList.remove('dragging');
-    body.querySelectorAll('.today-row').forEach(n => n.classList.remove('drag-over'));
-    dragNoteId = null;
-  });
-  body.addEventListener('dragover', (e) => {
-    const item = e.target.closest('.today-row');
-    if (!item || item.dataset.noteId === dragNoteId) return;
+  body.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    const grip = e.target.closest('.today-drag-grip');
+    if (!grip) return;
+    const dragRow = grip.closest('.today-row');
+    if (!dragRow) return;
+    const dragId = dragRow.dataset.noteId;
+    if (!dragId) return;
+
     e.preventDefault();
     e.stopPropagation();
-    body.querySelectorAll('.today-row').forEach(n => n.classList.remove('drag-over'));
-    item.classList.add('drag-over');
-  });
-  body.addEventListener('drop', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const item = e.target.closest('.today-row');
-    if (!item || !dragNoteId || item.dataset.noteId === dragNoteId) return;
-    Store.reorderTodayItem(dragNoteId, item.dataset.noteId);
-    document.dispatchEvent(new Event('mareo:render'));
+    dragRow.classList.add('dragging');
+    try { grip.setPointerCapture(e.pointerId); } catch {}
+
+    const doc = body.ownerDocument || document;
+    let targetId = null;
+
+    const findRowAt = (clientX, clientY) => {
+      const under = doc.elementFromPoint(clientX, clientY);
+      return under?.closest?.('.today-row') || null;
+    };
+
+    const onMove = (mv) => {
+      const target = findRowAt(mv.clientX, mv.clientY);
+      body.querySelectorAll('.today-row').forEach(n => n.classList.remove('drag-over'));
+      if (target && target !== dragRow) {
+        target.classList.add('drag-over');
+        targetId = target.dataset.noteId || null;
+      } else {
+        targetId = null;
+      }
+    };
+
+    const cleanup = () => {
+      body.removeEventListener('pointermove', onMove);
+      body.removeEventListener('pointerup', onUp);
+      body.removeEventListener('pointercancel', onUp);
+      try { grip.releasePointerCapture(e.pointerId); } catch {}
+      dragRow.classList.remove('dragging');
+      body.querySelectorAll('.today-row').forEach(n => n.classList.remove('drag-over'));
+    };
+
+    const onUp = (up) => {
+      // Final target: prefer the last element under pointer at release.
+      const target = findRowAt(up.clientX, up.clientY);
+      const finalId = (target && target !== dragRow) ? (target.dataset.noteId || null) : targetId;
+      cleanup();
+      if (finalId && finalId !== dragId) {
+        Store.reorderTodayItem(dragId, finalId);
+        document.dispatchEvent(new Event('mareo:render'));
+      }
+    };
+
+    body.addEventListener('pointermove', onMove);
+    body.addEventListener('pointerup', onUp);
+    body.addEventListener('pointercancel', onUp);
   });
 }
 
