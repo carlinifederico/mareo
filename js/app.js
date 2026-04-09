@@ -16,6 +16,7 @@ window._mareoModules = { Store };
 let currentView = 'timeline';
 let appInitialized = false;
 let _tabDragId = null;
+let _timelineDefaultApplied = false;
 
 const ALL_VIEWS = [
   { id: 'timeline', label: 'Timeline' },
@@ -165,11 +166,10 @@ function initApp() {
     }
   }, { passive: false });
 
-  // Reset view button
+  // Reset view button — restores the default Timeline view
+  // (±1.5 months around today, centered).
   document.getElementById('btn-reset-view').addEventListener('click', () => {
-    resetWeekWidth();
-    render();
-    scrollToToday();
+    applyTimelineDefaultView();
   });
 
   // Import/Export
@@ -264,6 +264,34 @@ function scrollToToday() {
   timelineArea.scrollTo({ left: Math.max(0, todayPx - timelineArea.clientWidth / 2), behavior: 'smooth' });
 }
 
+// Default Timeline view: zoom so ±1.5 months around today fills the viewport,
+// jump to the current year if needed, then center today horizontally. Used on
+// first Timeline enter and by the "reset view" button.
+function applyTimelineDefaultView() {
+  const timelineArea = document.getElementById('timeline-area');
+  if (!timelineArea) return;
+  const now = new Date();
+  if (Store.data.currentYear !== now.getFullYear()) {
+    Store.setYear(now.getFullYear());
+  }
+  // Measure viewport width; if the timeline is currently hidden (clientWidth
+  // === 0 because the tab just switched), use the app container width instead.
+  const visibleW = timelineArea.clientWidth
+    || document.getElementById('app-container')?.clientWidth
+    || window.innerWidth;
+  // 3 months ≈ 90 days should fit in the visible width.
+  const DAYS_IN_WINDOW = 90;
+  const targetWeekWidth = Math.max(20, Math.min(300, (visibleW / DAYS_IN_WINDOW) * 7));
+  setWeekWidth(targetWeekWidth);
+  render();
+  // Center today after the layout settles.
+  requestAnimationFrame(() => {
+    const todayPx = getTodayPixelX(now.getFullYear());
+    if (todayPx < 0) return;
+    timelineArea.scrollLeft = Math.max(0, todayPx - timelineArea.clientWidth / 2);
+  });
+}
+
 function switchView(view) {
   currentView = view;
   Store.setView(view);
@@ -276,6 +304,13 @@ function switchView(view) {
   document.getElementById('year-nav').style.display = view === 'timeline' ? 'flex' : 'none';
 
   render();
+
+  // First time the user lands on the Timeline in this session → apply the
+  // default ±1.5-month window centered on today.
+  if (view === 'timeline' && !_timelineDefaultApplied) {
+    _timelineDefaultApplied = true;
+    requestAnimationFrame(() => applyTimelineDefaultView());
+  }
 }
 
 function renderTabs() {

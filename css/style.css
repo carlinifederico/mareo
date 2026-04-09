@@ -6,7 +6,7 @@
 }
 
 :root {
-  --sidebar-width: 480px;
+  --sidebar-width: 360px;
   --header-height: 40px;
   --timeline-header-height: 44px;
   --week-width: 36px;
@@ -3256,19 +3256,30 @@ button, input, select, textarea {
 .today-row:hover { background: var(--bg-hover); }
 .today-row.done .today-text { text-decoration: line-through; color: var(--text-muted); }
 
+.today-row {
+  align-items: flex-start;
+}
+
 .today-drag-grip {
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1;
   cursor: grab;
   user-select: none;
   opacity: 0;
   flex-shrink: 0;
+  padding: 2px 2px;
+  margin-top: 2px;
+  touch-action: none;
 }
 .today-row:hover .today-drag-grip { opacity: 0.6; }
 .today-drag-grip:hover { opacity: 1; color: var(--accent); }
 .today-row.dragging { opacity: 0.4; }
 .today-row.drag-over { box-shadow: inset 0 -2px 0 0 var(--accent); }
+
+.today-row > .note-preview-check { margin-top: 3px; }
+.today-row > .today-project-label,
+.today-row > .today-remove { margin-top: 2px; }
 
 .today-text {
   flex: 1;
@@ -3280,6 +3291,11 @@ button, input, select, textarea {
   padding: 2px 4px;
   outline: none;
   min-width: 0;
+  resize: none;
+  overflow: hidden;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 .today-text:focus { background: var(--bg); }
 

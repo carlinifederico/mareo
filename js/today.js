@@ -114,14 +114,18 @@ function createTodayRow(item) {
     document.dispatchEvent(new Event('mareo:render'));
   });
 
-  const text = document.createElement('input');
-  text.type = 'text';
+  const text = document.createElement('textarea');
+  text.rows = 1;
   text.className = 'today-text';
   text.value = note.title || note.content || '';
   text.placeholder = 'Note...';
   text.addEventListener('change', () => {
     Store.updateProjectNote(projectId, note.id, { title: text.value });
   });
+  text.addEventListener('input', () => autoResizeTextarea(text));
+  // Block the reorder pointerdown when interacting with the text
+  text.addEventListener('pointerdown', (e) => e.stopPropagation());
+  requestAnimationFrame(() => autoResizeTextarea(text));
 
   const label = document.createElement('button');
   label.className = 'today-project-label';
@@ -161,8 +165,16 @@ function createTodayRow(item) {
   return row;
 }
 
-// Pointer-based reorder (works both in the main window and inside a Document
-// Picture-in-Picture window, where HTML5 dragstart/drop events are unreliable).
+function autoResizeTextarea(el) {
+  if (!el) return;
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
+}
+
+// Pointer-based reorder. Listeners for pointermove/pointerup are attached to
+// the contextual window (main window OR the Document PiP window, depending on
+// where the panel currently lives) so the drag keeps tracking even when the
+// pointer leaves the body rect.
 function attachTodayReorderDnD(body) {
   body.addEventListener('pointerdown', (e) => {
     if (e.button !== 0) return;
@@ -174,11 +186,12 @@ function attachTodayReorderDnD(body) {
     if (!dragId) return;
 
     e.preventDefault();
-    e.stopPropagation();
     dragRow.classList.add('dragging');
-    try { grip.setPointerCapture(e.pointerId); } catch {}
 
     const doc = body.ownerDocument || document;
+    const win = doc.defaultView || window;
+    try { grip.setPointerCapture(e.pointerId); } catch {}
+
     let targetId = null;
 
     const findRowAt = (clientX, clientY) => {
@@ -186,9 +199,13 @@ function attachTodayReorderDnD(body) {
       return under?.closest?.('.today-row') || null;
     };
 
+    const clearDragOver = () => {
+      body.querySelectorAll('.today-row').forEach(n => n.classList.remove('drag-over'));
+    };
+
     const onMove = (mv) => {
       const target = findRowAt(mv.clientX, mv.clientY);
-      body.querySelectorAll('.today-row').forEach(n => n.classList.remove('drag-over'));
+      clearDragOver();
       if (target && target !== dragRow) {
         target.classList.add('drag-over');
         targetId = target.dataset.noteId || null;
@@ -198,16 +215,15 @@ function attachTodayReorderDnD(body) {
     };
 
     const cleanup = () => {
-      body.removeEventListener('pointermove', onMove);
-      body.removeEventListener('pointerup', onUp);
-      body.removeEventListener('pointercancel', onUp);
+      win.removeEventListener('pointermove', onMove);
+      win.removeEventListener('pointerup', onUp);
+      win.removeEventListener('pointercancel', onUp);
       try { grip.releasePointerCapture(e.pointerId); } catch {}
       dragRow.classList.remove('dragging');
-      body.querySelectorAll('.today-row').forEach(n => n.classList.remove('drag-over'));
+      clearDragOver();
     };
 
     const onUp = (up) => {
-      // Final target: prefer the last element under pointer at release.
       const target = findRowAt(up.clientX, up.clientY);
       const finalId = (target && target !== dragRow) ? (target.dataset.noteId || null) : targetId;
       cleanup();
@@ -217,9 +233,9 @@ function attachTodayReorderDnD(body) {
       }
     };
 
-    body.addEventListener('pointermove', onMove);
-    body.addEventListener('pointerup', onUp);
-    body.addEventListener('pointercancel', onUp);
+    win.addEventListener('pointermove', onMove);
+    win.addEventListener('pointerup', onUp);
+    win.addEventListener('pointercancel', onUp);
   });
 }
 
