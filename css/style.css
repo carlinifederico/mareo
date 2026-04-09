@@ -250,6 +250,11 @@ button, input, select, textarea {
   box-shadow: 0 0 24px rgba(167, 139, 250, 0.35), 0 0 8px rgba(6, 182, 212, 0.15);
 }
 
+.view-tab.dragging { opacity: 0.4; }
+.view-tab.drag-over {
+  box-shadow: inset 2px 0 0 0 var(--accent);
+}
+
 /* === Year Nav === */
 .year-nav {
   display: flex;
@@ -1486,29 +1491,89 @@ button, input, select, textarea {
   z-index: 100;
 }
 
-/* Pinned row: header strip + locked aligned cards */
-.board-pinned-header {
-  position: absolute;
-  font-size: 10px;
+/* Pinned sticky bar: lives above .board-canvas, outside the pan/zoom world */
+.board-pinned-bar {
+  display: none;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 14px 12px;
+  border-bottom: 1px solid rgba(30, 26, 48, 0.5);
+  background: rgba(10, 8, 18, 0.92);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  z-index: 5;
+  flex: 0 0 auto;
+}
+.board-pinned-bar.has-pins { display: flex; }
+
+.board-pinned-label {
+  font-size: 9px;
   font-weight: 700;
   letter-spacing: 1.5px;
   color: var(--text-muted);
-  padding: 6px 10px;
+  padding-left: 8px;
   border-left: 3px solid var(--accent);
-  background: rgba(167, 139, 250, 0.06);
-  border-radius: 4px;
-  pointer-events: none;
   user-select: none;
 }
 
-.board-card-pinned {
-  box-shadow: 0 0 0 1px rgba(167, 139, 250, 0.25), var(--shadow-card);
+.board-pinned-strip {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 4px 2px 6px;
+}
+.board-pinned-strip::-webkit-scrollbar { height: 6px; }
+.board-pinned-strip::-webkit-scrollbar-thumb {
+  background: rgba(167, 139, 250, 0.25);
+  border-radius: 3px;
 }
 
-.board-card-pinned .board-card-header,
-.board-card-pinned .board-card-title { cursor: pointer; }
+/* Pinned cards inside the sticky strip: no absolute positioning, static flow */
+.board-pinned-strip .board-card-pinned {
+  position: static;
+  width: 240px;
+  flex: 0 0 240px;
+  max-height: 280px;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px rgba(167, 139, 250, 0.25), var(--shadow-card);
+}
+.board-pinned-strip .board-card-pinned:hover { transform: none; }
+.board-pinned-strip .board-card-pinned .board-card-header,
+.board-pinned-strip .board-card-pinned .board-card-title { cursor: pointer; }
+.board-pinned-strip .board-card-pinned .board-card-body {
+  max-height: 220px;
+  overflow-y: auto;
+}
 
-.board-card-pinned:hover { transform: none; }
+/* Indented (sub-task) checklist rows — applies in Board and Timeline */
+.note-preview-item.indented { padding-left: 22px; }
+.note-preview-item.indented::before {
+  content: '';
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  width: 8px;
+  height: 1px;
+  background: rgba(255,255,255,0.15);
+}
+.note-preview-item { position: relative; }
+
+/* Drag grip for board note rows (timeline already had .note-drag-grip) */
+.board-note-row .note-drag-grip {
+  opacity: 0;
+  cursor: grab;
+  font-size: 10px;
+  color: var(--text-muted);
+  padding: 0 2px;
+  user-select: none;
+  transition: opacity 0.15s ease;
+}
+.board-note-row:hover .note-drag-grip { opacity: 0.6; }
+.board-note-row .note-drag-grip:hover { opacity: 1; }
+.board-note-row.dragging { opacity: 0.4; }
+.board-note-row.drag-over { box-shadow: inset 0 -2px 0 0 var(--accent); }
 
 .board-card-delete {
   position: absolute;

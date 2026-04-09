@@ -15,6 +15,7 @@ window._mareoModules = { Store };
 
 let currentView = 'timeline';
 let appInitialized = false;
+let _tabDragId = null;
 
 const ALL_VIEWS = [
   { id: 'timeline', label: 'Timeline' },
@@ -291,6 +292,7 @@ function renderTabs() {
     const btn = document.createElement('button');
     btn.className = 'view-tab' + (viewId === currentView ? ' active' : '');
     btn.dataset.view = viewId;
+    btn.draggable = true;
 
     const label = document.createTextNode(viewDef.label);
     btn.appendChild(label);
@@ -315,6 +317,29 @@ function renderTabs() {
       e.preventDefault();
       if (visibleTabs.length <= 1) return;
       removeTab(viewId);
+    });
+
+    // Drag & drop reorder
+    btn.addEventListener('dragstart', (e) => {
+      _tabDragId = viewId;
+      btn.classList.add('dragging');
+      if (e.dataTransfer) { e.dataTransfer.effectAllowed = 'move'; }
+    });
+    btn.addEventListener('dragend', () => {
+      btn.classList.remove('dragging');
+      document.querySelectorAll('.view-tab.drag-over').forEach(t => t.classList.remove('drag-over'));
+      _tabDragId = null;
+    });
+    btn.addEventListener('dragover', (e) => {
+      if (!_tabDragId || _tabDragId === viewId) return;
+      e.preventDefault();
+      document.querySelectorAll('.view-tab.drag-over').forEach(t => t.classList.remove('drag-over'));
+      btn.classList.add('drag-over');
+    });
+    btn.addEventListener('drop', (e) => {
+      e.preventDefault();
+      if (!_tabDragId || _tabDragId === viewId) return;
+      reorderTabs(_tabDragId, viewId);
     });
 
     nav.appendChild(btn);
@@ -372,6 +397,17 @@ function removeTab(viewId) {
   } else {
     renderTabs();
   }
+}
+
+function reorderTabs(fromId, toId) {
+  const tabs = [...Store.data.visibleTabs];
+  const fromIdx = tabs.indexOf(fromId);
+  const toIdx = tabs.indexOf(toId);
+  if (fromIdx < 0 || toIdx < 0) return;
+  const [moved] = tabs.splice(fromIdx, 1);
+  tabs.splice(toIdx, 0, moved);
+  Store.setVisibleTabs(tabs);
+  renderTabs();
 }
 
 function updateUndoButtons() {

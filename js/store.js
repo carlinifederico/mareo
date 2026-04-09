@@ -321,6 +321,31 @@ export const Store = {
     this.save();
   },
 
+  // Google Keep-style 1-level indent: a note can become a child of the
+  // previous note (depth 1). The very first note in the list cannot indent.
+  indentProjectNote(projectId, noteId) {
+    const proj = this._findProject(projectId);
+    if (!proj || !proj.projectNotes) return;
+    const idx = proj.projectNotes.findIndex(n => n.id === noteId);
+    if (idx <= 0) return; // first note can't indent
+    const note = proj.projectNotes[idx];
+    if ((note.depth || 0) >= 1) return; // cap at 1 level
+    note.depth = 1;
+    note.updatedAt = Date.now();
+    this.save();
+  },
+
+  outdentProjectNote(projectId, noteId) {
+    const proj = this._findProject(projectId);
+    if (!proj || !proj.projectNotes) return;
+    const note = proj.projectNotes.find(n => n.id === noteId);
+    if (!note) return;
+    if (!note.depth) return;
+    note.depth = 0;
+    note.updatedAt = Date.now();
+    this.save();
+  },
+
   // --- Tasks (day-based: startDay, durationDays) ---
   addTask(projectId, task) {
     const proj = this._findProject(projectId);

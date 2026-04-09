@@ -221,9 +221,13 @@ function renderProjectRow(proj, cat, pinned) {
     for (let i = 0; i < notes.length; i++) {
       const note = notes[i];
       const noteItem = document.createElement('div');
-      noteItem.className = 'note-preview-item' + (note.done ? ' done' : '');
+      const depth = Math.min(1, Math.max(0, note.depth || 0));
+      noteItem.className = 'note-preview-item'
+        + (note.done ? ' done' : '')
+        + (depth > 0 ? ' indented' : '');
       noteItem.draggable = true;
       noteItem.dataset.noteId = note.id;
+      noteItem.dataset.depth = String(depth);
 
       const grip = document.createElement('span');
       grip.className = 'note-drag-grip';
@@ -256,12 +260,33 @@ function renderProjectRow(proj, cat, pinned) {
           Store.updateProjectNote(proj.id, note.id, { title: textInput.value });
           const newNote = Store.addProjectNoteAfter(proj.id, note.id, { title: '', content: '' });
           document.dispatchEvent(new Event('mareo:render'));
-          // Focus new note after render
           requestAnimationFrame(() => {
-            const newInput = preview.closest('.sidebar-project')
-              ?.querySelector(`.note-preview-text[data-note-id="${newNote.id}"]`);
+            const newInput = document.querySelector(`.note-preview-text[data-note-id="${newNote.id}"]`);
             if (newInput) newInput.focus();
           });
+        } else if (e.key === 'Tab') {
+          e.preventDefault();
+          Store.updateProjectNote(proj.id, note.id, { title: textInput.value });
+          if (e.shiftKey) Store.outdentProjectNote(proj.id, note.id);
+          else            Store.indentProjectNote(proj.id, note.id);
+          document.dispatchEvent(new Event('mareo:render'));
+          requestAnimationFrame(() => {
+            const sameInput = document.querySelector(`.note-preview-text[data-note-id="${note.id}"]`);
+            if (sameInput) sameInput.focus();
+          });
+        } else if (e.key === 'Backspace' && textInput.value === '') {
+          e.preventDefault();
+          const notes = proj.projectNotes || [];
+          const idx = notes.findIndex(n => n.id === note.id);
+          const prev = idx > 0 ? notes[idx - 1] : null;
+          Store.removeProjectNote(proj.id, note.id);
+          document.dispatchEvent(new Event('mareo:render'));
+          if (prev) {
+            requestAnimationFrame(() => {
+              const prevInput = document.querySelector(`.note-preview-text[data-note-id="${prev.id}"]`);
+              if (prevInput) { prevInput.focus(); prevInput.select(); }
+            });
+          }
         }
       });
 

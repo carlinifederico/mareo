@@ -3,19 +3,15 @@ import { Store } from './store.js';
 const GRID = 24; // matches the dot background in CSS
 const CLICK_DRAG_THRESHOLD = 4; // px movement before a click becomes a drag
 
-// Pinned-row layout (world coordinates). Pinned cards always render here,
-// overriding their saved boardX/boardY, so they stay aligned like Timeline.
-const PIN_X_START  = 2500;
-const PIN_Y        = 2700;
-const PIN_STEP     = 264; // 11 * GRID — matches auto-position cascade
-const PIN_HEADER_H = 28;
-
 let dragState = null;
 let marqueeState = null;
 let pendingClick = null;
 let boardZoom = 1;
 let boardCentered = false;
 const selectedIds = new Set();
+
+// Remember the note id just created via Enter, so we can focus it after re-render
+let focusNoteIdAfterRender = null;
 
 function snap(v) { return Math.round(v / GRID) * GRID; }
 
@@ -31,10 +27,13 @@ export function renderBoard(container) {
   wrapper.style.transformOrigin = '0 0';
 
   const allProjects = Store.getAllProjects();
+  const pinnedIds = Store.data.pinnedProjects || [];
+  const projById = new Map(allProjects.map(p => [p.id, p]));
+  const pinnedProjects = pinnedIds.map(id => projById.get(id)).filter(Boolean);
+  const unpinnedProjects = allProjects.filter(p => !pinnedIds.includes(p.id));
 
-  // Diagnostic: how many notes does the board see for each project?
-  console.log('[board] project notes count:',
-    allProjects.map(p => ({ id: p.id, name: p.name, notesCount: (p.projectNotes || []).length })));
+  // Render pinned bar (sticky, outside the zoom/pan world)
+  renderPinnedBar(pinnedProjects);
 
   if (allProjects.length === 0) {
     const empty = document.createElement('div');
@@ -44,36 +43,10 @@ export function renderBoard(container) {
     return;
   }
 
-  // Partition into pinned (from Store.pinnedProjects order) and free cards
-  const pinnedIds = Store.data.pinnedProjects || [];
-  const projById = new Map(allProjects.map(p => [p.id, p]));
-  const pinnedProjects = pinnedIds.map(id => projById.get(id)).filter(Boolean);
-  const unpinnedProjects = allProjects.filter(p => !pinnedIds.includes(p.id));
-
-  const positions = [];
-
-  // Pinned row: header strip + horizontally-aligned cards at fixed world coords
-  if (pinnedProjects.length > 0) {
-    const header = document.createElement('div');
-    header.className = 'board-pinned-header';
-    header.style.left = PIN_X_START + 'px';
-    header.style.top  = (PIN_Y - PIN_HEADER_H - 6) + 'px';
-    header.style.width = (pinnedProjects.length * PIN_STEP - (PIN_STEP - 240)) + 'px';
-    header.textContent = '📌 PINNED';
-    wrapper.appendChild(header);
-
-    pinnedProjects.forEach((proj, i) => {
-      const x = PIN_X_START + i * PIN_STEP;
-      const y = PIN_Y;
-      positions.push({ x, y });
-      const el = createProjectCard(proj, x, y, true);
-      wrapper.appendChild(el);
-    });
-  }
-
   // Unpinned: auto-position cards that have no saved position — start near the
   // center of the 6000x6000 wrapper so the board feels "centered" on first use
   let autoPx = snap(2900), autoPy = snap(2900);
+  const positions = [];
   for (const proj of unpinnedProjects) {
     let x = proj.boardX;
     let y = proj.boardY;
@@ -85,14 +58,51 @@ export function renderBoard(container) {
       Store.updateProjectBoardPosition(proj.id, { x, y });
     }
     positions.push({ x, y });
-    const el = createProjectCard(proj, x, y, false);
+    const el = createProjectCard(proj, { x, y, isPinned: false });
     wrapper.appendChild(el);
   }
 
   // Center scroll once per session on the bounding box of all cards
-  if (!boardCentered) {
+  if (!boardCentered && positions.length > 0) {
     boardCentered = true;
     requestAnimationFrame(() => centerBoardOn(container, positions));
+  }
+
+  // Restore focus to the note input that was just created via Enter
+  if (focusNoteIdAfterRender) {
+    const id = focusNoteIdAfterRender;
+    focusNoteIdAfterRender = null;
+    requestAnimationFrame(() => {
+      const input = document.querySelector(`.board-pinned-bar .note-preview-text[data-note-id="${id}"]`)
+                 || document.querySelector(`.board-zoom-wrapper .note-preview-text[data-note-id="${id}"]`);
+      if (input) { input.focus(); input.select(); }
+    });
+  }
+}
+
+function renderPinnedBar(pinnedProjects) {
+  const bar = document.getElementById('board-pinned-bar');
+  if (!bar) return;
+  bar.innerHTML = '';
+
+  if (pinnedProjects.length === 0) {
+    bar.classList.remove('has-pins');
+    return;
+  }
+  bar.classList.add('has-pins');
+
+  const label = document.createElement('div');
+  label.className = 'board-pinned-label';
+  label.textContent = '📌 PINNED';
+  bar.appendChild(label);
+
+  const strip = document.createElement('div');
+  strip.className = 'board-pinned-strip';
+  bar.appendChild(strip);
+
+  for (const proj of pinnedProjects) {
+    const el = createProjectCard(proj, { isPinned: true });
+    strip.appendChild(el);
   }
 }
 
@@ -112,7 +122,7 @@ function centerBoardOn(canvas, positions) {
   canvas.scrollTop = Math.max(0, cy * boardZoom - canvas.clientHeight / 2);
 }
 
-function createProjectCard(proj, x, y, isPinned = false) {
+function createProjectCard(proj, { x, y, isPinned = false } = {}) {
   const minimized = !!proj.boardMinimized;
   const isSelected = selectedIds.has(proj.id);
   const el = document.createElement('div');
@@ -121,9 +131,11 @@ function createProjectCard(proj, x, y, isPinned = false) {
     + (isSelected ? ' selected' : '')
     + (isPinned ? ' board-card-pinned' : '');
   el.dataset.projectId = proj.id;
-  el.style.left = x + 'px';
-  el.style.top = y + 'px';
-  el.style.width = '240px';
+  if (!isPinned) {
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    el.style.width = '240px';
+  }
   el.style.borderLeft = `3px solid ${proj.color}`;
 
   // --- Header (drag handle + click to toggle minimize) ---
@@ -147,8 +159,8 @@ function createProjectCard(proj, x, y, isPinned = false) {
     if (e.button !== 0) return;
     e.stopPropagation();
 
-    // Pinned cards are locked to the aligned pinned row: no drag, no group
-    // selection. A plain click on the header toggles minimize.
+    // Pinned cards are locked in the sticky bar: no drag, no group select.
+    // A plain click on the header toggles minimize.
     if (isPinned) {
       Store.updateProjectBoardPosition(proj.id, { minimized: !minimized });
       document.dispatchEvent(new Event('mareo:render'));
@@ -168,17 +180,15 @@ function createProjectCard(proj, x, y, isPinned = false) {
     if (!selectedIds.has(proj.id)) {
       selectedIds.clear();
       selectedIds.add(proj.id);
-      // Update outlines without a full re-render
       document.querySelectorAll('.board-project-card.selected').forEach(c => c.classList.remove('selected'));
       el.classList.add('selected');
     }
 
-    const rect = el.getBoundingClientRect();
     const wrapper = document.querySelector('.board-zoom-wrapper');
     const groupEls = [];
     for (const id of selectedIds) {
       const cardEl = wrapper?.querySelector(`.board-project-card[data-project-id="${id}"]`);
-      if (cardEl) {
+      if (cardEl && !cardEl.classList.contains('board-card-pinned')) {
         groupEls.push({
           id,
           el: cardEl,
@@ -217,12 +227,16 @@ function createProjectCard(proj, x, y, isPinned = false) {
     body.appendChild(createNoteRow(proj, note));
   }
 
+  // Wire up drag-drop reorder on the body
+  attachNoteReorderDnD(body, proj);
+
   const addBtn = document.createElement('div');
   addBtn.className = 'note-preview-add board-card-add-note';
   addBtn.textContent = '+ Note';
   addBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    Store.addProjectNote(proj.id, { title: '', content: '' });
+    const n = Store.addProjectNote(proj.id, { title: '', content: '' });
+    if (n) focusNoteIdAfterRender = n.id;
     document.dispatchEvent(new Event('mareo:render'));
   });
   body.appendChild(addBtn);
@@ -232,9 +246,19 @@ function createProjectCard(proj, x, y, isPinned = false) {
 }
 
 function createNoteRow(proj, note) {
+  const depth = Math.min(1, Math.max(0, note.depth || 0));
   const row = document.createElement('div');
-  row.className = 'note-preview-item board-note-row' + (note.done ? ' done' : '');
+  row.className = 'note-preview-item board-note-row'
+    + (note.done ? ' done' : '')
+    + (depth > 0 ? ' indented' : '');
   row.dataset.noteId = note.id;
+  row.dataset.depth = String(depth);
+  row.draggable = true;
+
+  const grip = document.createElement('span');
+  grip.className = 'note-drag-grip';
+  grip.textContent = '⠿';
+  grip.addEventListener('pointerdown', (e) => e.stopPropagation());
 
   const checkbox = document.createElement('input');
   checkbox.type = 'checkbox';
@@ -251,18 +275,39 @@ function createNoteRow(proj, note) {
   textInput.className = 'note-preview-text';
   textInput.value = note.title || note.content || '';
   textInput.placeholder = 'Note...';
+  textInput.dataset.noteId = note.id;
   textInput.addEventListener('change', () => {
     Store.updateProjectNote(proj.id, note.id, { title: textInput.value });
   });
+  // Disable row dragging while typing
+  textInput.addEventListener('focus', () => { row.draggable = false; });
+  textInput.addEventListener('blur',  () => { row.draggable = true;  });
   textInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       Store.updateProjectNote(proj.id, note.id, { title: textInput.value });
-      Store.addProjectNoteAfter(proj.id, note.id, { title: '', content: '' });
+      const newNote = Store.addProjectNoteAfter(proj.id, note.id, { title: '', content: '' });
+      if (newNote) focusNoteIdAfterRender = newNote.id;
+      document.dispatchEvent(new Event('mareo:render'));
+    } else if (e.key === 'Tab') {
+      e.preventDefault();
+      Store.updateProjectNote(proj.id, note.id, { title: textInput.value });
+      if (e.shiftKey) Store.outdentProjectNote(proj.id, note.id);
+      else            Store.indentProjectNote(proj.id, note.id);
+      focusNoteIdAfterRender = note.id;
+      document.dispatchEvent(new Event('mareo:render'));
+    } else if (e.key === 'Backspace' && textInput.value === '') {
+      // Backspace on an empty note: remove it, focus the previous note
+      e.preventDefault();
+      const notes = proj.projectNotes || [];
+      const idx = notes.findIndex(n => n.id === note.id);
+      const prev = idx > 0 ? notes[idx - 1] : null;
+      Store.removeProjectNote(proj.id, note.id);
+      if (prev) focusNoteIdAfterRender = prev.id;
       document.dispatchEvent(new Event('mareo:render'));
     }
   });
-  // Block drag from text input
+  // Block card drag from text input
   textInput.addEventListener('pointerdown', (e) => e.stopPropagation());
 
   const todayDot = document.createElement('button');
@@ -284,11 +329,53 @@ function createNoteRow(proj, note) {
     document.dispatchEvent(new Event('mareo:render'));
   });
 
+  row.appendChild(grip);
   row.appendChild(checkbox);
   row.appendChild(textInput);
   row.appendChild(todayDot);
   row.appendChild(delBtn);
   return row;
+}
+
+function attachNoteReorderDnD(body, proj) {
+  let dragNoteId = null;
+  body.addEventListener('dragstart', (e) => {
+    const item = e.target.closest('.board-note-row');
+    if (!item) return;
+    dragNoteId = item.dataset.noteId;
+    item.classList.add('dragging');
+    // Allow drop
+    if (e.dataTransfer) { e.dataTransfer.effectAllowed = 'move'; }
+    e.stopPropagation();
+  });
+  body.addEventListener('dragend', (e) => {
+    const item = e.target.closest('.board-note-row');
+    if (item) item.classList.remove('dragging');
+    body.querySelectorAll('.board-note-row').forEach(n => n.classList.remove('drag-over'));
+    dragNoteId = null;
+  });
+  body.addEventListener('dragover', (e) => {
+    const item = e.target.closest('.board-note-row');
+    if (!item || item.dataset.noteId === dragNoteId) return;
+    e.preventDefault();
+    e.stopPropagation();
+    body.querySelectorAll('.board-note-row').forEach(n => n.classList.remove('drag-over'));
+    item.classList.add('drag-over');
+  });
+  body.addEventListener('drop', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const item = e.target.closest('.board-note-row');
+    if (!item || !dragNoteId || item.dataset.noteId === dragNoteId) return;
+    const allNotes = proj.projectNotes || [];
+    const fromIdx = allNotes.findIndex(n => n.id === dragNoteId);
+    const toIdx   = allNotes.findIndex(n => n.id === item.dataset.noteId);
+    if (fromIdx < 0 || toIdx < 0) return;
+    const [moved] = allNotes.splice(fromIdx, 1);
+    allNotes.splice(toIdx, 0, moved);
+    Store.save();
+    document.dispatchEvent(new Event('mareo:render'));
+  });
 }
 
 export function initBoardDrag() {
@@ -317,7 +404,6 @@ export function initBoardDrag() {
   document.addEventListener('pointerup', (e) => {
     if (!dragState) return;
     if (dragState.moved) {
-      // Persist all moved cards
       for (const g of dragState.group) {
         const x = parseInt(g.el.style.left);
         const y = parseInt(g.el.style.top);
@@ -325,7 +411,6 @@ export function initBoardDrag() {
         g.el.classList.remove('dragging');
       }
     } else if (pendingClick) {
-      // It was a click on the header → toggle minimize
       Store.updateProjectBoardPosition(pendingClick.projectId, { minimized: !pendingClick.minimized });
       pendingClick = null;
       document.dispatchEvent(new Event('mareo:render'));
@@ -339,7 +424,6 @@ export function initBoardSelection() {
   if (!canvas) return;
 
   canvas.addEventListener('pointerdown', (e) => {
-    // Only react when on the empty canvas (or wrapper), not on a card
     if (e.button !== 0) return;
     if (e.target.closest('.board-project-card')) return;
     const wrapper = canvas.querySelector('.board-zoom-wrapper');
@@ -380,15 +464,13 @@ export function initBoardSelection() {
     const { lastBox, additive, moved, box } = marqueeState;
 
     if (!moved) {
-      // Click on empty canvas (no drag) → clear selection
       if (!additive && selectedIds.size > 0) {
         selectedIds.clear();
         document.dispatchEvent(new Event('mareo:render'));
       }
     } else if (lastBox) {
-      // Find all cards intersecting the marquee
       if (!additive) selectedIds.clear();
-      const cards = document.querySelectorAll('.board-project-card');
+      const cards = document.querySelectorAll('.board-zoom-wrapper .board-project-card');
       for (const card of cards) {
         if (card.classList.contains('board-card-pinned')) continue;
         const cx = parseInt(card.style.left) || 0;
@@ -422,16 +504,13 @@ export function initBoardZoom() {
     const wrapper = canvas.querySelector('.board-zoom-wrapper');
     if (!wrapper) return;
 
-    // Cursor position relative to the canvas viewport
     const rect = canvas.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
 
-    // World coordinates under the cursor BEFORE zooming
     const worldX = (canvas.scrollLeft + mouseX) / boardZoom;
     const worldY = (canvas.scrollTop + mouseY) / boardZoom;
 
-    // Apply zoom (multiplicative for smooth feel)
     const factor = e.deltaY > 0 ? 0.92 : 1.08;
     const newZoom = Math.max(0.2, Math.min(3, boardZoom * factor));
     if (newZoom === boardZoom) return;
@@ -439,7 +518,6 @@ export function initBoardZoom() {
 
     wrapper.style.transform = `scale(${boardZoom})`;
 
-    // Re-anchor: keep the same world point under the cursor after zoom
     canvas.scrollLeft = worldX * boardZoom - mouseX;
     canvas.scrollTop = worldY * boardZoom - mouseY;
 
