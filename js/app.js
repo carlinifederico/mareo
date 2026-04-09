@@ -253,6 +253,17 @@ function initApp() {
     initBoardZoom();
     initBoardSelection();
   });
+
+  // Re-render the Board view when crossing the mobile breakpoint, since the
+  // mobile and desktop layouts are completely different DOM trees.
+  let _wasMobileBoard = window.matchMedia('(max-width: 640px)').matches;
+  window.addEventListener('resize', () => {
+    const isMobile = window.matchMedia('(max-width: 640px)').matches;
+    if (isMobile !== _wasMobileBoard) {
+      _wasMobileBoard = isMobile;
+      if (currentView === 'board') render();
+    }
+  });
 }
 
 function scrollToToday() {

@@ -7,6 +7,10 @@ const CLICK_DRAG_THRESHOLD = 4; // px movement before a click becomes a drag
 const PIN_STEP     = 264; // 11 * GRID — horizontal spacing between pinned cards
 const PIN_HEADER_H = 28;  // label strip height above pinned cards
 
+// Mobile breakpoint — keep in sync with css/style.css mobile media queries
+const MOBILE_BP = '(max-width: 640px)';
+function isMobileBoard() { return window.matchMedia(MOBILE_BP).matches; }
+
 let dragState = null;
 let marqueeState = null;
 let pendingClick = null;
@@ -14,12 +18,27 @@ let boardZoom = 1;
 let boardCentered = false;
 const selectedIds = new Set();
 
+// Mobile board search query (persists across re-renders)
+let mobileSearch = '';
+
 // Remember the note id just created via Enter, so we can focus it after re-render
 let focusNoteIdAfterRender = null;
 
 function snap(v) { return Math.round(v / GRID) * GRID; }
 
 export function renderBoard(container) {
+  // Mobile uses an entirely different vertical-list layout
+  if (isMobileBoard()) {
+    // Tear down any leftover desktop canvas DOM so re-renders are clean
+    const oldWrapper = container.querySelector('.board-zoom-wrapper');
+    if (oldWrapper) oldWrapper.remove();
+    return renderBoardMobile(container);
+  }
+
+  // Tear down any leftover mobile DOM when returning to desktop layout
+  const oldMobile = container.querySelector('.board-mobile-list');
+  if (oldMobile) oldMobile.remove();
+
   let wrapper = container.querySelector('.board-zoom-wrapper');
   if (!wrapper) {
     wrapper = document.createElement('div');
@@ -122,6 +141,176 @@ function centerBoardOn(canvas, positions) {
   const cy = (minY + maxY) / 2;
   canvas.scrollLeft = Math.max(0, cx * boardZoom - canvas.clientWidth / 2);
   canvas.scrollTop = Math.max(0, cy * boardZoom - canvas.clientHeight / 2);
+}
+
+// ============================================================
+// Mobile board: vertical scroll list with search + collapsible cards
+// ============================================================
+function renderBoardMobile(container) {
+  // Find or build the persistent root + sub-containers. We keep the search
+  // input element across renders so the user's caret/focus survives typing.
+  let root = container.querySelector('.board-mobile-list');
+  let searchInput;
+  let cardsContainer;
+
+  if (!root) {
+    root = document.createElement('div');
+    root.className = 'board-mobile-list';
+
+    const searchBar = document.createElement('div');
+    searchBar.className = 'board-mobile-search-bar';
+
+    searchInput = document.createElement('input');
+    searchInput.type = 'text';
+    searchInput.className = 'board-mobile-search';
+    searchInput.placeholder = 'Search projects…';
+    searchInput.value = mobileSearch;
+    searchInput.addEventListener('input', (e) => {
+      mobileSearch = e.target.value;
+      renderBoardMobile(container);
+    });
+    searchBar.appendChild(searchInput);
+
+    const clearBtn = document.createElement('button');
+    clearBtn.className = 'board-mobile-search-clear';
+    clearBtn.textContent = '✕';
+    clearBtn.title = 'Clear search';
+    clearBtn.style.display = mobileSearch ? '' : 'none';
+    clearBtn.addEventListener('click', () => {
+      mobileSearch = '';
+      searchInput.value = '';
+      renderBoardMobile(container);
+      searchInput.focus();
+    });
+    searchBar.appendChild(clearBtn);
+
+    cardsContainer = document.createElement('div');
+    cardsContainer.className = 'board-mobile-cards';
+
+    root.appendChild(searchBar);
+    root.appendChild(cardsContainer);
+    container.appendChild(root);
+  } else {
+    searchInput = root.querySelector('.board-mobile-search');
+    cardsContainer = root.querySelector('.board-mobile-cards');
+    cardsContainer.innerHTML = '';
+    const clearBtn = root.querySelector('.board-mobile-search-clear');
+    if (clearBtn) clearBtn.style.display = mobileSearch ? '' : 'none';
+  }
+
+  // Build the same pinned/unpinned split as the desktop board
+  const allProjects = Store.getAllProjects();
+  const pinnedIds = Store.data.pinnedProjects || [];
+  const projById = new Map(allProjects.map(p => [p.id, p]));
+  const pinnedProjects = pinnedIds.map(id => projById.get(id)).filter(Boolean);
+  const unpinnedProjects = allProjects.filter(p => !pinnedIds.includes(p.id));
+
+  const q = mobileSearch.trim().toLowerCase();
+  const matches = (p) => !q || (p.name || '').toLowerCase().includes(q);
+  const pinnedFiltered = pinnedProjects.filter(matches);
+  const unpinnedFiltered = unpinnedProjects.filter(matches);
+
+  if (allProjects.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'board-mobile-empty';
+    empty.textContent = 'No projects yet — add one from the Timeline sidebar';
+    cardsContainer.appendChild(empty);
+  } else if (pinnedFiltered.length === 0 && unpinnedFiltered.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'board-mobile-empty';
+    empty.textContent = 'No projects match your search';
+    cardsContainer.appendChild(empty);
+  } else {
+    if (pinnedFiltered.length > 0) {
+      const label = document.createElement('div');
+      label.className = 'board-mobile-section';
+      label.textContent = '📌 PINNED';
+      cardsContainer.appendChild(label);
+      for (const proj of pinnedFiltered) {
+        cardsContainer.appendChild(createMobileProjectCard(proj));
+      }
+    }
+    if (unpinnedFiltered.length > 0) {
+      const label = document.createElement('div');
+      label.className = 'board-mobile-section';
+      label.textContent = 'PROJECTS';
+      cardsContainer.appendChild(label);
+      for (const proj of unpinnedFiltered) {
+        cardsContainer.appendChild(createMobileProjectCard(proj));
+      }
+    }
+  }
+
+  // Restore focus to the note input that was just created via Enter
+  if (focusNoteIdAfterRender) {
+    const id = focusNoteIdAfterRender;
+    focusNoteIdAfterRender = null;
+    requestAnimationFrame(() => {
+      const input = container.querySelector(`.board-mobile-list .note-preview-text[data-note-id="${id}"]`);
+      if (input) { input.focus(); input.select(); autoResizeTextarea(input); }
+    });
+  }
+}
+
+function createMobileProjectCard(proj) {
+  const minimized = !!proj.boardMinimized;
+  const card = document.createElement('div');
+  card.className = 'board-mobile-card' + (minimized ? ' minimized' : '');
+  card.dataset.projectId = proj.id;
+  card.style.borderLeftColor = proj.color;
+
+  const header = document.createElement('button');
+  header.type = 'button';
+  header.className = 'board-mobile-card-header';
+
+  const title = document.createElement('span');
+  title.className = 'board-mobile-card-title';
+  title.textContent = proj.name;
+
+  const chevron = document.createElement('span');
+  chevron.className = 'board-card-chevron';
+  chevron.textContent = minimized ? '▸' : '▾';
+
+  header.appendChild(title);
+  header.appendChild(chevron);
+  header.addEventListener('click', (e) => {
+    e.stopPropagation();
+    Store.updateProjectBoardPosition(proj.id, { minimized: !minimized });
+    document.dispatchEvent(new Event('mareo:render'));
+  });
+  card.appendChild(header);
+
+  if (minimized) return card;
+
+  const body = document.createElement('div');
+  body.className = 'board-card-body';
+
+  const notes = proj.projectNotes || [];
+  if (notes.length === 0) {
+    const placeholder = document.createElement('div');
+    placeholder.className = 'board-card-empty-notes';
+    placeholder.textContent = 'no notes yet';
+    body.appendChild(placeholder);
+  }
+  for (const note of notes) {
+    body.appendChild(createNoteRow(proj, note));
+  }
+  // Note: intentionally NOT calling attachNoteReorderDnD on mobile — drag-drop
+  // fights touch scroll, and we've hidden the grip handle in CSS.
+
+  const addBtn = document.createElement('div');
+  addBtn.className = 'note-preview-add board-card-add-note';
+  addBtn.textContent = '+ Note';
+  addBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const n = Store.addProjectNote(proj.id, { title: '', content: '' });
+    if (n) focusNoteIdAfterRender = n.id;
+    document.dispatchEvent(new Event('mareo:render'));
+  });
+  body.appendChild(addBtn);
+
+  card.appendChild(body);
+  return card;
 }
 
 function createProjectCard(proj, { x, y, isPinned = false } = {}) {
@@ -470,6 +659,7 @@ export function initBoardSelection() {
   if (!canvas) return;
 
   canvas.addEventListener('pointerdown', (e) => {
+    if (isMobileBoard()) return;
     if (e.button !== 0) return;
     if (e.target.closest('.board-project-card')) return;
     const wrapper = canvas.querySelector('.board-zoom-wrapper');
@@ -544,6 +734,7 @@ export function initBoardZoom() {
   if (!canvas) return;
 
   canvas.addEventListener('wheel', (e) => {
+    if (isMobileBoard()) return;
     if (!canvas.closest('.view-container.active')) return;
     e.preventDefault();
 

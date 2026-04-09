@@ -3408,3 +3408,163 @@ body.pip-mode .today-panel {
   bottom: auto;
   right: auto;
 }
+
+/* ================================================
+   BOARD: Mobile vertical list (≤640px)
+   ================================================ */
+@media (max-width: 640px) {
+  /* Hide the desktop zoom toolbar on mobile */
+  #view-board .board-toolbar { display: none; }
+
+  #view-board #board-canvas {
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: var(--bg);
+    background-image: none;
+  }
+
+  .board-mobile-list {
+    display: flex;
+    flex-direction: column;
+    padding: 0 8px 80px;
+  }
+
+  .board-mobile-search-bar {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: var(--bg);
+    padding: 8px 0 10px;
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .board-mobile-search {
+    flex: 1;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: var(--text);
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+  }
+  .board-mobile-search:focus { border-color: var(--accent); }
+  .board-mobile-search-clear {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 16px;
+    padding: 4px 10px;
+    cursor: pointer;
+  }
+
+  .board-mobile-cards {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .board-mobile-section {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    padding: 14px 6px 6px;
+  }
+
+  .board-mobile-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--border);
+    border-radius: 6px;
+    margin-bottom: 8px;
+    overflow: hidden;
+  }
+
+  .board-mobile-card-header {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    background: rgba(255, 255, 255, 0.02);
+    border: none;
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    text-align: left;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .board-mobile-card-header .board-mobile-card-title {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding-right: 8px;
+  }
+  .board-mobile-card-header .board-card-chevron {
+    color: var(--text-muted);
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+
+  .board-mobile-card .board-card-body {
+    padding: 6px 10px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    background: transparent;
+  }
+
+  /* Reuse the desktop note row styles but with bigger touch targets */
+  .board-mobile-card .board-note-row {
+    padding: 6px 4px;
+  }
+  .board-mobile-card .note-preview-text {
+    font-size: 14px;
+    padding: 6px 4px;
+  }
+  .board-mobile-card .note-preview-check {
+    width: 18px;
+    height: 18px;
+  }
+  .board-mobile-card .note-preview-delete {
+    opacity: 1;
+    width: 22px;
+    height: 22px;
+    font-size: 12px;
+  }
+  .board-mobile-card .today-dot {
+    width: 22px;
+    height: 22px;
+  }
+  /* No drag-drop reorder on mobile — hide the grip handle */
+  .board-mobile-card .note-drag-grip {
+    display: none;
+  }
+
+  .board-mobile-card .board-card-add-note {
+    margin-top: 6px;
+    padding: 10px;
+    font-size: 12px;
+  }
+
+  .board-mobile-card .board-card-empty-notes {
+    font-size: 12px;
+    padding: 10px 4px;
+  }
+
+  .board-mobile-empty {
+    text-align: center;
+    color: var(--text-muted);
+    font-style: italic;
+    padding: 32px 8px;
+    font-size: 13px;
+  }
+}
