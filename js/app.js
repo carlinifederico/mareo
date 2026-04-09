@@ -5,7 +5,7 @@ import { renderSidebar, setSidebarProjectClickHandler } from './sidebar.js';
 import { renderGantt } from './gantt.js';
 import { initDragDrop } from './dragdrop.js';
 import { showLinksModal } from './modal.js';
-import { renderBoard, initBoardDrag, initBoardZoom } from './board.js';
+import { renderBoard, initBoardDrag, initBoardZoom, initBoardSelection } from './board.js';
 import { initTodayPanel } from './today.js';
 import { renderExpenses, ensureCurrentMonth } from './expenses.js';
 import { renderBalance } from './balance.js';
@@ -264,8 +264,11 @@ function initApp() {
   // Listen for render events
   document.addEventListener('mareo:render', () => render());
 
-  // Init board zoom after first render
-  requestAnimationFrame(() => initBoardZoom());
+  // Init board zoom + selection after first render
+  requestAnimationFrame(() => {
+    initBoardZoom();
+    initBoardSelection();
+  });
 }
 
 function scrollToToday() {

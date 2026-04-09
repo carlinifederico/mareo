@@ -1,8 +1,16 @@
 import { Store } from './store.js';
 
+const GRID = 24; // matches the dot background in CSS
+const CLICK_DRAG_THRESHOLD = 4; // px movement before a click becomes a drag
+
 let dragState = null;
+let marqueeState = null;
+let pendingClick = null;
 let boardZoom = 1;
 let boardCentered = false;
+const selectedIds = new Set();
+
+function snap(v) { return Math.round(v / GRID) * GRID; }
 
 export function renderBoard(container) {
   let wrapper = container.querySelector('.board-zoom-wrapper');
@@ -31,7 +39,7 @@ export function renderBoard(container) {
 
   // Auto-position projects that have no saved position — start near the
   // center of the 3000x3000 wrapper so the board feels "centered" on first use
-  let autoPx = 1400, autoPy = 1400;
+  let autoPx = snap(1400), autoPy = snap(1400);
   const positions = [];
   for (const proj of projects) {
     let x = proj.boardX;
@@ -39,8 +47,8 @@ export function renderBoard(container) {
     if (x == null || y == null) {
       x = autoPx;
       y = autoPy;
-      autoPx += 260;
-      if (autoPx > 2400) { autoPx = 1400; autoPy += 240; }
+      autoPx += 264; // 11 * GRID
+      if (autoPx > 2400) { autoPx = snap(1400); autoPy += 240; } // 240 = 10 * GRID
       Store.updateProjectBoardPosition(proj.id, { x, y });
     }
     positions.push({ x, y });
@@ -73,15 +81,18 @@ function centerBoardOn(canvas, positions) {
 
 function createProjectCard(proj, x, y) {
   const minimized = !!proj.boardMinimized;
+  const isSelected = selectedIds.has(proj.id);
   const el = document.createElement('div');
-  el.className = 'board-card board-project-card' + (minimized ? ' minimized' : '');
+  el.className = 'board-card board-project-card'
+    + (minimized ? ' minimized' : '')
+    + (isSelected ? ' selected' : '');
   el.dataset.projectId = proj.id;
   el.style.left = x + 'px';
   el.style.top = y + 'px';
   el.style.width = '240px';
   el.style.borderLeft = `3px solid ${proj.color}`;
 
-  // --- Header (drag handle) ---
+  // --- Header (drag handle + click to toggle minimize) ---
   const header = document.createElement('div');
   header.className = 'board-card-header';
 
@@ -89,32 +100,61 @@ function createProjectCard(proj, x, y) {
   title.className = 'board-card-title';
   title.textContent = proj.name;
 
-  const minBtn = document.createElement('button');
-  minBtn.className = 'btn-icon board-card-min';
-  minBtn.title = minimized ? 'Expand' : 'Minimize';
-  minBtn.textContent = minimized ? '+' : '−';
-  minBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    Store.updateProjectBoardPosition(proj.id, { minimized: !minimized });
-    document.dispatchEvent(new Event('mareo:render'));
-  });
+  const chevron = document.createElement('span');
+  chevron.className = 'board-card-chevron';
+  chevron.textContent = minimized ? '▸' : '▾';
 
   header.appendChild(title);
-  header.appendChild(minBtn);
+  header.appendChild(chevron);
   el.appendChild(header);
 
-  // Drag from header
+  // Pointerdown on header: start drag candidate, handle selection
   header.addEventListener('pointerdown', (e) => {
-    if (e.target.closest('button')) return;
     if (e.button !== 0) return;
+    e.stopPropagation();
+
+    // Shift+click → toggle this card in the selection, no drag, no minimize
+    if (e.shiftKey) {
+      if (selectedIds.has(proj.id)) selectedIds.delete(proj.id);
+      else selectedIds.add(proj.id);
+      document.dispatchEvent(new Event('mareo:render'));
+      return;
+    }
+
+    // If clicking a card not in selection, replace selection with just this one.
+    // If clicking a card already in a multi-selection, keep the selection (so we can drag the group).
+    if (!selectedIds.has(proj.id)) {
+      selectedIds.clear();
+      selectedIds.add(proj.id);
+      // Update outlines without a full re-render
+      document.querySelectorAll('.board-project-card.selected').forEach(c => c.classList.remove('selected'));
+      el.classList.add('selected');
+    }
+
     const rect = el.getBoundingClientRect();
+    const wrapper = document.querySelector('.board-zoom-wrapper');
+    const groupEls = [];
+    for (const id of selectedIds) {
+      const cardEl = wrapper?.querySelector(`.board-project-card[data-project-id="${id}"]`);
+      if (cardEl) {
+        groupEls.push({
+          id,
+          el: cardEl,
+          startLeft: parseInt(cardEl.style.left) || 0,
+          startTop: parseInt(cardEl.style.top) || 0,
+        });
+      }
+    }
+
     dragState = {
-      projectId: proj.id,
-      el,
-      offsetX: (e.clientX - rect.left) / boardZoom,
-      offsetY: (e.clientY - rect.top) / boardZoom
+      primaryId: proj.id,
+      group: groupEls,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      moved: false,
+      pointerId: e.pointerId,
     };
-    el.classList.add('dragging');
+    pendingClick = { projectId: proj.id, minimized };
     header.setPointerCapture(e.pointerId);
   });
 
@@ -212,22 +252,119 @@ function createNoteRow(proj, note) {
 export function initBoardDrag() {
   document.addEventListener('pointermove', (e) => {
     if (!dragState) return;
-    const canvas = document.getElementById('board-canvas');
-    if (!canvas) return;
+    const dx = (e.clientX - dragState.startClientX) / boardZoom;
+    const dy = (e.clientY - dragState.startClientY) / boardZoom;
+
+    if (!dragState.moved) {
+      const rawDx = e.clientX - dragState.startClientX;
+      const rawDy = e.clientY - dragState.startClientY;
+      if (Math.hypot(rawDx, rawDy) < CLICK_DRAG_THRESHOLD) return;
+      dragState.moved = true;
+      pendingClick = null; // movement past threshold = it's a drag, not a click
+      for (const g of dragState.group) g.el.classList.add('dragging');
+    }
+
+    for (const g of dragState.group) {
+      const nx = Math.max(0, snap(g.startLeft + dx));
+      const ny = Math.max(0, snap(g.startTop + dy));
+      g.el.style.left = nx + 'px';
+      g.el.style.top = ny + 'px';
+    }
+  });
+
+  document.addEventListener('pointerup', (e) => {
+    if (!dragState) return;
+    if (dragState.moved) {
+      // Persist all moved cards
+      for (const g of dragState.group) {
+        const x = parseInt(g.el.style.left);
+        const y = parseInt(g.el.style.top);
+        Store.updateProjectBoardPosition(g.id, { x, y });
+        g.el.classList.remove('dragging');
+      }
+    } else if (pendingClick) {
+      // It was a click on the header → toggle minimize
+      Store.updateProjectBoardPosition(pendingClick.projectId, { minimized: !pendingClick.minimized });
+      pendingClick = null;
+      document.dispatchEvent(new Event('mareo:render'));
+    }
+    dragState = null;
+  });
+}
+
+export function initBoardSelection() {
+  const canvas = document.getElementById('board-canvas');
+  if (!canvas) return;
+
+  canvas.addEventListener('pointerdown', (e) => {
+    // Only react when on the empty canvas (or wrapper), not on a card
+    if (e.button !== 0) return;
+    if (e.target.closest('.board-project-card')) return;
+    const wrapper = canvas.querySelector('.board-zoom-wrapper');
+    if (!wrapper) return;
+
     const canvasRect = canvas.getBoundingClientRect();
-    const x = (e.clientX - canvasRect.left + canvas.scrollLeft) / boardZoom - dragState.offsetX;
-    const y = (e.clientY - canvasRect.top + canvas.scrollTop) / boardZoom - dragState.offsetY;
-    dragState.el.style.left = Math.max(0, x) + 'px';
-    dragState.el.style.top = Math.max(0, y) + 'px';
+    const startWX = (e.clientX - canvasRect.left + canvas.scrollLeft) / boardZoom;
+    const startWY = (e.clientY - canvasRect.top + canvas.scrollTop) / boardZoom;
+
+    const box = document.createElement('div');
+    box.className = 'board-marquee';
+    box.style.left = startWX + 'px';
+    box.style.top = startWY + 'px';
+    wrapper.appendChild(box);
+
+    marqueeState = { startWX, startWY, box, additive: e.shiftKey, moved: false };
+  });
+
+  document.addEventListener('pointermove', (e) => {
+    if (!marqueeState) return;
+    const canvasRect = canvas.getBoundingClientRect();
+    const wx = (e.clientX - canvasRect.left + canvas.scrollLeft) / boardZoom;
+    const wy = (e.clientY - canvasRect.top + canvas.scrollTop) / boardZoom;
+    const x = Math.min(wx, marqueeState.startWX);
+    const y = Math.min(wy, marqueeState.startWY);
+    const w = Math.abs(wx - marqueeState.startWX);
+    const h = Math.abs(wy - marqueeState.startWY);
+    marqueeState.box.style.left = x + 'px';
+    marqueeState.box.style.top = y + 'px';
+    marqueeState.box.style.width = w + 'px';
+    marqueeState.box.style.height = h + 'px';
+    marqueeState.lastBox = { x, y, w, h };
+    if (w > 2 || h > 2) marqueeState.moved = true;
   });
 
   document.addEventListener('pointerup', () => {
-    if (!dragState) return;
-    const x = parseInt(dragState.el.style.left);
-    const y = parseInt(dragState.el.style.top);
-    Store.updateProjectBoardPosition(dragState.projectId, { x, y });
-    dragState.el.classList.remove('dragging');
-    dragState = null;
+    if (!marqueeState) return;
+    const { lastBox, additive, moved, box } = marqueeState;
+
+    if (!moved) {
+      // Click on empty canvas (no drag) → clear selection
+      if (!additive && selectedIds.size > 0) {
+        selectedIds.clear();
+        document.dispatchEvent(new Event('mareo:render'));
+      }
+    } else if (lastBox) {
+      // Find all cards intersecting the marquee
+      if (!additive) selectedIds.clear();
+      const cards = document.querySelectorAll('.board-project-card');
+      for (const card of cards) {
+        const cx = parseInt(card.style.left) || 0;
+        const cy = parseInt(card.style.top) || 0;
+        const cw = card.offsetWidth;
+        const ch = card.offsetHeight;
+        const intersects = !(
+          cx + cw < lastBox.x ||
+          cx > lastBox.x + lastBox.w ||
+          cy + ch < lastBox.y ||
+          cy > lastBox.y + lastBox.h
+        );
+        if (intersects) selectedIds.add(card.dataset.projectId);
+      }
+      document.dispatchEvent(new Event('mareo:render'));
+    }
+
+    box.remove();
+    marqueeState = null;
   });
 }
 

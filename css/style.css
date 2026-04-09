@@ -2927,22 +2927,29 @@ button, input, select, textarea {
   min-height: 0;
 }
 
-.board-card-min {
-  width: 18px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
+.board-card-chevron {
   color: var(--text-muted);
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  font-size: 12px;
+  font-size: 10px;
   line-height: 1;
-  cursor: pointer;
   flex-shrink: 0;
+  pointer-events: none;
+  user-select: none;
 }
-.board-card-min:hover { color: var(--text); border-color: var(--accent); }
+
+.board-project-card.selected {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.7), 0 0 16px rgba(183, 148, 255, 0.35);
+}
+
+.board-marquee {
+  position: absolute;
+  border: 1px dashed var(--accent);
+  background: rgba(183, 148, 255, 0.08);
+  pointer-events: none;
+  z-index: 10;
+  border-radius: 2px;
+}
 
 .board-project-card .board-card-body {
   padding: 6px 8px 8px;
