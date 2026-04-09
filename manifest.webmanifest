@@ -1,0 +1,11 @@
+{
+  "name": "MAREO Project Planner",
+  "short_name": "MAREO",
+  "description": "Project planning, timeline, board and today list",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "orientation": "any",
+  "icons": []
+}

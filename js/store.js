@@ -64,6 +64,12 @@ export const Store = {
     for (const cat of this.data.categories) {
       for (const proj of cat.projects) {
         if (!proj.projectNotes) proj.projectNotes = [];
+        if (proj.boardX === undefined) proj.boardX = null;
+        if (proj.boardY === undefined) proj.boardY = null;
+        if (proj.boardMinimized === undefined) proj.boardMinimized = false;
+        for (const note of proj.projectNotes) {
+          if (note.today === undefined) note.today = false;
+        }
         for (const task of proj.tasks) {
           // Migrate tasks from week-based to day-based
           if (task.startWeek != null && task.startDay == null) {
@@ -363,29 +369,45 @@ export const Store = {
     if (note) { note.pinned = !note.pinned; this.save(); }
   },
 
-  // --- Board Cards ---
-  addBoardCard(card) {
-    const c = {
-      id: 'card-' + crypto.randomUUID(),
-      title: card.title || 'New Card',
-      content: card.content || '',
-      color: card.color || '#1f2b47',
-      x: card.x || 100, y: card.y || 100,
-      width: card.width || 200, height: card.height || 150
-    };
-    this.data.boardCards.push(c);
+  // --- Board: project card position/state ---
+  updateProjectBoardPosition(projectId, updates) {
+    const proj = this._findProject(projectId);
+    if (!proj) return;
+    if (updates.x !== undefined) proj.boardX = updates.x;
+    if (updates.y !== undefined) proj.boardY = updates.y;
+    if (updates.minimized !== undefined) proj.boardMinimized = updates.minimized;
+    this._skipUndo = true;
     this.save();
-    return c;
+    this._skipUndo = false;
   },
 
-  updateBoardCard(cardId, updates) {
-    const card = this.data.boardCards.find(c => c.id === cardId);
-    if (card) { Object.assign(card, updates); this.save(); }
+  // --- Today (project notes flagged for today) ---
+  toggleTodayNote(projectId, noteId) {
+    const proj = this._findProject(projectId);
+    if (!proj) return;
+    const note = (proj.projectNotes || []).find(n => n.id === noteId);
+    if (!note) return;
+    note.today = !note.today;
+    this.save();
   },
 
-  removeBoardCard(cardId) {
-    this.data.boardCards = this.data.boardCards.filter(c => c.id !== cardId);
-    this.save();
+  getTodayItems() {
+    const items = [];
+    for (const cat of this.data.categories) {
+      for (const proj of cat.projects) {
+        for (const note of (proj.projectNotes || [])) {
+          if (note.today) {
+            items.push({
+              projectId: proj.id,
+              projectName: proj.name,
+              projectColor: proj.color,
+              note
+            });
+          }
+        }
+      }
+    }
+    return items;
   },
 
   // --- Import/Export ---

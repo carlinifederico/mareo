@@ -6,6 +6,7 @@ import { renderGantt } from './gantt.js';
 import { initDragDrop } from './dragdrop.js';
 import { showLinksModal } from './modal.js';
 import { renderBoard, initBoardDrag, initBoardZoom } from './board.js';
+import { initTodayPanel } from './today.js';
 import { renderNotes } from './notes.js';
 import { renderExpenses, ensureCurrentMonth } from './expenses.js';
 import { renderBalance } from './balance.js';
@@ -79,6 +80,7 @@ document.getElementById('btn-signout').addEventListener('click', () => {
 function initApp() {
   initDragDrop();
   initBoardDrag();
+  initTodayPanel();
   initPan();
 
   // Mobile menu toggle
@@ -225,17 +227,6 @@ function initApp() {
     syncing = true;
     timelineArea.scrollTop = sidebarScroll.scrollTop;
     syncing = false;
-  });
-
-  // Board: Add card
-  document.getElementById('btn-add-board-card').addEventListener('click', () => {
-    const canvas = document.getElementById('board-canvas');
-    Store.addBoardCard({
-      title: 'New Card', content: '',
-      x: canvas.scrollLeft + 100 + Math.random() * 200,
-      y: canvas.scrollTop + 100 + Math.random() * 100
-    });
-    render();
   });
 
   // Notes: Add note

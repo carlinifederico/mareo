@@ -8,7 +8,8 @@
   <meta http-equiv="Expires" content="0">
   <title>MAREO - Project Planner</title>
   <link rel="stylesheet" href="css/style.css">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
 <body>
   <!-- LOGIN SCREEN -->
@@ -75,7 +76,6 @@
     <!-- VIEW: Board -->
     <div class="view-container" id="view-board">
       <div class="board-toolbar">
-        <button id="btn-add-board-card" class="btn btn-primary">+ Add Card</button>
         <span class="board-zoom-info">Zoom: <span id="board-zoom-level">100%</span></span>
       </div>
       <div class="board-canvas" id="board-canvas"></div>
@@ -99,8 +99,17 @@
     <div class="view-container" id="view-balance">
       <div class="balance-body" id="balance-body"></div>
     </div>
+
+    <!-- TODAY: floating panel (always visible across tabs) -->
+    <div id="today-panel" class="today-panel"></div>
+
+    <!-- TODAY: mobile FAB -->
+    <button id="today-fab" class="today-fab" title="Open Today">
+      <span class="today-fab-icon">●</span>
+      <span class="today-fab-badge"></span>
+    </button>
   </div>
 
-  <script type="module" src="js/app.js?v=16"></script>
+  <script type="module" src="js/app.js?v=17"></script>
 </body>
 </html>
