@@ -204,13 +204,29 @@ export function initBoardZoom() {
     if (!canvas.closest('.view-container.active')) return;
     e.preventDefault();
 
-    const delta = e.deltaY > 0 ? -0.05 : 0.05;
-    boardZoom = Math.max(0.25, Math.min(2, boardZoom + delta));
-
     const wrapper = canvas.querySelector('.board-zoom-wrapper');
-    if (wrapper) {
-      wrapper.style.transform = `scale(${boardZoom})`;
-    }
+    if (!wrapper) return;
+
+    // Cursor position relative to the canvas viewport
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    // World coordinates under the cursor BEFORE zooming
+    const worldX = (canvas.scrollLeft + mouseX) / boardZoom;
+    const worldY = (canvas.scrollTop + mouseY) / boardZoom;
+
+    // Apply zoom (multiplicative for smooth feel)
+    const factor = e.deltaY > 0 ? 0.92 : 1.08;
+    const newZoom = Math.max(0.2, Math.min(3, boardZoom * factor));
+    if (newZoom === boardZoom) return;
+    boardZoom = newZoom;
+
+    wrapper.style.transform = `scale(${boardZoom})`;
+
+    // Re-anchor: keep the same world point under the cursor after zoom
+    canvas.scrollLeft = worldX * boardZoom - mouseX;
+    canvas.scrollTop = worldY * boardZoom - mouseY;
 
     const indicator = document.getElementById('board-zoom-level');
     if (indicator) indicator.textContent = Math.round(boardZoom * 100) + '%';

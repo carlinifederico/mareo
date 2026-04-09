@@ -7,7 +7,6 @@ import { initDragDrop } from './dragdrop.js';
 import { showLinksModal } from './modal.js';
 import { renderBoard, initBoardDrag, initBoardZoom } from './board.js';
 import { initTodayPanel } from './today.js';
-import { renderNotes } from './notes.js';
 import { renderExpenses, ensureCurrentMonth } from './expenses.js';
 import { renderBalance } from './balance.js';
 import { initPan } from './pan.js';
@@ -19,10 +18,9 @@ let appInitialized = false;
 
 const ALL_VIEWS = [
   { id: 'timeline', label: 'Timeline' },
-  { id: 'notes',    label: 'Notes' },
+  { id: 'board',    label: 'Board' },
   { id: 'expenses', label: 'Expenses' },
   { id: 'balance',  label: 'Balance' },
-  { id: 'board',    label: 'Board' },
 ];
 
 // Auth flow: show login or app
@@ -229,17 +227,6 @@ function initApp() {
     syncing = false;
   });
 
-  // Notes: Add note
-  document.getElementById('btn-add-note').addEventListener('click', () => {
-    Store.addNote({ title: '', content: '' });
-    render();
-  });
-
-  // Notes: Search
-  document.getElementById('notes-search').addEventListener('input', (e) => {
-    renderNotes(document.getElementById('notes-grid'), e.target.value);
-  });
-
   // Undo / Redo
   document.getElementById('btn-undo').addEventListener('click', () => {
     if (Store.undo()) { render(); updateUndoButtons(); }
@@ -403,9 +390,6 @@ function render() {
     syncRowHeights();
   } else if (currentView === 'board') {
     renderBoard(document.getElementById('board-canvas'));
-  } else if (currentView === 'notes') {
-    const query = document.getElementById('notes-search').value;
-    renderNotes(document.getElementById('notes-grid'), query);
   } else if (currentView === 'expenses') {
     renderExpenses(document.getElementById('expenses-body'));
   } else if (currentView === 'balance') {

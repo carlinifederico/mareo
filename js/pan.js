@@ -47,7 +47,6 @@ function findScrollableParent(el) {
       node.id === 'timeline-area' ||
       node.id === 'sidebar-scroll' ||
       node.id === 'board-canvas' ||
-      node.id === 'notes-grid' ||
       node.id === 'expenses-body'
     ) {
       return node;

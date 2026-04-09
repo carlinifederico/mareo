@@ -49,7 +49,7 @@ export const Store = {
         notes: [],
         boardCards: [],
         expensesMonths: {},
-        visibleTabs: ['timeline', 'notes', 'expenses', 'balance']
+        visibleTabs: ['timeline', 'board', 'expenses', 'balance']
       };
     }
 
@@ -60,7 +60,10 @@ export const Store = {
     if (!this.data.currentView) this.data.currentView = 'timeline';
     if (!this.data.categories) this.data.categories = [];
     if (!this.data.pinnedProjects) this.data.pinnedProjects = [];
-    if (!this.data.visibleTabs) this.data.visibleTabs = ['timeline', 'notes', 'expenses', 'balance'];
+    if (!this.data.visibleTabs) this.data.visibleTabs = ['timeline', 'board', 'expenses', 'balance'];
+    // Notes view was removed — drop it from visibleTabs and currentView
+    this.data.visibleTabs = this.data.visibleTabs.filter(v => v !== 'notes');
+    if (this.data.currentView === 'notes') this.data.currentView = 'board';
     for (const cat of this.data.categories) {
       for (const proj of cat.projects) {
         if (!proj.projectNotes) proj.projectNotes = [];
@@ -341,34 +344,6 @@ export const Store = {
     if (task) { Object.assign(task, updates); this.save(); }
   },
 
-  // --- Notes (general, Google Keep style) ---
-  addNote(note) {
-    const n = {
-      id: 'note-' + crypto.randomUUID(),
-      title: note.title || '', content: note.content || '',
-      color: note.color || '#1a1433',
-      pinned: false, createdAt: Date.now(), updatedAt: Date.now()
-    };
-    this.data.notes.unshift(n);
-    this.save();
-    return n;
-  },
-
-  updateNote(noteId, updates) {
-    const note = this.data.notes.find(n => n.id === noteId);
-    if (note) { Object.assign(note, updates, { updatedAt: Date.now() }); this.save(); }
-  },
-
-  removeNote(noteId) {
-    this.data.notes = this.data.notes.filter(n => n.id !== noteId);
-    this.save();
-  },
-
-  togglePinNote(noteId) {
-    const note = this.data.notes.find(n => n.id === noteId);
-    if (note) { note.pinned = !note.pinned; this.save(); }
-  },
-
   // --- Board: project card position/state ---
   updateProjectBoardPosition(projectId, updates) {
     const proj = this._findProject(projectId);
@@ -419,7 +394,8 @@ export const Store = {
     this.data = parsed;
     if (!this.data.notes) this.data.notes = [];
     if (!this.data.boardCards) this.data.boardCards = [];
-    if (!this.data.visibleTabs) this.data.visibleTabs = ['timeline', 'notes', 'expenses', 'balance'];
+    if (!this.data.visibleTabs) this.data.visibleTabs = ['timeline', 'board', 'expenses', 'balance'];
+    this.data.visibleTabs = this.data.visibleTabs.filter(v => v !== 'notes');
     this.save();
   },
 
