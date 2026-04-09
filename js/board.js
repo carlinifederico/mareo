@@ -38,8 +38,8 @@ export function renderBoard(container) {
   }
 
   // Auto-position projects that have no saved position — start near the
-  // center of the 3000x3000 wrapper so the board feels "centered" on first use
-  let autoPx = snap(1400), autoPy = snap(1400);
+  // center of the 6000x6000 wrapper so the board feels "centered" on first use
+  let autoPx = snap(2900), autoPy = snap(2900);
   const positions = [];
   for (const proj of projects) {
     let x = proj.boardX;
@@ -48,7 +48,7 @@ export function renderBoard(container) {
       x = autoPx;
       y = autoPy;
       autoPx += 264; // 11 * GRID
-      if (autoPx > 2400) { autoPx = snap(1400); autoPy += 240; } // 240 = 10 * GRID
+      if (autoPx > 3900) { autoPx = snap(2900); autoPy += 240; } // 240 = 10 * GRID
       Store.updateProjectBoardPosition(proj.id, { x, y });
     }
     positions.push({ x, y });

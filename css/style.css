@@ -1685,8 +1685,8 @@ button, input, select, textarea {
 /* === Board Zoom === */
 .board-zoom-wrapper {
   position: relative;
-  min-width: 3000px;
-  min-height: 3000px;
+  min-width: 6000px;
+  min-height: 6000px;
 }
 
 .board-zoom-info {

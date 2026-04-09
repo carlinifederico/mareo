@@ -88,6 +88,34 @@ export const Store = {
       }
     }
 
+    // One-time: recenter all board cards in the new 6000x6000 world
+    if (!this.data.boardNormalizedV2) {
+      const placed = [];
+      for (const cat of this.data.categories) {
+        for (const proj of cat.projects) {
+          if (proj.boardX != null && proj.boardY != null) placed.push(proj);
+        }
+      }
+      if (placed.length > 0) {
+        const cardW = 240, cardH = 200;
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const p of placed) {
+          if (p.boardX < minX) minX = p.boardX;
+          if (p.boardY < minY) minY = p.boardY;
+          if (p.boardX + cardW > maxX) maxX = p.boardX + cardW;
+          if (p.boardY + cardH > maxY) maxY = p.boardY + cardH;
+        }
+        const targetCx = 3000, targetCy = 3000; // new world center
+        const dx = Math.round(targetCx - (minX + maxX) / 2);
+        const dy = Math.round(targetCy - (minY + maxY) / 2);
+        for (const p of placed) {
+          p.boardX += dx;
+          p.boardY += dy;
+        }
+      }
+      this.data.boardNormalizedV2 = true;
+    }
+
     // Save to both
     this.save();
 
@@ -166,12 +194,6 @@ export const Store = {
           .catch(err => console.warn('Firestore save failed:', err));
       }
     }, 1500);
-  },
-
-  async reload() {
-    if (!this._uid) return;
-    this.data = null;
-    await this.load(this._uid);
   },
 
   setYear(year) { this.data.currentYear = year; this._skipUndo = true; this.save(); this._skipUndo = false; },
