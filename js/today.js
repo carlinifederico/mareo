@@ -21,6 +21,11 @@ export function initTodayPanel() {
     fab.addEventListener('click', () => {
       mobileOpen = !mobileOpen;
       panelEl.classList.toggle('mobile-open', mobileOpen);
+      if (mobileOpen) {
+        requestAnimationFrame(() => {
+          panelEl.querySelectorAll('.today-text').forEach(autoResizeTextarea);
+        });
+      }
     });
   }
 }
