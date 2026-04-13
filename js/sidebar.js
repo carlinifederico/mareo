@@ -538,7 +538,19 @@ function showRenameCategoryModal(cat) {
   });
 }
 
-function showAddProjectModal(categoryId) {
+export function showAddProjectModal(categoryId) {
+  // If no category specified (e.g. called from Board view), fall back to the
+  // first existing category, or auto-create a default one.
+  let targetCatId = categoryId;
+  if (!targetCatId) {
+    const cats = Store.data.categories || [];
+    if (cats.length > 0) {
+      targetCatId = cats[0].id;
+    } else {
+      const newCat = Store.addCategory('Projects');
+      targetCatId = newCat && newCat.id;
+    }
+  }
   showModal({
     title: 'Add Project',
     fields: [
@@ -546,8 +558,8 @@ function showAddProjectModal(categoryId) {
       { name: 'color', label: 'Color', type: 'color', value: '#bdc3c7' }
     ],
     onSave: (values) => {
-      if (values.name.trim()) {
-        Store.addProject(categoryId, values.name.trim(), values.color);
+      if (values.name.trim() && targetCatId) {
+        Store.addProject(targetCatId, values.name.trim(), values.color);
         document.dispatchEvent(new Event('mareo:render'));
       }
     }

@@ -1465,6 +1465,10 @@ button, input, select, textarea {
   background: rgba(10, 8, 18, 0.92);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .board-canvas {
@@ -3008,6 +3012,33 @@ button, input, select, textarea {
   user-select: none;
 }
 
+.board-card-links-btn {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  margin: 0 4px 0 6px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.board-card-links-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.board-add-project-btn {
+  font-size: 11px;
+  padding: 6px 12px;
+}
+
 .board-project-card.selected {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
@@ -3526,10 +3557,17 @@ body.timeline-locked #view-timeline .note-preview-check { cursor: not-allowed; }
   .board-mobile-card-header {
     width: 100%;
     display: flex;
+    align-items: stretch;
+    background: rgba(255, 255, 255, 0.02);
+  }
+  .board-mobile-card-title-btn {
+    flex: 1;
+    min-width: 0;
+    display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 12px 14px;
-    background: rgba(255, 255, 255, 0.02);
+    background: transparent;
     border: none;
     color: var(--text);
     font-size: 12px;
@@ -3540,7 +3578,7 @@ body.timeline-locked #view-timeline .note-preview-check { cursor: not-allowed; }
     cursor: pointer;
     font-family: inherit;
   }
-  .board-mobile-card-header .board-mobile-card-title {
+  .board-mobile-card-title-btn .board-mobile-card-title {
     flex: 1;
     min-width: 0;
     overflow: hidden;
@@ -3548,9 +3586,38 @@ body.timeline-locked #view-timeline .note-preview-check { cursor: not-allowed; }
     white-space: nowrap;
     padding-right: 8px;
   }
-  .board-mobile-card-header .board-card-chevron {
+  .board-mobile-card-title-btn .board-card-chevron {
     color: var(--text-muted);
     font-size: 12px;
+    flex-shrink: 0;
+  }
+  .board-mobile-card-header .board-card-links-btn {
+    width: 44px;
+    height: auto;
+    margin: 8px 10px 8px 0;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 14px;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .board-mobile-card-header .board-card-links-btn:active {
+    background: var(--bg-hover);
+    color: var(--accent);
+  }
+
+  .board-mobile-add-project {
+    width: 42px;
+    height: 42px;
+    padding: 0;
+    border-radius: 8px;
+    font-size: 22px;
+    line-height: 1;
     flex-shrink: 0;
   }
 

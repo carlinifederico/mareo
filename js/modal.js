@@ -99,6 +99,79 @@ export function showModal({ title, fields, onSave, onDelete }) {
   document.addEventListener('keydown', onKey);
 }
 
+let _activeDropdownProjId = null;
+
+export function showProjectLinksDropdown(e, proj) {
+  const existing = document.querySelector('.project-links-dropdown');
+
+  // Toggle: if clicking the same project, close and return
+  if (existing && _activeDropdownProjId === proj.id) {
+    existing.remove();
+    _activeDropdownProjId = null;
+    return;
+  }
+
+  // Close any existing dropdown
+  if (existing) existing.remove();
+  _activeDropdownProjId = proj.id;
+
+  const dropdown = document.createElement('div');
+  dropdown.className = 'project-links-dropdown';
+
+  // Close button
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'btn-icon dropdown-close-btn';
+  closeBtn.textContent = '✕';
+  closeBtn.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    dropdown.remove();
+    _activeDropdownProjId = null;
+  });
+  dropdown.appendChild(closeBtn);
+
+  if (proj.links && proj.links.length > 0) {
+    for (const link of proj.links) {
+      const a = document.createElement('a');
+      a.href = link.url; a.target = '_blank'; a.rel = 'noopener';
+      a.textContent = link.label || link.url;
+      dropdown.appendChild(a);
+    }
+  } else {
+    const empty = document.createElement('div');
+    empty.className = 'dropdown-empty';
+    empty.textContent = 'No links yet';
+    dropdown.appendChild(empty);
+  }
+
+  const editBtn = document.createElement('button');
+  editBtn.className = 'dropdown-edit-btn';
+  editBtn.textContent = '⚙ Manage Links';
+  editBtn.addEventListener('click', (ev) => {
+    ev.stopPropagation(); dropdown.remove(); _activeDropdownProjId = null; showLinksModal(proj);
+  });
+  dropdown.appendChild(editBtn);
+
+  const rect = e.target.getBoundingClientRect();
+  dropdown.style.position = 'fixed';
+  dropdown.style.left = rect.left + 'px';
+  dropdown.style.top = rect.bottom + 4 + 'px';
+  dropdown.style.zIndex = '10000';
+
+  document.body.appendChild(dropdown);
+
+  // Close on click outside
+  setTimeout(() => {
+    const closeHandler = (ev) => {
+      if (!dropdown.contains(ev.target) && !ev.target.closest('.project-name') && !ev.target.closest('.board-card-links-btn')) {
+        dropdown.remove();
+        _activeDropdownProjId = null;
+        document.removeEventListener('mousedown', closeHandler);
+      }
+    };
+    document.addEventListener('mousedown', closeHandler);
+  });
+}
+
 export function showLinksModal(proj) {
   closeModal();
 

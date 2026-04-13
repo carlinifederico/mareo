@@ -1,4 +1,6 @@
 import { Store } from './store.js';
+import { showProjectLinksDropdown } from './modal.js';
+import { showAddProjectModal } from './sidebar.js';
 
 const GRID = 24; // matches the dot background in CSS
 const CLICK_DRAG_THRESHOLD = 4; // px movement before a click becomes a drag
@@ -25,6 +27,18 @@ let mobileSearch = '';
 let focusNoteIdAfterRender = null;
 
 function snap(v) { return Math.round(v / GRID) * GRID; }
+
+function ensureBoardAddProjectButton() {
+  const toolbar = document.querySelector('#view-board .board-toolbar');
+  if (!toolbar) return;
+  if (toolbar.querySelector('.board-add-project-btn')) return;
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'btn btn-primary board-add-project-btn';
+  btn.textContent = '+ Add Project';
+  btn.addEventListener('click', () => showAddProjectModal());
+  toolbar.appendChild(btn);
+}
 
 export function renderBoard(container) {
   // Mobile uses an entirely different vertical-list layout
@@ -55,10 +69,22 @@ export function renderBoard(container) {
   const pinnedProjects = pinnedIds.map(id => projById.get(id)).filter(Boolean);
   const unpinnedProjects = allProjects.filter(p => !pinnedIds.includes(p.id));
 
+  // Ensure the board toolbar has an "+ Add Project" button
+  ensureBoardAddProjectButton();
+
   if (allProjects.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'empty-state';
-    empty.textContent = 'No projects yet — add one from the Timeline sidebar';
+    const msg = document.createElement('div');
+    msg.textContent = 'No projects yet';
+    empty.appendChild(msg);
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'btn btn-primary';
+    addBtn.textContent = '+ Add Project';
+    addBtn.style.marginTop = '12px';
+    addBtn.addEventListener('click', () => showAddProjectModal());
+    empty.appendChild(addBtn);
     wrapper.appendChild(empty);
     return;
   }
@@ -184,6 +210,14 @@ function renderBoardMobile(container) {
     });
     searchBar.appendChild(clearBtn);
 
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'btn btn-primary board-mobile-add-project';
+    addBtn.textContent = '+';
+    addBtn.title = 'Add Project';
+    addBtn.addEventListener('click', () => showAddProjectModal());
+    searchBar.appendChild(addBtn);
+
     cardsContainer = document.createElement('div');
     cardsContainer.className = 'board-mobile-cards';
 
@@ -213,7 +247,16 @@ function renderBoardMobile(container) {
   if (allProjects.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'board-mobile-empty';
-    empty.textContent = 'No projects yet — add one from the Timeline sidebar';
+    const msg = document.createElement('div');
+    msg.textContent = 'No projects yet';
+    empty.appendChild(msg);
+    const emptyAddBtn = document.createElement('button');
+    emptyAddBtn.type = 'button';
+    emptyAddBtn.className = 'btn btn-primary';
+    emptyAddBtn.textContent = '+ Add Project';
+    emptyAddBtn.style.marginTop = '12px';
+    emptyAddBtn.addEventListener('click', () => showAddProjectModal());
+    empty.appendChild(emptyAddBtn);
     cardsContainer.appendChild(empty);
   } else if (pinnedFiltered.length === 0 && unpinnedFiltered.length === 0) {
     const empty = document.createElement('div');
@@ -259,9 +302,12 @@ function createMobileProjectCard(proj) {
   card.dataset.projectId = proj.id;
   card.style.borderLeftColor = proj.color;
 
-  const header = document.createElement('button');
-  header.type = 'button';
+  const header = document.createElement('div');
   header.className = 'board-mobile-card-header';
+
+  const titleBtn = document.createElement('button');
+  titleBtn.type = 'button';
+  titleBtn.className = 'board-mobile-card-title-btn';
 
   const title = document.createElement('span');
   title.className = 'board-mobile-card-title';
@@ -271,13 +317,26 @@ function createMobileProjectCard(proj) {
   chevron.className = 'board-card-chevron';
   chevron.textContent = minimized ? '▸' : '▾';
 
-  header.appendChild(title);
-  header.appendChild(chevron);
-  header.addEventListener('click', (e) => {
+  titleBtn.appendChild(title);
+  titleBtn.appendChild(chevron);
+  titleBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     Store.updateProjectBoardPosition(proj.id, { minimized: !minimized });
     document.dispatchEvent(new Event('mareo:render'));
   });
+
+  const linksBtn = document.createElement('button');
+  linksBtn.type = 'button';
+  linksBtn.className = 'btn-icon board-card-links-btn';
+  linksBtn.title = 'Links';
+  linksBtn.textContent = '🔗';
+  linksBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    showProjectLinksDropdown(e, proj);
+  });
+
+  header.appendChild(titleBtn);
+  header.appendChild(linksBtn);
   card.appendChild(header);
 
   if (minimized) return card;
@@ -335,11 +394,23 @@ function createProjectCard(proj, { x, y, isPinned = false } = {}) {
   title.className = 'board-card-title';
   title.textContent = proj.name;
 
+  const linksBtn = document.createElement('button');
+  linksBtn.type = 'button';
+  linksBtn.className = 'btn-icon board-card-links-btn';
+  linksBtn.title = 'Links';
+  linksBtn.textContent = '🔗';
+  linksBtn.addEventListener('pointerdown', (ev) => ev.stopPropagation());
+  linksBtn.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    showProjectLinksDropdown(ev, proj);
+  });
+
   const chevron = document.createElement('span');
   chevron.className = 'board-card-chevron';
   chevron.textContent = minimized ? '▸' : '▾';
 
   header.appendChild(title);
+  header.appendChild(linksBtn);
   header.appendChild(chevron);
   el.appendChild(header);
 
