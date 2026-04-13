@@ -126,6 +126,7 @@ function createTodayRow(item) {
   text.placeholder = 'Note...';
   text.addEventListener('change', () => {
     Store.updateProjectNote(projectId, note.id, { title: text.value });
+    document.dispatchEvent(new Event('mareo:render'));
   });
   text.addEventListener('input', () => autoResizeTextarea(text));
   // Block the reorder pointerdown when interacting with the text
