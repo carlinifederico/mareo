@@ -1,5 +1,6 @@
 import { Store } from './store.js';
 import { showModal } from './modal.js';
+import { icon } from './icons.js';
 
 let onProjectClick = null;
 
@@ -22,7 +23,7 @@ export function renderSidebar(container) {
     if (item.type === 'pinned-header') {
       const header = document.createElement('div');
       header.className = 'sidebar-category pinned-section-header';
-      header.innerHTML = `<span class="cat-name">📌 PINNED</span>`;
+      header.innerHTML = `<span class="cat-name">${icon('pin')} PINNED</span>`;
       container.appendChild(header);
 
     } else if (item.type === 'category-header') {
@@ -30,9 +31,9 @@ export function renderSidebar(container) {
       const catHeader = document.createElement('div');
       catHeader.className = 'sidebar-category';
       catHeader.innerHTML = `
-        <span class="cat-toggle">${cat.collapsed ? '▶' : '▼'}</span>
+        <span class="cat-toggle">${cat.collapsed ? icon('chevron-right') : icon('chevron-down')}</span>
         <span class="cat-name">${cat.name}</span>
-        <button class="btn-icon cat-menu-btn" title="Category options">⋯</button>
+        <button class="btn-icon cat-menu-btn" title="Category options">${icon('menu-dots')}</button>
       `;
 
       catHeader.querySelector('.cat-toggle').addEventListener('click', () => {
@@ -161,7 +162,7 @@ function renderProjectRow(proj, cat, pinned) {
   // Drag handle
   const grip = document.createElement('span');
   grip.className = 'drag-handle';
-  grip.textContent = '⠿';
+  grip.innerHTML = icon('drag-handle');
   header.appendChild(grip);
 
   const notes = proj.projectNotes || [];
@@ -170,7 +171,7 @@ function renderProjectRow(proj, cat, pinned) {
 
   const toggle = document.createElement('span');
   toggle.className = 'proj-notes-toggle';
-  toggle.textContent = expanded ? '▼' : '▶';
+  toggle.innerHTML = expanded ? icon('chevron-down') : icon('chevron-right');
   toggle.addEventListener('click', (e) => {
     e.stopPropagation();
     Store.updateProject(proj.id, { notesExpanded: !expanded });
@@ -193,7 +194,7 @@ function renderProjectRow(proj, cat, pinned) {
   pinBtn.type = 'button';
   pinBtn.className = 'btn-icon project-pin-btn' + (isPinned ? ' pinned' : '');
   pinBtn.title = isPinned ? 'Unpin' : 'Pin to top';
-  pinBtn.textContent = '📌';
+  pinBtn.innerHTML = icon('pin');
   pinBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     if (isPinned) Store.unpinProject(proj.id);
@@ -204,7 +205,7 @@ function renderProjectRow(proj, cat, pinned) {
   const menuBtn = document.createElement('button');
   menuBtn.className = 'btn-icon proj-menu-btn';
   menuBtn.title = 'Project options';
-  menuBtn.textContent = '⋯';
+  menuBtn.innerHTML = icon('menu-dots');
   menuBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     showProjectMenu(e, proj, cat);
@@ -233,7 +234,7 @@ function renderProjectRow(proj, cat, pinned) {
 
       const grip = document.createElement('span');
       grip.className = 'note-drag-grip';
-      grip.textContent = '⠿';
+      grip.innerHTML = icon('drag-handle');
 
       const checkbox = document.createElement('input');
       checkbox.type = 'checkbox';
@@ -305,7 +306,7 @@ function renderProjectRow(proj, cat, pinned) {
 
       const delBtn = document.createElement('button');
       delBtn.className = 'btn-icon note-preview-delete';
-      delBtn.textContent = '✕';
+      delBtn.innerHTML = icon('close');
       delBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         Store.removeProjectNote(proj.id, note.id);

@@ -363,6 +363,10 @@ button, input, select, textarea {
   border-radius: 8px;
   font-size: 14px;
   transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
 }
 
 .btn-icon:hover {
@@ -371,6 +375,43 @@ button, input, select, textarea {
 }
 
 .btn-tiny { font-size: 10px; padding: 1px 4px; }
+
+/* Shared icon class used by js/icons.js. Inherits color via currentColor and
+   size via font-size (width/height = 1em). */
+.icon {
+  width: 1em;
+  height: 1em;
+  display: inline-block;
+  flex-shrink: 0;
+  vertical-align: -0.15em;
+  pointer-events: none;
+}
+
+/* When an icon is the only child of a button, make the button's font-size
+   drive the icon size directly. Most icon buttons use 14px, override per-case. */
+.btn-icon .icon { font-size: inherit; }
+
+/* Per-context icon sizing overrides (the parent's existing font-size was
+   tuned for unicode chars that render smaller than SVGs at the same px). */
+.cat-toggle .icon { font-size: 10px; }
+.proj-notes-toggle .icon { font-size: 10px; }
+.drag-handle .icon,
+.note-drag-grip .icon,
+.today-drag-grip .icon { font-size: 14px; }
+.board-card-chevron .icon { font-size: 12px; }
+.today-fab-icon .icon { font-size: 22px; }
+.today-dot .icon { font-size: 14px; }
+.tab-close .icon { font-size: 12px; }
+.dropdown-close-btn .icon { font-size: 14px; }
+.btn-edit-mode .icon,
+.btn-undo-redo .icon { font-size: 14px; vertical-align: -0.2em; }
+.mobile-menu-btn .icon { font-size: 20px; }
+.board-pinned-header .icon { font-size: 12px; }
+.board-mobile-section .icon { font-size: 12px; }
+.pinned-section-header .icon { font-size: 12px; }
+/* Landing page feature icons — big, colored */
+.card-icon .icon,
+.feature-icon .icon { font-size: inherit; }
 
 /* === App Container === */
 #app-container {
@@ -530,6 +571,9 @@ button, input, select, textarea {
 .pinned-section-header .cat-name {
   font-size: 10px;
   letter-spacing: 1px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .drag-handle {
@@ -1541,6 +1585,9 @@ button, input, select, textarea {
   border-radius: 4px;
   pointer-events: none;
   user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .board-card-pinned {
@@ -3470,6 +3517,9 @@ body.pip-mode .today-panel {
   font-size: 10px;
   padding: 4px 10px;
   letter-spacing: 0.5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 .btn-edit-mode.editing {
   border-color: var(--coral);
@@ -3479,7 +3529,7 @@ body.pip-mode .today-panel {
 
 /* When the Timeline is locked, hide every destructive / mutation-only
    affordance in the sidebar so users cannot accidentally bump them. */
-body.timeline-locked #view-timeline .proj-pin-btn,
+body.timeline-locked #view-timeline .project-pin-btn,
 body.timeline-locked #view-timeline .proj-menu-btn,
 body.timeline-locked #view-timeline .cat-menu-btn,
 body.timeline-locked #view-timeline .note-preview-delete,
@@ -3561,6 +3611,9 @@ body.timeline-locked #view-timeline .note-preview-check { cursor: not-allowed; }
     color: var(--text-muted);
     text-transform: uppercase;
     padding: 14px 6px 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
   }
 
   .board-mobile-card {

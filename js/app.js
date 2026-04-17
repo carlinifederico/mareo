@@ -8,6 +8,7 @@ import { showLinksModal, showProjectLinksDropdown } from './modal.js';
 import { renderBoard, initBoardDrag, initBoardZoom, initBoardSelection } from './board.js';
 import { initTodayPanel } from './today.js';
 import { renderExpenses, ensureCurrentMonth } from './expenses.js';
+import { icon } from './icons.js';
 import { renderBalance } from './balance.js';
 import { initPan } from './pan.js';
 
@@ -321,7 +322,9 @@ function refreshEditModeButton() {
   document.body.classList.toggle('timeline-locked', locked);
   const btn = document.getElementById('btn-edit-mode');
   if (btn) {
-    btn.textContent = locked ? '🔒 LOCKED' : '✏️ EDITING';
+    btn.innerHTML = locked
+      ? `${icon('lock-closed')} LOCKED`
+      : `${icon('pen')} EDITING`;
     btn.classList.toggle('editing', !locked);
   }
 }
@@ -370,7 +373,7 @@ function renderTabs() {
     if (visibleTabs.length > 1) {
       const close = document.createElement('span');
       close.className = 'tab-close';
-      close.textContent = '×';
+      close.innerHTML = icon('close');
       close.addEventListener('click', (e) => {
         e.stopPropagation();
         removeTab(viewId);

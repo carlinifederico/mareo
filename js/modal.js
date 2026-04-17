@@ -1,3 +1,5 @@
+import { icon } from './icons.js';
+
 let overlay = null;
 
 export function showModal({ title, fields, onSave, onDelete }) {
@@ -121,7 +123,7 @@ export function showProjectLinksDropdown(e, proj) {
   // Close button
   const closeBtn = document.createElement('button');
   closeBtn.className = 'btn-icon dropdown-close-btn';
-  closeBtn.textContent = '✕';
+  closeBtn.innerHTML = icon('close');
   closeBtn.addEventListener('click', (ev) => {
     ev.stopPropagation();
     dropdown.remove();
@@ -145,7 +147,7 @@ export function showProjectLinksDropdown(e, proj) {
 
   const editBtn = document.createElement('button');
   editBtn.className = 'dropdown-edit-btn';
-  editBtn.textContent = '⚙ Manage Links';
+  editBtn.innerHTML = `${icon('settings')} Manage Links`;
   editBtn.addEventListener('click', (ev) => {
     ev.stopPropagation(); dropdown.remove(); _activeDropdownProjId = null; showLinksModal(proj);
   });
@@ -216,7 +218,7 @@ export function showLinksModal(proj) {
       const removeBtn = document.createElement('button');
       removeBtn.type = 'button';
       removeBtn.className = 'btn-icon';
-      removeBtn.textContent = '✕';
+      removeBtn.innerHTML = icon('close');
       removeBtn.addEventListener('click', () => {
         proj.links.splice(i, 1);
         renderLinks();

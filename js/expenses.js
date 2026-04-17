@@ -1,4 +1,5 @@
 import { Store } from './store.js';
+import { icon } from './icons.js';
 
 const PAYMENT_METHODS = ['CASH', 'LEMON', 'BBVA', 'MP', 'TRANSFER', 'OTHER'];
 const MONTH_NAMES_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -93,7 +94,7 @@ export function renderExpenses(container) {
 
   const prevBtn = document.createElement('button');
   prevBtn.className = 'btn btn-secondary';
-  prevBtn.textContent = '◀';
+  prevBtn.innerHTML = icon('chevron-left');
   const idx = allKeys.indexOf(activeKey);
   prevBtn.disabled = idx <= 0;
   prevBtn.addEventListener('click', () => {
@@ -106,7 +107,7 @@ export function renderExpenses(container) {
 
   const nextBtn = document.createElement('button');
   nextBtn.className = 'btn btn-secondary';
-  nextBtn.textContent = '▶';
+  nextBtn.innerHTML = icon('chevron-right');
   nextBtn.disabled = idx >= allKeys.length - 1;
   nextBtn.addEventListener('click', () => {
     if (idx < allKeys.length - 1) {
@@ -277,7 +278,7 @@ export function renderExpenses(container) {
       check.addEventListener('change', () => { item.paid = check.checked; saveMonth(activeKey, data); document.dispatchEvent(new Event('mareo:render')); });
       const recurBtn = document.createElement('button');
       recurBtn.className = 'btn-icon btn-tiny exp-recur-btn';
-      recurBtn.textContent = item.recurring ? '↻' : '-';
+      recurBtn.innerHTML = item.recurring ? icon('refresh') : '-';
       recurBtn.title = item.recurring ? 'Recurring (copies to next month)' : 'One-time';
       recurBtn.addEventListener('click', () => { item.recurring = !item.recurring; saveMonth(activeKey, data); document.dispatchEvent(new Event('mareo:render')); });
       tdCheck.appendChild(check);
@@ -307,7 +308,7 @@ export function renderExpenses(container) {
       tdDel.className = 'col-del';
       const delBtn = document.createElement('button');
       delBtn.className = 'btn-icon';
-      delBtn.textContent = '✕';
+      delBtn.innerHTML = icon('close');
       delBtn.addEventListener('click', () => { section.items.splice(ii, 1); saveMonth(activeKey, data); document.dispatchEvent(new Event('mareo:render')); });
       tdDel.appendChild(delBtn);
       tr.appendChild(tdDel);
@@ -402,7 +403,7 @@ function renderIncomes(container, monthKey, data, rate) {
     tdDel.className = 'col-del';
     const delBtn = document.createElement('button');
     delBtn.className = 'btn-icon btn-tiny';
-    delBtn.textContent = '✕';
+    delBtn.innerHTML = icon('close');
     delBtn.addEventListener('click', () => {
       incomes.splice(i, 1);
       saveMonth(monthKey, data);
@@ -474,7 +475,7 @@ function renderPayments(container, monthKey, data, rate, totalDisponible) {
     tdDel.className = 'col-del';
     const delBtn = document.createElement('button');
     delBtn.className = 'btn-icon btn-tiny';
-    delBtn.textContent = '✕';
+    delBtn.innerHTML = icon('close');
     delBtn.addEventListener('click', () => { payments.splice(i, 1); saveMonth(monthKey, data); document.dispatchEvent(new Event('mareo:render')); });
     tdDel.appendChild(delBtn);
     tr.appendChild(tdDel);

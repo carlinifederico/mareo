@@ -1,4 +1,5 @@
 import { Store } from './store.js';
+import { icon } from './icons.js';
 
 let pipWindow = null;
 let panelEl = null;
@@ -58,7 +59,7 @@ export function renderTodayPanel() {
   const collapseBtn = document.createElement('button');
   collapseBtn.className = 'btn-icon today-collapse';
   collapseBtn.title = collapsed ? 'Expand' : 'Collapse';
-  collapseBtn.textContent = collapsed ? '▴' : '▾';
+  collapseBtn.innerHTML = collapsed ? icon('chevron-up') : icon('chevron-down');
   collapseBtn.addEventListener('click', () => {
     collapsed = !collapsed;
     renderTodayPanel();
@@ -67,7 +68,7 @@ export function renderTodayPanel() {
   const popoutBtn = document.createElement('button');
   popoutBtn.className = 'btn-icon today-popout';
   popoutBtn.title = 'Pop out floating window';
-  popoutBtn.textContent = '⧉';
+  popoutBtn.innerHTML = icon('popout');
   popoutBtn.addEventListener('click', popoutToPiP);
 
   actions.appendChild(collapseBtn);
@@ -86,7 +87,7 @@ export function renderTodayPanel() {
   if (items.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'today-empty';
-    empty.textContent = 'No tasks for today. Click ● on any project note.';
+    empty.innerHTML = `No tasks for today. Click ${icon('dot')} on any project note.`;
     body.appendChild(empty);
   } else {
     for (const item of items) {
@@ -107,7 +108,7 @@ function createTodayRow(item) {
 
   const grip = document.createElement('span');
   grip.className = 'today-drag-grip';
-  grip.textContent = '⠿';
+  grip.innerHTML = icon('drag-handle');
   grip.title = 'Drag to reorder';
 
   const checkbox = document.createElement('input');
@@ -157,7 +158,7 @@ function createTodayRow(item) {
   const removeBtn = document.createElement('button');
   removeBtn.className = 'btn-icon today-remove';
   removeBtn.title = 'Remove from Today';
-  removeBtn.textContent = '✕';
+  removeBtn.innerHTML = icon('close');
   removeBtn.addEventListener('click', () => {
     Store.toggleTodayNote(projectId, note.id);
     document.dispatchEvent(new Event('mareo:render'));

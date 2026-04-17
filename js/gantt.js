@@ -1,6 +1,7 @@
 import { Store } from './store.js';
 import { getWeekWidth, getDayWidth, isDayMode, getTotalWeeks, getTotalWidth, taskToPixels, taskToDisplayPixels, getTodayPixelX, getTodayWeekIndex } from './timeline.js';
 import { showModal } from './modal.js';
+import { icon } from './icons.js';
 
 const LANE_HEIGHTS = [36, 28, 22, 18, 16, 16];
 const DURATIONS = [7, 5, 3, 2, 2, 2];
@@ -217,7 +218,7 @@ function showTaskPopover(e, task) {
 
   const editBtn = document.createElement('button');
   editBtn.className = 'btn-icon';
-  editBtn.textContent = '✎';
+  editBtn.innerHTML = icon('pen');
   editBtn.title = 'Edit task';
   editBtn.addEventListener('click', (ev) => {
     ev.stopPropagation();
@@ -227,7 +228,7 @@ function showTaskPopover(e, task) {
 
   const deleteBtn = document.createElement('button');
   deleteBtn.className = 'btn-icon popover-delete-btn';
-  deleteBtn.textContent = '🗑';
+  deleteBtn.innerHTML = icon('trash');
   deleteBtn.title = 'Delete task';
   deleteBtn.addEventListener('click', (ev) => {
     ev.stopPropagation();
@@ -240,7 +241,7 @@ function showTaskPopover(e, task) {
 
   const closeBtn = document.createElement('button');
   closeBtn.className = 'btn-icon';
-  closeBtn.textContent = '✕';
+  closeBtn.innerHTML = icon('close');
   closeBtn.title = 'Close';
   closeBtn.addEventListener('click', (ev) => {
     ev.stopPropagation();
@@ -301,7 +302,7 @@ function showTaskPopover(e, task) {
 
       const removeBtn = document.createElement('button');
       removeBtn.className = 'btn-icon btn-tiny';
-      removeBtn.textContent = '✕';
+      removeBtn.innerHTML = icon('close');
       removeBtn.addEventListener('click', (ev) => {
         ev.stopPropagation();
         task.links.splice(i, 1);

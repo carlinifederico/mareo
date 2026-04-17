@@ -1,6 +1,7 @@
 import { Store } from './store.js';
 import { showProjectLinksDropdown } from './modal.js';
 import { showAddProjectModal } from './sidebar.js';
+import { icon } from './icons.js';
 
 const GRID = 24; // matches the dot background in CSS
 const CLICK_DRAG_THRESHOLD = 4; // px movement before a click becomes a drag
@@ -100,7 +101,7 @@ export function renderBoard(container) {
     header.style.left = offset.x + 'px';
     header.style.top  = (offset.y - PIN_HEADER_H - 6) + 'px';
     header.style.width = (pinnedProjects.length * PIN_STEP - (PIN_STEP - 240)) + 'px';
-    header.textContent = '📌 PINNED';
+    header.innerHTML = `${icon('pin')} PINNED`;
     wrapper.appendChild(header);
 
     pinnedProjects.forEach((proj, i) => {
@@ -199,7 +200,7 @@ function renderBoardMobile(container) {
 
     const clearBtn = document.createElement('button');
     clearBtn.className = 'board-mobile-search-clear';
-    clearBtn.textContent = '✕';
+    clearBtn.innerHTML = icon('close');
     clearBtn.title = 'Clear search';
     clearBtn.style.display = mobileSearch ? '' : 'none';
     clearBtn.addEventListener('click', () => {
@@ -267,7 +268,7 @@ function renderBoardMobile(container) {
     if (pinnedFiltered.length > 0) {
       const label = document.createElement('div');
       label.className = 'board-mobile-section';
-      label.textContent = '📌 PINNED';
+      label.innerHTML = `${icon('pin')} PINNED`;
       cardsContainer.appendChild(label);
       for (const proj of pinnedFiltered) {
         cardsContainer.appendChild(createMobileProjectCard(proj));
@@ -315,7 +316,7 @@ function createMobileProjectCard(proj) {
 
   const chevron = document.createElement('span');
   chevron.className = 'board-card-chevron';
-  chevron.textContent = minimized ? '▸' : '▾';
+  chevron.innerHTML = minimized ? icon('chevron-right') : icon('chevron-down');
 
   titleBtn.appendChild(title);
   titleBtn.appendChild(chevron);
@@ -330,7 +331,7 @@ function createMobileProjectCard(proj) {
   pinBtn.type = 'button';
   pinBtn.className = 'btn-icon project-pin-btn board-card-pin-btn' + (isPinnedMobile ? ' pinned' : '');
   pinBtn.title = isPinnedMobile ? 'Unpin' : 'Pin to top';
-  pinBtn.textContent = '📌';
+  pinBtn.innerHTML = icon('pin');
   pinBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     if (isPinnedMobile) Store.unpinProject(proj.id);
@@ -342,7 +343,7 @@ function createMobileProjectCard(proj) {
   linksBtn.type = 'button';
   linksBtn.className = 'btn-icon board-card-links-btn';
   linksBtn.title = 'Links';
-  linksBtn.textContent = '🔗';
+  linksBtn.innerHTML = icon('link');
   linksBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     showProjectLinksDropdown(e, proj);
@@ -413,7 +414,7 @@ function createProjectCard(proj, { x, y, isPinned = false } = {}) {
   pinBtn.type = 'button';
   pinBtn.className = 'btn-icon project-pin-btn board-card-pin-btn' + (isPinnedState ? ' pinned' : '');
   pinBtn.title = isPinnedState ? 'Unpin' : 'Pin to top';
-  pinBtn.textContent = '📌';
+  pinBtn.innerHTML = icon('pin');
   pinBtn.addEventListener('pointerdown', (ev) => ev.stopPropagation());
   pinBtn.addEventListener('click', (ev) => {
     ev.stopPropagation();
@@ -426,7 +427,7 @@ function createProjectCard(proj, { x, y, isPinned = false } = {}) {
   linksBtn.type = 'button';
   linksBtn.className = 'btn-icon board-card-links-btn';
   linksBtn.title = 'Links';
-  linksBtn.textContent = '🔗';
+  linksBtn.innerHTML = icon('link');
   linksBtn.addEventListener('pointerdown', (ev) => ev.stopPropagation());
   linksBtn.addEventListener('click', (ev) => {
     ev.stopPropagation();
@@ -435,7 +436,7 @@ function createProjectCard(proj, { x, y, isPinned = false } = {}) {
 
   const chevron = document.createElement('span');
   chevron.className = 'board-card-chevron';
-  chevron.textContent = minimized ? '▸' : '▾';
+  chevron.innerHTML = minimized ? icon('chevron-right') : icon('chevron-down');
 
   header.appendChild(title);
   header.appendChild(pinBtn);
@@ -576,7 +577,7 @@ function createNoteRow(proj, note) {
 
   const grip = document.createElement('span');
   grip.className = 'note-drag-grip';
-  grip.textContent = '⠿';
+  grip.innerHTML = icon('drag-handle');
   grip.addEventListener('pointerdown', (e) => e.stopPropagation());
 
   const checkbox = document.createElement('input');
@@ -633,7 +634,7 @@ function createNoteRow(proj, note) {
   const todayDot = document.createElement('button');
   todayDot.className = 'today-dot' + (note.today ? ' active' : '');
   todayDot.title = note.today ? 'Remove from Today' : 'Add to Today';
-  todayDot.textContent = '●';
+  todayDot.innerHTML = icon('dot');
   todayDot.addEventListener('click', (e) => {
     e.stopPropagation();
     Store.toggleTodayNote(proj.id, note.id);
@@ -642,7 +643,7 @@ function createNoteRow(proj, note) {
 
   const delBtn = document.createElement('button');
   delBtn.className = 'btn-icon note-preview-delete';
-  delBtn.textContent = '✕';
+  delBtn.innerHTML = icon('close');
   delBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     Store.removeProjectNote(proj.id, note.id);
