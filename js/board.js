@@ -325,6 +325,19 @@ function createMobileProjectCard(proj) {
     document.dispatchEvent(new Event('mareo:render'));
   });
 
+  const isPinnedMobile = Store.isProjectPinned(proj.id);
+  const pinBtn = document.createElement('button');
+  pinBtn.type = 'button';
+  pinBtn.className = 'btn-icon project-pin-btn board-card-pin-btn' + (isPinnedMobile ? ' pinned' : '');
+  pinBtn.title = isPinnedMobile ? 'Unpin' : 'Pin to top';
+  pinBtn.textContent = '📌';
+  pinBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (isPinnedMobile) Store.unpinProject(proj.id);
+    else Store.pinProject(proj.id);
+    document.dispatchEvent(new Event('mareo:render'));
+  });
+
   const linksBtn = document.createElement('button');
   linksBtn.type = 'button';
   linksBtn.className = 'btn-icon board-card-links-btn';
@@ -336,6 +349,7 @@ function createMobileProjectCard(proj) {
   });
 
   header.appendChild(titleBtn);
+  header.appendChild(pinBtn);
   header.appendChild(linksBtn);
   card.appendChild(header);
 
@@ -394,6 +408,20 @@ function createProjectCard(proj, { x, y, isPinned = false } = {}) {
   title.className = 'board-card-title';
   title.textContent = proj.name;
 
+  const isPinnedState = Store.isProjectPinned(proj.id);
+  const pinBtn = document.createElement('button');
+  pinBtn.type = 'button';
+  pinBtn.className = 'btn-icon project-pin-btn board-card-pin-btn' + (isPinnedState ? ' pinned' : '');
+  pinBtn.title = isPinnedState ? 'Unpin' : 'Pin to top';
+  pinBtn.textContent = '📌';
+  pinBtn.addEventListener('pointerdown', (ev) => ev.stopPropagation());
+  pinBtn.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    if (isPinnedState) Store.unpinProject(proj.id);
+    else Store.pinProject(proj.id);
+    document.dispatchEvent(new Event('mareo:render'));
+  });
+
   const linksBtn = document.createElement('button');
   linksBtn.type = 'button';
   linksBtn.className = 'btn-icon board-card-links-btn';
@@ -410,6 +438,7 @@ function createProjectCard(proj, { x, y, isPinned = false } = {}) {
   chevron.textContent = minimized ? '▸' : '▾';
 
   header.appendChild(title);
+  header.appendChild(pinBtn);
   header.appendChild(linksBtn);
   header.appendChild(chevron);
   el.appendChild(header);

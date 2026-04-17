@@ -492,17 +492,35 @@ button, input, select, textarea {
 .sidebar-project:hover .proj-menu-btn { opacity: 1; }
 .proj-menu-btn { opacity: 0; transition: opacity 0.2s ease; }
 
-.proj-pin-btn {
+.project-pin-btn {
   opacity: 0.3;
-  color: var(--text-muted);
-  transition: all 0.15s ease;
+  font-size: 12px;
+  line-height: 1;
+  padding: 2px 4px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s ease, filter 0.15s ease, text-shadow 0.15s ease;
   flex-shrink: 0;
-  padding: 2px !important;
 }
+.project-pin-btn:hover { opacity: 0.7; }
 
-.proj-pin-btn:hover { opacity: 0.8; color: var(--accent); }
-.proj-pin-btn.pinned { opacity: 0.7; color: var(--accent); }
-.proj-pin-btn.pinned:hover { opacity: 1; }
+.project-pin-btn.pinned {
+  opacity: 1;
+  filter: drop-shadow(0 0 3px #ff5cb8);
+  text-shadow: 0 0 6px #ff5cb8, 0 0 2px #ff5cb8;
+}
+.project-pin-btn.pinned:hover { filter: drop-shadow(0 0 5px #ff5cb8); }
+
+.board-card-pin-btn {
+  width: 20px;
+  height: 20px;
+  margin: 0 2px;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 
 .pinned-section-header {
   border-left: 3px solid var(--accent) !important;
@@ -3591,6 +3609,18 @@ body.timeline-locked #view-timeline .note-preview-check { cursor: not-allowed; }
     font-size: 12px;
     flex-shrink: 0;
   }
+  .board-mobile-card-header .board-card-pin-btn {
+    width: 44px;
+    height: auto;
+    margin: 8px 4px 8px 0;
+    font-size: 18px;
+    padding: 8px 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
   .board-mobile-card-header .board-card-links-btn {
     width: 44px;
     height: auto;
