@@ -3662,6 +3662,32 @@ body.timeline-locked #view-timeline .note-preview-check { cursor: not-allowed; }
     font-size: 12px;
     flex-shrink: 0;
   }
+  .board-mobile-card-grip {
+    width: 32px;
+    height: auto;
+    margin: 8px 0 8px 4px;
+    padding: 8px 0;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 16px;
+    cursor: grab;
+    touch-action: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .board-mobile-card-grip:active { cursor: grabbing; color: var(--accent); }
+
+  .board-mobile-card.mobile-pinned-dragging {
+    opacity: 0.9;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+    z-index: 10;
+    position: relative;
+    transition: none;
+  }
+
   .board-mobile-card-header .board-card-pin-btn {
     width: 44px;
     height: auto;

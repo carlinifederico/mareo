@@ -296,15 +296,105 @@ function renderBoardMobile(container) {
   }
 }
 
+// Pointer-based reorder for pinned project cards on mobile.
+// Grabs the grip, follows finger via transform, swaps in pinnedProjects on drop.
+// Only active when search is inactive (filtered list would misalign splice).
+function attachMobilePinnedReorder(card, grip, projectId) {
+  let state = null;
+
+  const onDown = (e) => {
+    e.stopPropagation();
+    if (mobileSearch) return;
+    const parent = card.parentElement;
+    if (!parent) return;
+    const siblings = Array.from(parent.querySelectorAll('.board-mobile-card-pinned'));
+    if (siblings.length < 2) return;
+
+    const order = (Store.data.pinnedProjects || []).slice();
+    const selfIdx = order.indexOf(projectId);
+    if (selfIdx < 0) return;
+
+    e.preventDefault();
+    state = {
+      pointerId: e.pointerId,
+      startY: e.clientY,
+      rects: siblings.map(el => el.getBoundingClientRect()),
+      order,
+      selfIdx,
+      targetIdx: selfIdx,
+    };
+    card.classList.add('mobile-pinned-dragging');
+    grip.setPointerCapture(e.pointerId);
+  };
+
+  const onMove = (e) => {
+    if (!state || e.pointerId !== state.pointerId) return;
+    e.preventDefault();
+    const dy = e.clientY - state.startY;
+    card.style.transform = `translateY(${dy}px)`;
+
+    // Insertion index: first sibling whose midpoint the cursor hasn't passed.
+    let target = state.rects.length;
+    for (let i = 0; i < state.rects.length; i++) {
+      const r = state.rects[i];
+      if (e.clientY < r.top + r.height / 2) { target = i; break; }
+    }
+    state.targetIdx = target;
+  };
+
+  const onUp = (e) => {
+    if (!state || e.pointerId !== state.pointerId) return;
+    card.classList.remove('mobile-pinned-dragging');
+    card.style.transform = '';
+
+    let target = state.targetIdx;
+    if (target > state.selfIdx) target--; // compensate for self-removal shift
+    if (target !== state.selfIdx) {
+      const newOrder = state.order.slice();
+      newOrder.splice(state.selfIdx, 1);
+      newOrder.splice(target, 0, projectId);
+      Store.reorderPinnedProjects(newOrder);
+      document.dispatchEvent(new Event('mareo:render'));
+    }
+    state = null;
+  };
+
+  const onCancel = () => {
+    if (!state) return;
+    card.classList.remove('mobile-pinned-dragging');
+    card.style.transform = '';
+    state = null;
+  };
+
+  grip.addEventListener('pointerdown', onDown);
+  grip.addEventListener('pointermove', onMove);
+  grip.addEventListener('pointerup', onUp);
+  grip.addEventListener('pointercancel', onCancel);
+}
+
 function createMobileProjectCard(proj) {
   const minimized = !!proj.boardMinimized;
+  const isPinnedMobile = Store.isProjectPinned(proj.id);
   const card = document.createElement('div');
-  card.className = 'board-mobile-card' + (minimized ? ' minimized' : '');
+  card.className = 'board-mobile-card'
+    + (minimized ? ' minimized' : '')
+    + (isPinnedMobile ? ' board-mobile-card-pinned' : '');
   card.dataset.projectId = proj.id;
   card.style.borderLeftColor = proj.color;
 
   const header = document.createElement('div');
   header.className = 'board-mobile-card-header';
+
+  // Pinned cards get a drag grip at the left for reorder via pointer events.
+  let gripBtn = null;
+  if (isPinnedMobile) {
+    gripBtn = document.createElement('button');
+    gripBtn.type = 'button';
+    gripBtn.className = 'board-mobile-card-grip';
+    gripBtn.title = 'Drag to reorder';
+    gripBtn.innerHTML = icon('drag-handle');
+    attachMobilePinnedReorder(card, gripBtn, proj.id);
+  }
 
   const titleBtn = document.createElement('button');
   titleBtn.type = 'button';
@@ -326,7 +416,6 @@ function createMobileProjectCard(proj) {
     document.dispatchEvent(new Event('mareo:render'));
   });
 
-  const isPinnedMobile = Store.isProjectPinned(proj.id);
   const pinBtn = document.createElement('button');
   pinBtn.type = 'button';
   pinBtn.className = 'btn-icon project-pin-btn board-card-pin-btn' + (isPinnedMobile ? ' pinned' : '');
@@ -349,6 +438,7 @@ function createMobileProjectCard(proj) {
     showProjectLinksDropdown(e, proj);
   });
 
+  if (gripBtn) header.appendChild(gripBtn);
   header.appendChild(titleBtn);
   header.appendChild(pinBtn);
   header.appendChild(linksBtn);
@@ -451,27 +541,33 @@ function createProjectCard(proj, { x, y, isPinned = false } = {}) {
 
     // Pinned cards: grabbing one starts a group drag of the ENTIRE pinned
     // row (all pinned cards + the 📌 header label). A plain click (no
-    // movement) still toggles minimize on this card only.
+    // movement) still toggles minimize on this card only. While dragging,
+    // crossing a neighbor's slot midpoint reorders the pinned array live.
     if (isPinned) {
       const wrapperEl = document.querySelector('.board-zoom-wrapper');
       const pinnedCards = wrapperEl?.querySelectorAll('.board-card-pinned') || [];
       const headerEl = wrapperEl?.querySelector('.board-pinned-header');
+      const pinnedOrder = (Store.data.pinnedProjects || []).slice();
       const groupEls = [];
       for (const cardEl of pinnedCards) {
+        const id = cardEl.dataset.projectId;
         groupEls.push({
-          id: cardEl.dataset.projectId,
+          id,
           el: cardEl,
           startLeft: parseInt(cardEl.style.left) || 0,
           startTop: parseInt(cardEl.style.top) || 0,
+          slotIdx: pinnedOrder.indexOf(id),
         });
       }
+      let headerEntry = null;
       if (headerEl) {
-        groupEls.push({
+        headerEntry = {
           id: '__pinned_header__',
           el: headerEl,
           startLeft: parseInt(headerEl.style.left) || 0,
           startTop: parseInt(headerEl.style.top) || 0,
-        });
+        };
+        groupEls.push(headerEntry);
       }
       dragState = {
         primaryId: proj.id,
@@ -481,6 +577,8 @@ function createProjectCard(proj, { x, y, isPinned = false } = {}) {
         moved: false,
         pointerId: e.pointerId,
         isPinnedGroup: true,
+        currentOrder: pinnedOrder,
+        headerAnchor: headerEntry,
       };
       pendingClick = { projectId: proj.id, minimized };
       header.setPointerCapture(e.pointerId);
@@ -722,22 +820,68 @@ export function initBoardDrag() {
       g.el.style.left = nx + 'px';
       g.el.style.top = ny + 'px';
     }
+
+    // Live reorder within a pinned group: if the cursor is over a different
+    // slot than the primary card currently occupies, swap the primary into
+    // that slot and re-base the non-primary cards so they slide to fill.
+    if (dragState.isPinnedGroup && dragState.headerAnchor) {
+      const wrapperEl = document.querySelector('.board-zoom-wrapper');
+      if (!wrapperEl) return;
+      const wrapperRect = wrapperEl.getBoundingClientRect();
+      const cursorWX = (e.clientX - wrapperRect.left) / boardZoom;
+      const rowOriginX = parseInt(dragState.headerAnchor.el.style.left) || 0;
+      const N = dragState.currentOrder.length;
+      const rawSlot = Math.floor((cursorWX - rowOriginX) / PIN_STEP);
+      const targetSlot = Math.max(0, Math.min(N - 1, rawSlot));
+
+      const primary = dragState.group.find(g => g.id === dragState.primaryId);
+      if (primary && targetSlot !== primary.slotIdx) {
+        const newOrder = dragState.currentOrder.slice();
+        newOrder.splice(newOrder.indexOf(dragState.primaryId), 1);
+        newOrder.splice(targetSlot, 0, dragState.primaryId);
+        dragState.currentOrder = newOrder;
+
+        for (const g of dragState.group) {
+          if (g.id === '__pinned_header__') continue;
+          const newSlot = newOrder.indexOf(g.id);
+          if (newSlot === g.slotIdx) continue;
+          g.slotIdx = newSlot;
+          if (g.id === dragState.primaryId) continue;
+          // Re-base startLeft so this card's live position (startLeft + dx)
+          // reflects its new slot. Header's startLeft is the stable origin.
+          g.startLeft = dragState.headerAnchor.startLeft + newSlot * PIN_STEP;
+          const nx = Math.max(0, snap(g.startLeft + dx));
+          g.el.style.left = nx + 'px';
+        }
+      }
+    }
   });
 
   document.addEventListener('pointerup', (e) => {
     if (!dragState) return;
     if (dragState.moved) {
       if (dragState.isPinnedGroup) {
-        // Whole pinned row moved: persist a single group offset instead of
-        // per-card positions. Delta comes from any anchor element.
-        const anchor = dragState.group[0];
+        // Use the header label as stable anchor — its startLeft never gets
+        // re-based by live reorders, unlike group[0] whose slot may change.
+        const anchor = dragState.headerAnchor || dragState.group[0];
         if (anchor) {
           const dx = (parseInt(anchor.el.style.left) || 0) - anchor.startLeft;
           const dy = (parseInt(anchor.el.style.top)  || 0) - anchor.startTop;
           const old = Store.data.pinnedBoardOffset || { x: 2500, y: 2700 };
           Store.updatePinnedBoardOffset(old.x + dx, old.y + dy);
         }
+        // Commit any live reorder that happened during the drag.
+        if (dragState.currentOrder) {
+          const before = (Store.data.pinnedProjects || []).join(',');
+          const after = dragState.currentOrder.join(',');
+          if (before !== after) {
+            Store.reorderPinnedProjects(dragState.currentOrder);
+          }
+        }
         for (const g of dragState.group) g.el.classList.remove('dragging');
+        // Re-render so the primary card snaps to its new slot position
+        // (during the drag it was cursor-tracked off-slot).
+        document.dispatchEvent(new Event('mareo:render'));
       } else {
         for (const g of dragState.group) {
           const x = parseInt(g.el.style.left);
