@@ -981,6 +981,13 @@ export function initBoardZoom() {
   canvas.addEventListener('wheel', (e) => {
     if (isMobileBoard()) return;
     if (!canvas.closest('.view-container.active')) return;
+
+    // Plain wheel / two-finger trackpad swipe → pan. The browser already
+    // handles scrollLeft/scrollTop for us, so just let the event through.
+    // Trackpad pinch arrives as wheel + ctrlKey (synthesized), so zoom
+    // only when Ctrl/Meta is set — same pattern as the Timeline view.
+    if (!e.ctrlKey && !e.metaKey) return;
+
     e.preventDefault();
 
     const wrapper = canvas.querySelector('.board-zoom-wrapper');
