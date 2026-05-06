@@ -154,7 +154,7 @@ function renderProjectRow(proj, cat, pinned) {
   projRow.dataset.projectId = proj.id;
   projRow.dataset.categoryId = cat.id;
   projRow.dataset.pinned = pinned ? '1' : '0';
-  projRow.draggable = !locked;
+  projRow.draggable = true;
 
   const header = document.createElement('div');
   header.className = 'sidebar-project-header';
@@ -381,7 +381,6 @@ function initSidebarDragDrop(container) {
   let draggedCatId = null;
 
   container.addEventListener('dragstart', (e) => {
-    if (Store.isTimelineLocked()) { e.preventDefault(); return; }
     const row = e.target.closest('.sidebar-project');
     if (!row) return;
     draggedId = row.dataset.projectId;

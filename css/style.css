@@ -3528,15 +3528,16 @@ body.pip-mode .today-panel {
 }
 
 /* When the Timeline is locked, hide every destructive / mutation-only
-   affordance in the sidebar so users cannot accidentally bump them. */
-body.timeline-locked #view-timeline .project-pin-btn,
+   affordance in the sidebar so users cannot accidentally bump them.
+   Pin and drag-handle are intentionally NOT here: pinning is a flag
+   toggle and project drag-reorder is reversible — both are safe to
+   leave available regardless of the Timeline edit lock. */
 body.timeline-locked #view-timeline .proj-menu-btn,
 body.timeline-locked #view-timeline .cat-menu-btn,
 body.timeline-locked #view-timeline .note-preview-delete,
 body.timeline-locked #view-timeline .note-preview-add,
 body.timeline-locked #view-timeline .sidebar-add-project,
 body.timeline-locked #view-timeline .sidebar-add-category,
-body.timeline-locked #view-timeline .drag-handle,
 body.timeline-locked #view-timeline .note-drag-grip,
 body.timeline-locked #view-timeline .task-add-sub-btn {
   display: none !important;
@@ -3544,7 +3545,6 @@ body.timeline-locked #view-timeline .task-add-sub-btn {
 
 /* Visual cues that the Timeline is locked */
 body.timeline-locked #view-timeline .task-bar { cursor: default; }
-body.timeline-locked #view-timeline .sidebar-project { cursor: default; }
 body.timeline-locked #view-timeline .note-preview-text { cursor: default; }
 body.timeline-locked #view-timeline .note-preview-check { cursor: not-allowed; }
 
