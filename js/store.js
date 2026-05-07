@@ -1,6 +1,39 @@
-import { db, doc, getDoc, setDoc } from './firebase-config.js?v=7';
+import { db, doc, getDoc, setDoc } from './firebase-config.js?v=8';
+import { ProjectsRepo, PROJECT_CONTENT_FIELDS } from './projects-repo.js?v=8';
 
 const STORAGE_PREFIX = 'mareo_data_';
+const SCHEMA_VERSION = 2;
+
+// Project content lives in projects/{id}; this helper extracts only those
+// fields from a runtime project object (which also carries _role, _shared,
+// etc. that should NOT be persisted to /projects).
+function extractContent(proj) {
+  const out = {};
+  for (const k of PROJECT_CONTENT_FIELDS) {
+    if (k in proj) out[k] = proj[k];
+  }
+  return out;
+}
+
+// Build a runtime project from a /projects/{id} document plus the caller's
+// uid. Tags it with _role / _shared / _members so the rest of the app can
+// gate writes and decide where to render it.
+function materializeProject(projDoc, uid) {
+  const out = {};
+  for (const k of PROJECT_CONTENT_FIELDS) {
+    if (k in projDoc) out[k] = projDoc[k];
+  }
+  out.id = projDoc.id;
+  out._role = ProjectsRepo.roleOf(projDoc, uid);
+  out._shared = projDoc.ownerId !== uid;
+  out._ownerId = projDoc.ownerId;
+  out._members = projDoc.members || {};
+  out._memberUids = projDoc.memberUids || [];
+  // Defaults the rest of the app expects
+  if (!out.tasks) out.tasks = [];
+  if (!out.projectNotes) out.projectNotes = [];
+  return out;
+}
 
 export const Store = {
   data: null,
@@ -12,12 +45,20 @@ export const Store = {
   _lastSnapshot: null,
   _undoTimer: null,
   _skipUndo: false,
+  // Per-project content snapshots (JSON strings) for diff-based dirty
+  // tracking on Firestore save. Updated on every successful write.
+  _projectSnapshots: {},
+  // Runtime list of projects shared with this user (not in their own
+  // categories). Hydrated on load from data.sharedProjects[].
+  _sharedProjects: [],
 
   async load(uid) {
     this._uid = uid;
     this._storageKey = uid ? STORAGE_PREFIX + uid : STORAGE_PREFIX + 'anonymous';
+    this._projectSnapshots = {};
+    this._sharedProjects = [];
 
-    // Try Firestore first
+    // Try Firestore first for the per-user doc
     if (uid) {
       try {
         const snap = await getDoc(doc(db, 'mareo_data', uid));
@@ -49,7 +90,9 @@ export const Store = {
         notes: [],
         boardCards: [],
         expensesMonths: {},
-        visibleTabs: ['timeline', 'board', 'expenses', 'balance']
+        visibleTabs: ['timeline', 'board', 'expenses', 'balance'],
+        schemaVersion: SCHEMA_VERSION,
+        sharedProjects: [],
       };
     }
 
@@ -64,11 +107,18 @@ export const Store = {
     if (!this.data.todayOrder) this.data.todayOrder = [];
     if (this.data.timelineLocked === undefined) this.data.timelineLocked = true;
     if (!this.data.visibleTabs) this.data.visibleTabs = ['timeline', 'board', 'expenses', 'balance'];
+    if (!this.data.sharedProjects) this.data.sharedProjects = [];
+    if (this.data.schemaVersion == null) this.data.schemaVersion = 1;
     // Notes view was removed — drop it from visibleTabs and currentView
     this.data.visibleTabs = this.data.visibleTabs.filter(v => v !== 'notes');
     if (this.data.currentView === 'notes') this.data.currentView = 'board';
+
+    // Field-shape migrations applied to any nested project objects we still
+    // have in memory. Skip stripped (string) entries — those will be filled
+    // in by _hydrateProjects below.
     for (const cat of this.data.categories) {
       for (const proj of cat.projects) {
+        if (typeof proj !== 'object' || proj == null) continue;
         if (!proj.projectNotes) proj.projectNotes = [];
         if (proj.boardX === undefined) proj.boardX = null;
         if (proj.boardY === undefined) proj.boardY = null;
@@ -76,15 +126,13 @@ export const Store = {
         for (const note of proj.projectNotes) {
           if (note.today === undefined) note.today = false;
         }
-        for (const task of proj.tasks) {
-          // Migrate tasks from week-based to day-based
+        for (const task of (proj.tasks || [])) {
           if (task.startWeek != null && task.startDay == null) {
             task.startDay = task.startWeek * 7;
             task.durationDays = (task.durationWeeks || 1) * 7;
             delete task.startWeek;
             delete task.durationWeeks;
           }
-          // Migrate to nested subtask model
           if (task.parentId === undefined) task.parentId = null;
           if (task.expanded === undefined) task.expanded = false;
         }
@@ -96,6 +144,7 @@ export const Store = {
       const placed = [];
       for (const cat of this.data.categories) {
         for (const proj of cat.projects) {
+          if (typeof proj !== 'object' || proj == null) continue;
           if (proj.boardX != null && proj.boardY != null) placed.push(proj);
         }
       }
@@ -119,7 +168,41 @@ export const Store = {
       this.data.boardNormalizedV2 = true;
     }
 
-    // Save to both
+    // === Schema v2: split project content into /projects collection ===
+    if (uid && this.data.schemaVersion < SCHEMA_VERSION) {
+      try {
+        await this._migrateToV2(uid);
+        this.data.schemaVersion = SCHEMA_VERSION;
+      } catch (err) {
+        console.error('V2 migration failed; data left in v1 form:', err);
+        // schemaVersion stays < 2 so we'll retry next load
+      }
+    }
+
+    // Hydrate any project IDs (strings) into full runtime objects by
+    // pulling content from /projects. Owned projects sitting in
+    // categories AND projects shared with us via sharedProjects[].
+    if (uid) {
+      await this._hydrateProjects(uid);
+    } else {
+      // Without a uid we can't hit Firestore. Tag any nested in-memory
+      // projects as owner so client gating doesn't lock them out.
+      for (const cat of this.data.categories) {
+        for (const proj of cat.projects) {
+          if (typeof proj === 'object' && proj) {
+            proj._role = 'owner';
+            proj._shared = false;
+          }
+        }
+      }
+    }
+
+    // Initialize content snapshots so the first save() doesn't think
+    // every project is dirty.
+    this._initProjectSnapshots();
+
+    // Save back so the freshly migrated/hydrated state is persisted in
+    // its v2 stripped form.
     this.save();
 
     // Initialize undo snapshot
@@ -128,6 +211,125 @@ export const Store = {
     this._lastSnapshot = JSON.stringify(this.data);
 
     return this.data;
+  },
+
+  // Walks every nested project still living in mareo_data, writes its
+  // content to /projects/{id} with this user as sole owner, and replaces
+  // the in-memory entries with full materialized runtime objects (kept
+  // in nested form for now — the next save() strips them to IDs).
+  async _migrateToV2(uid) {
+    const allProjects = [];
+    for (const cat of this.data.categories) {
+      for (let i = 0; i < cat.projects.length; i++) {
+        const proj = cat.projects[i];
+        if (typeof proj !== 'object' || proj == null) continue;
+        allProjects.push({ proj, cat, index: i });
+      }
+    }
+    if (allProjects.length === 0) return;
+
+    console.log(`[v2 migration] Writing ${allProjects.length} projects to /projects ...`);
+    const meta = {
+      ownerId: uid,
+      members: { [uid]: 'owner' },
+      memberUids: [uid],
+    };
+    const results = await Promise.allSettled(allProjects.map(({ proj }) =>
+      ProjectsRepo.save(proj.id, extractContent(proj), meta).then(() => proj)
+    ));
+    const failures = results.filter(r => r.status === 'rejected');
+    if (failures.length > 0) {
+      console.error('[v2 migration] failed writes:', failures.map(f => f.reason));
+      throw new Error(`v2 migration: ${failures.length}/${allProjects.length} writes failed`);
+    }
+    // All writes succeeded — tag every in-memory copy with ownership info.
+    for (const { proj } of allProjects) {
+      proj._role = 'owner';
+      proj._shared = false;
+      proj._ownerId = uid;
+      proj._members = { [uid]: 'owner' };
+      proj._memberUids = [uid];
+    }
+    console.log('[v2 migration] Done.');
+  },
+
+  // For every project ID still living in categories[].projects[] as a
+  // string (post-strip form), fetch its /projects/{id} doc and replace
+  // the string with a materialized runtime object. Same for sharedProjects[].
+  // Already-materialized objects are left alone but tagged if missing tags.
+  async _hydrateProjects(uid) {
+    const ownedIds = [];
+    for (const cat of this.data.categories) {
+      for (const p of cat.projects) {
+        if (typeof p === 'string') ownedIds.push(p);
+      }
+    }
+    const sharedIds = (this.data.sharedProjects || []).filter(id => typeof id === 'string');
+    const allIds = Array.from(new Set([...ownedIds, ...sharedIds]));
+
+    if (allIds.length === 0) return;
+
+    const docs = await ProjectsRepo.loadMany(allIds);
+    const byId = new Map(docs.map(d => [d.id, d]));
+
+    // Hydrate categories: replace string IDs with materialized objects.
+    for (const cat of this.data.categories) {
+      const next = [];
+      for (const entry of cat.projects) {
+        if (typeof entry === 'string') {
+          const d = byId.get(entry);
+          if (d) next.push(materializeProject(d, uid));
+          // If a project doc is missing (deleted out-of-band, perm denied),
+          // drop the reference so the sidebar doesn't render an empty row.
+        } else if (entry && entry.id) {
+          if (!entry._role) {
+            // Already materialized but missing tags (shouldn't happen post-migration).
+            entry._role = 'owner';
+            entry._shared = false;
+          }
+          next.push(entry);
+        }
+      }
+      cat.projects = next;
+    }
+
+    // Hydrate shared projects into runtime list.
+    this._sharedProjects = sharedIds
+      .map(id => byId.get(id))
+      .filter(d => d)
+      .map(d => materializeProject(d, uid));
+  },
+
+  _initProjectSnapshots() {
+    this._projectSnapshots = {};
+    for (const cat of this.data.categories) {
+      for (const proj of cat.projects) {
+        if (typeof proj === 'object' && proj && proj.id) {
+          this._projectSnapshots[proj.id] = JSON.stringify(extractContent(proj));
+        }
+      }
+    }
+    for (const proj of this._sharedProjects) {
+      if (proj && proj.id) {
+        this._projectSnapshots[proj.id] = JSON.stringify(extractContent(proj));
+      }
+    }
+  },
+
+  // Build the per-user mareo_data document for Firestore: keep everything
+  // except categories[].projects[] which are reduced to ID-only references.
+  // Runtime-only fields like _role / _shared never reach this layer.
+  _buildUserDoc() {
+    const out = {};
+    for (const k of Object.keys(this.data)) {
+      if (k === 'categories') continue;
+      out[k] = this.data[k];
+    }
+    out.categories = this.data.categories.map(cat => ({
+      ...cat,
+      projects: cat.projects.map(p => typeof p === 'string' ? p : p.id).filter(Boolean),
+    }));
+    return out;
   },
 
   save() {
@@ -192,11 +394,65 @@ export const Store = {
   _debouncedFirestoreSave() {
     if (this._saveTimer) clearTimeout(this._saveTimer);
     this._saveTimer = setTimeout(() => {
-      if (this._uid && this.data) {
-        setDoc(doc(db, 'mareo_data', this._uid), JSON.parse(JSON.stringify(this.data)))
-          .catch(err => console.warn('Firestore save failed:', err));
-      }
+      if (!this._uid || !this.data) return;
+      this._doFirestoreSave().catch(err => console.warn('Firestore save failed:', err));
     }, 1500);
+  },
+
+  async _doFirestoreSave() {
+    // 1. Diff each project against snapshot to find dirty ones.
+    //    Track which IDs we still know about (so we can detect deletes).
+    const dirty = [];
+    const currentIds = new Set();
+    const visit = (proj) => {
+      if (typeof proj !== 'object' || !proj || !proj.id) return;
+      currentIds.add(proj.id);
+      if (proj._role === 'viewer') return; // not allowed to write
+      const cur = JSON.stringify(extractContent(proj));
+      if (this._projectSnapshots[proj.id] !== cur) {
+        dirty.push({ proj, content: JSON.parse(cur) });
+        this._projectSnapshots[proj.id] = cur;
+      }
+    };
+    for (const cat of this.data.categories) {
+      for (const proj of cat.projects) visit(proj);
+    }
+    for (const proj of this._sharedProjects) visit(proj);
+
+    // 2. Detect projects that disappeared from runtime (removed locally).
+    //    We delete the remote doc only when we're owner — for shared
+    //    projects, dropping a reference doesn't affect the underlying doc.
+    const removedIds = Object.keys(this._projectSnapshots).filter(id => !currentIds.has(id));
+    for (const id of removedIds) delete this._projectSnapshots[id];
+
+    // 3. Write dirty projects in parallel. Each carries its own ownership
+    //    metadata so editors of someone else's project preserve the owner.
+    const writes = dirty.map(({ proj, content }) => {
+      const meta = {
+        ownerId: proj._ownerId || this._uid,
+        members: proj._members || { [this._uid]: 'owner' },
+        memberUids: proj._memberUids || [this._uid],
+      };
+      return ProjectsRepo.save(proj.id, content, meta)
+        .catch(err => console.warn('project save failed', proj.id, err?.code || err));
+    });
+
+    // 4. Try to delete projects we removed locally. If we're not the
+    //    owner the rules will reject (expected for shared "leave" flow,
+    //    handled by the not-yet-implemented Phase 2 UI).
+    for (const id of removedIds) {
+      writes.push(ProjectsRepo.delete(id).catch(() => { /* perm denied = not owner */ }));
+    }
+
+    await Promise.allSettled(writes);
+
+    // 5. Write the per-user doc with project references (IDs only).
+    const userDoc = this._buildUserDoc();
+    try {
+      await setDoc(doc(db, 'mareo_data', this._uid), userDoc);
+    } catch (err) {
+      console.warn('Firestore mareo_data save failed:', err);
+    }
   },
 
   setYear(year) { this.data.currentYear = year; this._skipUndo = true; this.save(); this._skipUndo = false; },
@@ -237,11 +493,18 @@ export const Store = {
   addProject(categoryId, name, color) {
     const cat = this._findCategory(categoryId);
     if (!cat) return null;
+    const uid = this._uid;
     const proj = {
       id: 'proj-' + crypto.randomUUID(),
       name, color: color || '#bdc3c7',
       links: [], order: cat.projects.length,
-      tasks: [], projectNotes: []
+      tasks: [], projectNotes: [],
+      // Runtime ownership metadata so the save flow has what it needs.
+      _role: 'owner',
+      _shared: false,
+      _ownerId: uid,
+      _members: uid ? { [uid]: 'owner' } : {},
+      _memberUids: uid ? [uid] : [],
     };
     cat.projects.push(proj);
     this.save();
@@ -250,7 +513,9 @@ export const Store = {
 
   removeProject(projectId) {
     for (const cat of this.data.categories) {
-      cat.projects = cat.projects.filter(p => p.id !== projectId);
+      cat.projects = cat.projects.filter(p =>
+        typeof p === 'object' && p ? p.id !== projectId : p !== projectId
+      );
     }
     this.data.pinnedProjects = (this.data.pinnedProjects || []).filter(id => id !== projectId);
     this.save();
@@ -491,10 +756,17 @@ export const Store = {
   // --- Helpers ---
   _findCategory(id) { return this.data.categories.find(c => c.id === id); },
 
+  // Helpers walk both the user's own categories AND projects shared with
+  // them. Skip any string entries (pre-hydration ID-only references) so
+  // mutations don't see partially-loaded data.
   _findProject(id) {
     for (const cat of this.data.categories) {
-      const p = cat.projects.find(p => p.id === id);
-      if (p) return p;
+      for (const p of cat.projects) {
+        if (typeof p === 'object' && p && p.id === id) return p;
+      }
+    }
+    for (const p of this._sharedProjects) {
+      if (p && p.id === id) return p;
     }
     return null;
   },
@@ -502,9 +774,15 @@ export const Store = {
   _findTask(id) {
     for (const cat of this.data.categories) {
       for (const proj of cat.projects) {
+        if (typeof proj !== 'object' || !proj || !proj.tasks) continue;
         const t = proj.tasks.find(t => t.id === id);
         if (t) return t;
       }
+    }
+    for (const proj of this._sharedProjects) {
+      if (!proj || !proj.tasks) continue;
+      const t = proj.tasks.find(t => t.id === id);
+      if (t) return t;
     }
     return null;
   },
@@ -512,8 +790,12 @@ export const Store = {
   _findProjectForTask(taskId) {
     for (const cat of this.data.categories) {
       for (const proj of cat.projects) {
+        if (typeof proj !== 'object' || !proj || !proj.tasks) continue;
         if (proj.tasks.some(t => t.id === taskId)) return proj;
       }
+    }
+    for (const proj of this._sharedProjects) {
+      if (proj && proj.tasks && proj.tasks.some(t => t.id === taskId)) return proj;
     }
     return null;
   },
