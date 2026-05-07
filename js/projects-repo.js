@@ -7,7 +7,7 @@
 import {
   db, doc, getDoc, setDoc, updateDoc, deleteDoc,
   collection, query, where, getDocs,
-} from './firebase-config.js?v=8';
+} from './firebase-config.js';
 
 // Fields that belong inside the project document. Anything not in this set
 // is per-user state (and stays in mareo_data). Keep this list in sync with

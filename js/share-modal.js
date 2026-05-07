@@ -4,8 +4,8 @@
 // open it see a read-only members list.
 
 import { Auth } from './auth.js';
-import { ProjectsRepo } from './projects-repo.js?v=9';
-import { ProfilesRepo } from './profiles-repo.js?v=9';
+import { ProjectsRepo } from './projects-repo.js';
+import { ProfilesRepo } from './profiles-repo.js';
 import { icon } from './icons.js';
 
 let overlay = null;

@@ -1,7 +1,7 @@
-import { Store } from './store.js?v=9';
+import { Store } from './store.js';
 import { showModal } from './modal.js';
 import { icon } from './icons.js';
-import { showShareModal } from './share-modal.js?v=9';
+import { showShareModal } from './share-modal.js';
 
 let onProjectClick = null;
 

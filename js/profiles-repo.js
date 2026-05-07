@@ -10,7 +10,7 @@
 import {
   db, doc, getDoc, setDoc,
   collection, query, where, getDocs,
-} from './firebase-config.js?v=8';
+} from './firebase-config.js';
 
 function normalizeEmail(email) {
   return (email || '').trim().toLowerCase();

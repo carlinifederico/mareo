@@ -1,5 +1,5 @@
-import { db, doc, getDoc, setDoc } from './firebase-config.js?v=8';
-import { ProjectsRepo, PROJECT_CONTENT_FIELDS } from './projects-repo.js?v=9';
+import { db, doc, getDoc, setDoc } from './firebase-config.js';
+import { ProjectsRepo, PROJECT_CONTENT_FIELDS } from './projects-repo.js';
 
 const STORAGE_PREFIX = 'mareo_data_';
 const SCHEMA_VERSION = 2;

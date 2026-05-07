@@ -1,4 +1,4 @@
-import { auth, googleProvider, signInWithPopup, signOut as fbSignOut, onAuthStateChanged } from './firebase-config.js?v=7';
+import { auth, googleProvider, signInWithPopup, signOut as fbSignOut, onAuthStateChanged } from './firebase-config.js';
 
 const ADMIN_EMAIL = 'carlinifederico@gmail.com';
 

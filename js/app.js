@@ -1,6 +1,6 @@
-import { Store } from './store.js?v=9';
+import { Store } from './store.js';
 import { Auth } from './auth.js';
-import { ProfilesRepo } from './profiles-repo.js?v=9';
+import { ProfilesRepo } from './profiles-repo.js';
 import { renderTimelineHeader, getWeekWidth, getDayWidth, setWeekWidth, resetWeekWidth, getDefaultWeekWidth, getTodayWeekIndex, getTodayPixelX, isDayMode, getTotalWidth } from './timeline.js';
 import { renderSidebar, setSidebarProjectClickHandler } from './sidebar.js';
 import { renderGantt } from './gantt.js';
