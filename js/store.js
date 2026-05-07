@@ -1,5 +1,5 @@
 import { db, doc, getDoc, setDoc } from './firebase-config.js?v=8';
-import { ProjectsRepo, PROJECT_CONTENT_FIELDS } from './projects-repo.js?v=8';
+import { ProjectsRepo, PROJECT_CONTENT_FIELDS } from './projects-repo.js?v=9';
 
 const STORAGE_PREFIX = 'mareo_data_';
 const SCHEMA_VERSION = 2;
@@ -253,23 +253,24 @@ export const Store = {
     console.log('[v2 migration] Done.');
   },
 
-  // For every project ID still living in categories[].projects[] as a
-  // string (post-strip form), fetch its /projects/{id} doc and replace
-  // the string with a materialized runtime object. Same for sharedProjects[].
-  // Already-materialized objects are left alone but tagged if missing tags.
+  // Load every accessible project (owned + shared) via a single query
+  // (`memberUids array-contains <uid>`). Replace string IDs in
+  // categories[].projects[] with materialized runtime objects. Anything
+  // we can access but don't own becomes part of _sharedProjects, kept
+  // ordered according to data.sharedProjects[] (newcomers appended).
   async _hydrateProjects(uid) {
-    const ownedIds = [];
-    for (const cat of this.data.categories) {
-      for (const p of cat.projects) {
-        if (typeof p === 'string') ownedIds.push(p);
+    let docs = [];
+    try {
+      docs = await ProjectsRepo.listAccessible(uid);
+    } catch (err) {
+      console.warn('hydrate: listAccessible failed, falling back to loadMany:', err);
+      // Fallback: hydrate by ID for owned projects only (no shared)
+      const ids = [];
+      for (const cat of this.data.categories) {
+        for (const p of cat.projects) if (typeof p === 'string') ids.push(p);
       }
+      docs = await ProjectsRepo.loadMany(ids);
     }
-    const sharedIds = (this.data.sharedProjects || []).filter(id => typeof id === 'string');
-    const allIds = Array.from(new Set([...ownedIds, ...sharedIds]));
-
-    if (allIds.length === 0) return;
-
-    const docs = await ProjectsRepo.loadMany(allIds);
     const byId = new Map(docs.map(d => [d.id, d]));
 
     // Hydrate categories: replace string IDs with materialized objects.
@@ -283,7 +284,6 @@ export const Store = {
           // drop the reference so the sidebar doesn't render an empty row.
         } else if (entry && entry.id) {
           if (!entry._role) {
-            // Already materialized but missing tags (shouldn't happen post-migration).
             entry._role = 'owner';
             entry._shared = false;
           }
@@ -293,10 +293,23 @@ export const Store = {
       cat.projects = next;
     }
 
-    // Hydrate shared projects into runtime list.
-    this._sharedProjects = sharedIds
-      .map(id => byId.get(id))
-      .filter(d => d)
+    // Anything in the access set we don't own = shared with us. Honor any
+    // user-defined ordering already in data.sharedProjects[]; append new.
+    const ownedIds = new Set();
+    for (const cat of this.data.categories) {
+      for (const p of cat.projects) if (p && p.id) ownedIds.add(p.id);
+    }
+    const sharedDocs = docs.filter(d => !ownedIds.has(d.id));
+    const existingOrder = this.data.sharedProjects || [];
+    const sharedIds = sharedDocs.map(d => d.id);
+    this.data.sharedProjects = [
+      ...existingOrder.filter(id => sharedIds.includes(id)),
+      ...sharedIds.filter(id => !existingOrder.includes(id)),
+    ];
+    const sharedById = new Map(sharedDocs.map(d => [d.id, d]));
+    this._sharedProjects = this.data.sharedProjects
+      .map(id => sharedById.get(id))
+      .filter(Boolean)
       .map(d => materializeProject(d, uid));
   },
 
@@ -314,6 +327,48 @@ export const Store = {
         this._projectSnapshots[proj.id] = JSON.stringify(extractContent(proj));
       }
     }
+  },
+
+  // Drop a shared project from this user's runtime/persistent set without
+  // touching the underlying /projects doc. Owner can also remove this
+  // user via the Share modal — both end up at the same state.
+  leaveSharedProject(projectId) {
+    if (!projectId) return;
+    this._sharedProjects = this._sharedProjects.filter(p => p.id !== projectId);
+    if (this.data.sharedProjects) {
+      this.data.sharedProjects = this.data.sharedProjects.filter(id => id !== projectId);
+    }
+    delete this._projectSnapshots[projectId];
+    this.save();
+    document.dispatchEvent(new Event('mareo:render'));
+  },
+
+  // Re-fetch from Firestore without re-running migrations / undo init.
+  // Used by the toolbar "Refresh" button and by the visibilitychange
+  // listener so a tab that's been backgrounded picks up edits made
+  // elsewhere. Last-write-wins; local unsaved changes are clobbered.
+  async refresh() {
+    if (!this._uid) return;
+    try {
+      const snap = await getDoc(doc(db, 'mareo_data', this._uid));
+      if (snap.exists()) {
+        const remote = snap.data();
+        // Keep current view/year prefs (user-local UI state)
+        const keep = {
+          currentView: this.data.currentView,
+          currentYear: this.data.currentYear,
+        };
+        this.data = remote;
+        Object.assign(this.data, keep);
+        if (!this.data.sharedProjects) this.data.sharedProjects = [];
+      }
+    } catch (err) {
+      console.warn('refresh: mareo_data fetch failed', err);
+      return;
+    }
+    await this._hydrateProjects(this._uid);
+    this._initProjectSnapshots();
+    document.dispatchEvent(new Event('mareo:render'));
   },
 
   // Build the per-user mareo_data document for Firestore: keep everything

@@ -375,10 +375,14 @@ function attachMobilePinnedReorder(card, grip, projectId) {
 function createMobileProjectCard(proj) {
   const minimized = !!proj.boardMinimized;
   const isPinnedMobile = Store.isProjectPinned(proj.id);
+  const isViewer = proj._role === 'viewer';
+  const isShared = !!proj._shared;
   const card = document.createElement('div');
   card.className = 'board-mobile-card'
     + (minimized ? ' minimized' : '')
-    + (isPinnedMobile ? ' board-mobile-card-pinned' : '');
+    + (isPinnedMobile ? ' board-mobile-card-pinned' : '')
+    + (isViewer ? ' viewer-mode' : '')
+    + (isShared ? ' shared' : '');
   card.dataset.projectId = proj.id;
   card.style.borderLeftColor = proj.color;
 
@@ -480,11 +484,15 @@ function createMobileProjectCard(proj) {
 function createProjectCard(proj, { x, y, isPinned = false } = {}) {
   const minimized = !!proj.boardMinimized;
   const isSelected = selectedIds.has(proj.id);
+  const isViewer = proj._role === 'viewer';
+  const isShared = !!proj._shared;
   const el = document.createElement('div');
   el.className = 'board-card board-project-card'
     + (minimized ? ' minimized' : '')
     + (isSelected ? ' selected' : '')
-    + (isPinned ? ' board-card-pinned' : '');
+    + (isPinned ? ' board-card-pinned' : '')
+    + (isViewer ? ' viewer-mode' : '')
+    + (isShared ? ' shared' : '');
   el.dataset.projectId = proj.id;
   el.style.left = x + 'px';
   el.style.top = y + 'px';

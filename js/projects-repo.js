@@ -6,6 +6,7 @@
 
 import {
   db, doc, getDoc, setDoc, updateDoc, deleteDoc,
+  collection, query, where, getDocs,
 } from './firebase-config.js?v=8';
 
 // Fields that belong inside the project document. Anything not in this set
@@ -110,5 +111,18 @@ export const ProjectsRepo = {
   roleOf(projectDoc, uid) {
     if (!projectDoc || !projectDoc.members) return null;
     return projectDoc.members[uid] || null;
+  },
+
+  // Every project the caller can access (owned + shared). Used at load
+  // time so projects shared by others show up automatically — there's
+  // no separate "invitations" inbox.
+  async listAccessible(uid) {
+    if (!uid) return [];
+    const q = query(
+      collection(db, 'projects'),
+      where('memberUids', 'array-contains', uid)
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
   },
 };

@@ -1,6 +1,7 @@
-import { Store } from './store.js';
+import { Store } from './store.js?v=9';
 import { showModal } from './modal.js';
 import { icon } from './icons.js';
+import { showShareModal } from './share-modal.js?v=9';
 
 let onProjectClick = null;
 
@@ -12,7 +13,23 @@ export function renderSidebar(container) {
   container.innerHTML = '';
   const layout = Store.getRenderedLayout();
 
-  if (Store.data.categories.length === 0) {
+  // Render shared-with-me section above everything else.
+  const shared = Store._sharedProjects || [];
+  if (shared.length > 0) {
+    const header = document.createElement('div');
+    header.className = 'sidebar-category shared-section-header';
+    header.innerHTML = `<span class="cat-name">${icon('link')} SHARED WITH ME</span>`;
+    container.appendChild(header);
+    for (const proj of shared) {
+      // Use a synthetic category object — shared projects don't belong to
+      // any of the user's categories; this just gives renderProjectRow
+      // something to work with for menus etc.
+      const synthCat = { id: '__shared__', name: 'SHARED' };
+      container.appendChild(renderProjectRow(proj, synthCat, false));
+    }
+  }
+
+  if (Store.data.categories.length === 0 && shared.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'empty-state';
     empty.textContent = 'Start by creating your first project category';
@@ -149,12 +166,20 @@ export function renderSidebar(container) {
 
 function renderProjectRow(proj, cat, pinned) {
   const locked = Store.isTimelineLocked();
+  const role = proj._role || 'owner';
+  const isViewer = role === 'viewer';
+  const isShared = !!proj._shared;
   const projRow = document.createElement('div');
-  projRow.className = 'sidebar-project' + (pinned ? ' pinned' : '');
+  projRow.className = 'sidebar-project'
+    + (pinned ? ' pinned' : '')
+    + (isShared ? ' shared' : '')
+    + (isViewer ? ' viewer-mode' : '');
   projRow.dataset.projectId = proj.id;
   projRow.dataset.categoryId = cat.id;
   projRow.dataset.pinned = pinned ? '1' : '0';
-  projRow.draggable = true;
+  // Viewers can't reorder. Shared projects (even editor) don't belong to
+  // a category so reordering between categories is meaningless.
+  projRow.draggable = !isViewer && !isShared;
 
   const header = document.createElement('div');
   header.className = 'sidebar-project-header';
@@ -228,7 +253,7 @@ function renderProjectRow(proj, cat, pinned) {
       noteItem.className = 'note-preview-item'
         + (note.done ? ' done' : '')
         + (depth > 0 ? ' indented' : '');
-      noteItem.draggable = !locked;
+      noteItem.draggable = !locked && !isViewer;
       noteItem.dataset.noteId = note.id;
       noteItem.dataset.depth = String(depth);
 
@@ -240,10 +265,10 @@ function renderProjectRow(proj, cat, pinned) {
       checkbox.type = 'checkbox';
       checkbox.className = 'note-preview-check';
       checkbox.checked = !!note.done;
-      checkbox.disabled = locked;
+      checkbox.disabled = locked || isViewer;
       checkbox.addEventListener('change', (e) => {
         e.stopPropagation();
-        if (Store.isTimelineLocked()) return;
+        if (Store.isTimelineLocked() || isViewer) return;
         Store.updateProjectNote(proj.id, note.id, { done: checkbox.checked });
         document.dispatchEvent(new Event('mareo:render'));
       });
@@ -253,22 +278,22 @@ function renderProjectRow(proj, cat, pinned) {
       textInput.className = 'note-preview-text';
       textInput.value = note.title || note.content || '';
       textInput.placeholder = 'Note...';
-      textInput.readOnly = locked;
+      textInput.readOnly = locked || isViewer;
       textInput.dataset.noteId = note.id;
       const autoResize = () => {
         textInput.style.height = 'auto';
         textInput.style.height = textInput.scrollHeight + 'px';
       };
       textInput.addEventListener('change', () => {
-        if (Store.isTimelineLocked()) return;
+        if (Store.isTimelineLocked() || isViewer) return;
         Store.updateProjectNote(proj.id, note.id, { title: textInput.value });
       });
       textInput.addEventListener('input', autoResize);
-      textInput.addEventListener('focus', () => { if (!Store.isTimelineLocked()) noteItem.draggable = false; });
-      textInput.addEventListener('blur',  () => { if (!Store.isTimelineLocked()) noteItem.draggable = true;  });
+      textInput.addEventListener('focus', () => { if (!Store.isTimelineLocked() && !isViewer) noteItem.draggable = false; });
+      textInput.addEventListener('blur',  () => { if (!Store.isTimelineLocked() && !isViewer) noteItem.draggable = true;  });
       requestAnimationFrame(autoResize);
       textInput.addEventListener('keydown', (e) => {
-        if (Store.isTimelineLocked()) return;
+        if (Store.isTimelineLocked() || isViewer) return;
         if (e.key === 'Enter') {
           e.preventDefault();
           Store.updateProjectNote(proj.id, note.id, { title: textInput.value });
@@ -477,12 +502,24 @@ function showProjectMenu(e, proj, cat) {
   closeAllMenus();
   const menu = document.createElement('div');
   menu.className = 'context-menu';
-  menu.innerHTML = `
-    <div class="context-menu-item" data-action="edit">Edit Project</div>
-    <div class="context-menu-item" data-action="addtask">Add Task</div>
-    <div class="context-menu-item" data-action="expand-subcal">Show Sub-calendar</div>
-    <div class="context-menu-item danger" data-action="delete">Delete Project</div>
-  `;
+
+  const role = proj._role || 'owner';
+  const isShared = !!proj._shared;
+  const canShare = role === 'owner';
+  const canEdit = role === 'owner' || role === 'editor';
+  const canDelete = role === 'owner';
+
+  let html = '';
+  if (canEdit) html += '<div class="context-menu-item" data-action="edit">Edit Project</div>';
+  if (canEdit) html += '<div class="context-menu-item" data-action="addtask">Add Task</div>';
+  html += '<div class="context-menu-item" data-action="expand-subcal">Show Sub-calendar</div>';
+  if (canShare) html += '<div class="context-menu-item" data-action="share">Share…</div>';
+  if (isShared) {
+    html += '<div class="context-menu-item danger" data-action="leave">Leave Project</div>';
+  } else if (canDelete) {
+    html += '<div class="context-menu-item danger" data-action="delete">Delete Project</div>';
+  }
+  menu.innerHTML = html;
 
   menu.addEventListener('click', (ev) => {
     const action = ev.target.dataset.action;
@@ -493,6 +530,12 @@ function showProjectMenu(e, proj, cat) {
     } else if (action === 'expand-subcal') {
       Store.updateProject(proj.id, { notesExpanded: !proj.notesExpanded });
       document.dispatchEvent(new Event('mareo:render'));
+    } else if (action === 'share') {
+      showShareModal(proj);
+    } else if (action === 'leave') {
+      if (confirm(`Leave "${proj.name}"? You'll lose access until the owner re-invites you.`)) {
+        Store.leaveSharedProject(proj.id);
+      }
     } else if (action === 'delete') {
       if (confirm(`Delete project "${proj.name}"?`)) {
         Store.removeProject(proj.id);

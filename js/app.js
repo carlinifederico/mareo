@@ -1,5 +1,6 @@
-import { Store } from './store.js';
+import { Store } from './store.js?v=9';
 import { Auth } from './auth.js';
+import { ProfilesRepo } from './profiles-repo.js?v=9';
 import { renderTimelineHeader, getWeekWidth, getDayWidth, setWeekWidth, resetWeekWidth, getDefaultWeekWidth, getTodayWeekIndex, getTodayPixelX, isDayMode, getTotalWidth } from './timeline.js';
 import { renderSidebar, setSidebarProjectClickHandler } from './sidebar.js';
 import { renderGantt } from './gantt.js';
@@ -41,6 +42,10 @@ Auth.init(
     } else {
       avatar.style.display = 'none';
     }
+
+    // Make sure this user is discoverable by their email so other users
+    // can invite them by email. Runs once per session, idempotent.
+    ProfilesRepo.ensureMine(user).catch(err => console.warn('ensureMine failed', err));
 
     // Load data with user ID
     await Store.load(user.uid);
@@ -189,6 +194,25 @@ function initApp() {
   // Import/Export
   document.getElementById('btn-export').addEventListener('click', exportData);
   document.getElementById('btn-import').addEventListener('click', importData);
+
+  // Refresh button + auto-refresh when the tab regains focus after >30s.
+  // No real-time sync: collaborators see each other's edits at refresh time.
+  const refreshBtn = document.getElementById('btn-refresh');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', async () => {
+      refreshBtn.classList.add('spinning');
+      try { await Store.refresh(); }
+      finally { setTimeout(() => refreshBtn.classList.remove('spinning'), 500); }
+    });
+  }
+  let _lastBlur = Date.now();
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      _lastBlur = Date.now();
+    } else if (Date.now() - _lastBlur > 30000) {
+      Store.refresh().catch(err => console.warn('auto-refresh failed', err));
+    }
+  });
 
   // Sidebar resize handle
   const resizeHandle = document.getElementById('sidebar-resize-handle');
