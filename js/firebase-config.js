@@ -1,6 +1,6 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.7.3/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.7.3/firebase-auth.js';
-import { getFirestore, doc, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/11.7.3/firebase-firestore.js';
+import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, query, where, getDocs, runTransaction, serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.7.3/firebase-firestore.js';
 
 const firebaseConfig = {
   apiKey: "AIzaSyDs5uC2ApmBmFI4GfeU4ErQTS0XmW5LOJw",
@@ -18,4 +18,9 @@ const db = getFirestore(app);
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
-export { auth, db, googleProvider, signInWithPopup, signOut, onAuthStateChanged, doc, getDoc, setDoc };
+export {
+  auth, db, googleProvider, signInWithPopup, signOut, onAuthStateChanged,
+  doc, getDoc, setDoc, updateDoc, deleteDoc,
+  collection, query, where, getDocs,
+  runTransaction, serverTimestamp,
+};

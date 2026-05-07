@@ -1,8 +1,58 @@
 rules_version = '2';
+
+// MAREO Firestore security rules.
+//
+// Three collections:
+//   1. mareo_data/{uid}     — per-user state (categories, pinned, expenses,
+//                             todayOrder, view prefs). Project content was
+//                             extracted to /projects in schema v2.
+//   2. projects/{projectId} — shared project content. Each doc has an
+//                             `ownerId`, a `members` map of uid→role, and
+//                             a `memberUids` array (mirror of members keys
+//                             so we can use `in` for read rules).
+//   3. userProfiles/{uid}   — public profile (email/displayName/photoURL)
+//                             so an inviter can resolve "this email" to a uid.
+
 service cloud.firestore {
   match /databases/{database}/documents {
+
     match /mareo_data/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    match /projects/{projectId} {
+      // Read: must be in the project's memberUids array.
+      allow read: if request.auth != null
+                  && request.auth.uid in resource.data.memberUids;
+
+      // Create: caller is the new project's owner and seeds themselves
+      // into members + memberUids.
+      allow create: if request.auth != null
+                    && request.auth.uid == request.resource.data.ownerId
+                    && request.resource.data.members[request.auth.uid] == 'owner'
+                    && request.auth.uid in request.resource.data.memberUids;
+
+      // Update: owner can change anything; editor can change content but
+      // cannot rewrite ownerId. Membership changes (members/memberUids)
+      // are not blocked at the rules level for editors — the client UI
+      // doesn't expose them, and "uso entre conocidos" tolerates this.
+      // Tighten with diff() checks if abuse becomes a concern.
+      allow update: if request.auth != null
+                    && (resource.data.members[request.auth.uid] == 'owner'
+                        || (resource.data.members[request.auth.uid] == 'editor'
+                            && request.resource.data.ownerId == resource.data.ownerId));
+
+      // Delete: owner only.
+      allow delete: if request.auth != null
+                    && resource.data.members[request.auth.uid] == 'owner';
+    }
+
+    match /userProfiles/{uid} {
+      // Any authenticated user can read profiles (needed to resolve
+      // "invite by email" → uid). Trade-off: leaks email→uid mapping
+      // to anyone with a MAREO account. Acceptable for current scope.
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == uid;
     }
   }
 }
