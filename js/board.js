@@ -982,11 +982,22 @@ export function initBoardZoom() {
     if (isMobileBoard()) return;
     if (!canvas.closest('.view-container.active')) return;
 
-    // Plain wheel / two-finger trackpad swipe → pan. The browser already
-    // handles scrollLeft/scrollTop for us, so just let the event through.
-    // Trackpad pinch arrives as wheel + ctrlKey (synthesized), so zoom
-    // only when Ctrl/Meta is set — same pattern as the Timeline view.
-    if (!e.ctrlKey && !e.metaKey) return;
+    // Distinguish mouse wheel from trackpad two-finger swipe so each gets
+    // its conventional behavior on an infinite canvas:
+    //   - Mouse wheel (no modifier)  → zoom    (canonical CAD/Figma UX)
+    //   - Mouse Ctrl+wheel           → zoom
+    //   - Trackpad pinch             → zoom    (browser sets ctrlKey)
+    //   - Trackpad two-finger swipe  → pan     (default scroll passes through)
+    //
+    // Heuristic: trackpad swipes arrive in pixel mode with fine-grained
+    // values and often a non-zero deltaX. Mouse wheels arrive either in
+    // line/page mode (Firefox), or in pixel mode with a coarse step
+    // (>= 50px) and no horizontal component.
+    const isMouseWheel =
+      e.deltaMode !== 0 ||
+      (e.deltaX === 0 && Math.abs(e.deltaY) >= 50);
+
+    if (!e.ctrlKey && !e.metaKey && !isMouseWheel) return;
 
     e.preventDefault();
 
