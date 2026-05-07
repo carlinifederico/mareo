@@ -7,11 +7,30 @@
     "ignore": [
       "firebase.json",
       ".firebaserc",
+      ".git",
+      ".git/**",
+      ".firebase",
+      ".firebase/**",
+      ".claude",
+      ".claude/**",
+      ".vscode",
+      ".vscode/**",
       "**/.*",
       "**/node_modules/**",
-      "dev-server.py",
+      "_MAT",
+      "_MAT/**",
+      "data",
       "data/**",
-      "*.md"
+      "dev-server.py",
+      "fb-login-helper.py",
+      "backup-firestore.py",
+      "restore-firestore.py",
+      ".fb_url.txt",
+      ".fb_code.txt",
+      ".fb_result.log",
+      "*.md",
+      "**/*.md",
+      ".gitignore"
     ],
     "headers": [
       {
