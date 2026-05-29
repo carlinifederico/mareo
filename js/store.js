@@ -103,6 +103,8 @@ export const Store = {
     if (!this.data.currentView) this.data.currentView = 'timeline';
     if (!this.data.categories) this.data.categories = [];
     if (!this.data.pinnedProjects) this.data.pinnedProjects = [];
+    if (!this.data.archivedProjects) this.data.archivedProjects = [];
+    if (this.data.archivedCollapsed === undefined) this.data.archivedCollapsed = true;
     if (!this.data.pinnedBoardOffset) this.data.pinnedBoardOffset = { x: 2500, y: 2700 };
     if (!this.data.todayOrder) this.data.todayOrder = [];
     if (this.data.timelineLocked === undefined) this.data.timelineLocked = true;
@@ -573,6 +575,7 @@ export const Store = {
       );
     }
     this.data.pinnedProjects = (this.data.pinnedProjects || []).filter(id => id !== projectId);
+    this.data.archivedProjects = (this.data.archivedProjects || []).filter(id => id !== projectId);
     this.save();
   },
 
@@ -768,6 +771,7 @@ export const Store = {
     const items = [];
     for (const cat of this.data.categories) {
       for (const proj of cat.projects) {
+        if (this.isProjectArchived(proj.id)) continue;
         for (const note of (proj.projectNotes || [])) {
           if (note.today) {
             items.push({
@@ -919,6 +923,31 @@ export const Store = {
     this.save();
   },
 
+  // --- Archived Projects (per-user view state, mirror of pinnedProjects) ---
+  archiveProject(projectId) {
+    if (!this.data.archivedProjects) this.data.archivedProjects = [];
+    if (!this.data.archivedProjects.includes(projectId)) {
+      this.data.archivedProjects.push(projectId);
+    }
+    // An inactive project shouldn't stay pinned.
+    this.data.pinnedProjects = (this.data.pinnedProjects || []).filter(id => id !== projectId);
+    this.save();
+  },
+
+  unarchiveProject(projectId) {
+    this.data.archivedProjects = (this.data.archivedProjects || []).filter(id => id !== projectId);
+    this.save();
+  },
+
+  isProjectArchived(projectId) {
+    return (this.data.archivedProjects || []).includes(projectId);
+  },
+
+  toggleArchivedCollapsed() {
+    this.data.archivedCollapsed = this.data.archivedCollapsed === false ? true : false;
+    this.save();
+  },
+
   reorderProject(categoryId, projectId, newIndex) {
     const cat = this._findCategory(categoryId);
     if (!cat) return;
@@ -944,6 +973,7 @@ export const Store = {
   getRenderedLayout() {
     const layout = [];
     const pinnedIds = this.data.pinnedProjects || [];
+    const archivedIds = this.data.archivedProjects || [];
 
     const emitChildRows = (proj, cat, pinned, parentTasks, depth) => {
       if (depth > 5) return;
@@ -961,6 +991,7 @@ export const Store = {
     if (pinnedIds.length > 0) {
       layout.push({ type: 'pinned-header' });
       for (const pid of pinnedIds) {
+        if (archivedIds.includes(pid)) continue;
         const proj = this._findProject(pid);
         const cat = this._findCategoryForProject(pid);
         if (proj && cat) {
@@ -979,7 +1010,7 @@ export const Store = {
 
       if (!cat.collapsed) {
         for (const proj of cat.projects) {
-          if (!pinnedIds.includes(proj.id)) {
+          if (!pinnedIds.includes(proj.id) && !archivedIds.includes(proj.id)) {
             layout.push({ type: 'project', proj, cat, pinned: false });
             if (proj.notesExpanded) {
               const rootTasks = proj.tasks.filter(t => !t.parentId);
@@ -992,6 +1023,21 @@ export const Store = {
     }
 
     layout.push({ type: 'add-category' });
+
+    // Archived section (bottom). Collapsed by default.
+    if (archivedIds.length > 0) {
+      const collapsed = this.data.archivedCollapsed !== false;
+      layout.push({ type: 'archived-header', count: archivedIds.length, collapsed });
+      if (!collapsed) {
+        for (const aid of archivedIds) {
+          const proj = this._findProject(aid);
+          if (!proj) continue;
+          const cat = this._findCategoryForProject(aid) || { id: '__archived__', name: 'ARCHIVED' };
+          layout.push({ type: 'project', proj, cat, pinned: false, archived: true });
+        }
+      }
+    }
+
     return layout;
   }
 };

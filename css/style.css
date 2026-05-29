@@ -576,6 +576,31 @@ button, input, select, textarea {
   gap: 6px;
 }
 
+/* Archived section — muted mirror of the pinned section. */
+.archived-section-header {
+  border-left: 3px solid var(--text-muted) !important;
+  background: rgba(148, 163, 184, 0.06);
+  cursor: pointer;
+}
+.archived-section-header .cat-name {
+  font-size: 10px;
+  letter-spacing: 1px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+}
+.archived-section-header .cat-toggle { cursor: pointer; }
+
+/* Neutralize archived projects: desaturate + dim. filter post-processes the
+   painted result, so it dims the inline project colors without fighting
+   inline-style specificity. */
+.sidebar-project.archived,
+.gantt-project-row.archived {
+  filter: grayscale(1);
+  opacity: 0.55;
+}
+
 .drag-handle {
   font-size: 10px;
   color: var(--text-muted);

@@ -14,7 +14,8 @@ export function renderSidebar(container) {
   const layout = Store.getRenderedLayout();
 
   // Render shared-with-me section above everything else.
-  const shared = Store._sharedProjects || [];
+  // Archived shared projects move out of here into the ARCHIVED section.
+  const shared = (Store._sharedProjects || []).filter(p => !Store.isProjectArchived(p.id));
   if (shared.length > 0) {
     const header = document.createElement('div');
     header.className = 'sidebar-category shared-section-header';
@@ -41,6 +42,17 @@ export function renderSidebar(container) {
       const header = document.createElement('div');
       header.className = 'sidebar-category pinned-section-header';
       header.innerHTML = `<span class="cat-name">${icon('pin')} PINNED</span>`;
+      container.appendChild(header);
+
+    } else if (item.type === 'archived-header') {
+      const header = document.createElement('div');
+      header.className = 'sidebar-category archived-section-header';
+      header.innerHTML = `<span class="cat-toggle">${item.collapsed ? icon('chevron-right') : icon('chevron-down')}</span>`
+        + `<span class="cat-name">${icon('archive')} ARCHIVED · ${item.count}</span>`;
+      header.addEventListener('click', () => {
+        Store.toggleArchivedCollapsed();
+        document.dispatchEvent(new Event('mareo:render'));
+      });
       container.appendChild(header);
 
     } else if (item.type === 'category-header') {
@@ -169,17 +181,20 @@ function renderProjectRow(proj, cat, pinned) {
   const role = proj._role || 'owner';
   const isViewer = role === 'viewer';
   const isShared = !!proj._shared;
+  const isArchived = Store.isProjectArchived(proj.id);
   const projRow = document.createElement('div');
   projRow.className = 'sidebar-project'
     + (pinned ? ' pinned' : '')
     + (isShared ? ' shared' : '')
-    + (isViewer ? ' viewer-mode' : '');
+    + (isViewer ? ' viewer-mode' : '')
+    + (isArchived ? ' archived' : '');
   projRow.dataset.projectId = proj.id;
   projRow.dataset.categoryId = cat.id;
   projRow.dataset.pinned = pinned ? '1' : '0';
   // Viewers can't reorder. Shared projects (even editor) don't belong to
-  // a category so reordering between categories is meaningless.
-  projRow.draggable = !isViewer && !isShared;
+  // a category so reordering between categories is meaningless. Archived
+  // projects live in their own section and aren't drag-reorderable.
+  projRow.draggable = !isViewer && !isShared && !isArchived;
 
   const header = document.createElement('div');
   header.className = 'sidebar-project-header';
@@ -509,10 +524,14 @@ function showProjectMenu(e, proj, cat) {
   const canEdit = role === 'owner' || role === 'editor';
   const canDelete = role === 'owner';
 
+  const isArchived = Store.isProjectArchived(proj.id);
+
   let html = '';
   if (canEdit) html += '<div class="context-menu-item" data-action="edit">Edit Project</div>';
   if (canEdit) html += '<div class="context-menu-item" data-action="addtask">Add Task</div>';
   html += '<div class="context-menu-item" data-action="expand-subcal">Show Sub-calendar</div>';
+  // Archive is local view state, available regardless of role.
+  html += `<div class="context-menu-item" data-action="archive">${isArchived ? 'Unarchive' : 'Archive'}</div>`;
   if (canShare) html += '<div class="context-menu-item" data-action="share">Share…</div>';
   if (isShared) {
     html += '<div class="context-menu-item danger" data-action="leave">Leave Project</div>';
@@ -529,6 +548,10 @@ function showProjectMenu(e, proj, cat) {
       showAddTaskModal(proj.id, 0);
     } else if (action === 'expand-subcal') {
       Store.updateProject(proj.id, { notesExpanded: !proj.notesExpanded });
+      document.dispatchEvent(new Event('mareo:render'));
+    } else if (action === 'archive') {
+      if (Store.isProjectArchived(proj.id)) Store.unarchiveProject(proj.id);
+      else Store.archiveProject(proj.id);
       document.dispatchEvent(new Event('mareo:render'));
     } else if (action === 'share') {
       showShareModal(proj);

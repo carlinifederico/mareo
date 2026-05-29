@@ -2,6 +2,7 @@ import { Store } from './store.js';
 import { showProjectLinksDropdown } from './modal.js';
 import { showAddProjectModal } from './sidebar.js';
 import { icon } from './icons.js';
+import { openContextMenu } from './context-menu.js';
 
 const GRID = 24; // matches the dot background in CSS
 const CLICK_DRAG_THRESHOLD = 4; // px movement before a click becomes a drag
@@ -64,7 +65,7 @@ export function renderBoard(container) {
   wrapper.style.transform = `scale(${boardZoom})`;
   wrapper.style.transformOrigin = '0 0';
 
-  const allProjects = Store.getAllProjects();
+  const allProjects = Store.getAllProjects().filter(p => !Store.isProjectArchived(p.id));
   const pinnedIds = Store.data.pinnedProjects || [];
   const projById = new Map(allProjects.map(p => [p.id, p]));
   const pinnedProjects = pinnedIds.map(id => projById.get(id)).filter(Boolean);
@@ -234,7 +235,7 @@ function renderBoardMobile(container) {
   }
 
   // Build the same pinned/unpinned split as the desktop board
-  const allProjects = Store.getAllProjects();
+  const allProjects = Store.getAllProjects().filter(p => !Store.isProjectArchived(p.id));
   const pinnedIds = Store.data.pinnedProjects || [];
   const projById = new Map(allProjects.map(p => [p.id, p]));
   const pinnedProjects = pinnedIds.map(id => projById.get(id)).filter(Boolean);
@@ -386,6 +387,17 @@ function createMobileProjectCard(proj) {
   card.dataset.projectId = proj.id;
   card.style.borderLeftColor = proj.color;
 
+  card.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    openContextMenu(e.clientX, e.clientY, [{
+      label: 'Archive',
+      onClick: () => {
+        Store.archiveProject(proj.id);
+        document.dispatchEvent(new Event('mareo:render'));
+      }
+    }]);
+  });
+
   const header = document.createElement('div');
   header.className = 'board-mobile-card-header';
 
@@ -498,6 +510,17 @@ function createProjectCard(proj, { x, y, isPinned = false } = {}) {
   el.style.top = y + 'px';
   el.style.width = '240px';
   el.style.borderLeft = `3px solid ${proj.color}`;
+
+  el.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    openContextMenu(e.clientX, e.clientY, [{
+      label: 'Archive',
+      onClick: () => {
+        Store.archiveProject(proj.id);
+        document.dispatchEvent(new Event('mareo:render'));
+      }
+    }]);
+  });
 
   // --- Header (drag handle + click to toggle minimize) ---
   const header = document.createElement('div');

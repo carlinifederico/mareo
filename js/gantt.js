@@ -2,6 +2,7 @@ import { Store } from './store.js';
 import { getWeekWidth, getDayWidth, isDayMode, getTotalWeeks, getTotalWidth, taskToPixels, taskToDisplayPixels, getTodayPixelX, getTodayWeekIndex } from './timeline.js';
 import { showModal } from './modal.js';
 import { icon } from './icons.js';
+import { openContextMenu } from './context-menu.js';
 
 const LANE_HEIGHTS = [36, 28, 22, 18, 16, 16];
 const DURATIONS = [7, 5, 3, 2, 2, 2];
@@ -109,7 +110,7 @@ export function renderGantt(container) {
   const layout = Store.getRenderedLayout();
 
   for (const item of layout) {
-    if (item.type === 'pinned-header' || item.type === 'category-header') {
+    if (item.type === 'pinned-header' || item.type === 'category-header' || item.type === 'archived-header') {
       const catRow = document.createElement('div');
       catRow.className = 'gantt-category-row';
       catRow.style.width = totalWidth + 'px';
@@ -122,7 +123,7 @@ export function renderGantt(container) {
       const rowHeight = Math.max(1, laneCount) * 36 + 4;
 
       const projRow = document.createElement('div');
-      projRow.className = 'gantt-project-row';
+      projRow.className = 'gantt-project-row' + (item.archived ? ' archived' : '');
       projRow.dataset.projectId = proj.id;
       projRow.style.width = totalWidth + 'px';
       projRow.style.height = rowHeight + 'px';
@@ -132,6 +133,20 @@ export function renderGantt(container) {
       for (const task of tasks) {
         projRow.appendChild(createTaskBar(task, 36, year, proj));
       }
+
+      projRow.addEventListener('contextmenu', (e) => {
+        if (e.target.closest('.task-bar')) return; // let the task-bar menu handle it
+        e.preventDefault();
+        const archived = Store.isProjectArchived(proj.id);
+        openContextMenu(e.clientX, e.clientY, [{
+          label: archived ? 'Unarchive' : 'Archive',
+          onClick: () => {
+            if (archived) Store.unarchiveProject(proj.id);
+            else Store.archiveProject(proj.id);
+            document.dispatchEvent(new Event('mareo:render'));
+          }
+        }]);
+      });
 
       projRow.addEventListener('dblclick', (e) => {
         if (Store.isTimelineLocked()) return;
