@@ -739,6 +739,18 @@ export const Store = {
   },
 
   // --- Today (project notes flagged for today) ---
+  isProjectInToday(projectId) {
+    const proj = this._findProject(projectId);
+    return !!proj && proj.showInToday !== false;   // default ON
+  },
+
+  toggleProjectInToday(projectId) {
+    const proj = this._findProject(projectId);
+    if (!proj) return;
+    proj.showInToday = !(proj.showInToday !== false); // ON->false, OFF->true
+    this.save();
+  },
+
   toggleTodayNote(projectId, noteId) {
     const proj = this._findProject(projectId);
     if (!proj) return;
@@ -772,6 +784,7 @@ export const Store = {
     for (const cat of this.data.categories) {
       for (const proj of cat.projects) {
         if (this.isProjectArchived(proj.id)) continue;
+        if (proj.showInToday === false) continue;   // proyecto oculto del Today
         for (const note of (proj.projectNotes || [])) {
           if (note.today) {
             items.push({

@@ -444,6 +444,18 @@ function createMobileProjectCard(proj) {
     document.dispatchEvent(new Event('mareo:render'));
   });
 
+  const inTodayMobile = Store.isProjectInToday(proj.id);
+  const todayBtn = document.createElement('button');
+  todayBtn.type = 'button';
+  todayBtn.className = 'today-dot project-today-btn' + (inTodayMobile ? ' active' : '');
+  todayBtn.title = inTodayMobile ? 'Hide from Today list' : 'Show in Today list';
+  todayBtn.innerHTML = icon('dot');
+  todayBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    Store.toggleProjectInToday(proj.id);
+    document.dispatchEvent(new Event('mareo:render'));
+  });
+
   const linksBtn = document.createElement('button');
   linksBtn.type = 'button';
   linksBtn.className = 'btn-icon board-card-links-btn';
@@ -457,6 +469,7 @@ function createMobileProjectCard(proj) {
   if (gripBtn) header.appendChild(gripBtn);
   header.appendChild(titleBtn);
   header.appendChild(pinBtn);
+  header.appendChild(todayBtn);
   header.appendChild(linksBtn);
   card.appendChild(header);
 
@@ -544,6 +557,19 @@ function createProjectCard(proj, { x, y, isPinned = false } = {}) {
     document.dispatchEvent(new Event('mareo:render'));
   });
 
+  const inToday = Store.isProjectInToday(proj.id);
+  const todayBtn = document.createElement('button');
+  todayBtn.type = 'button';
+  todayBtn.className = 'today-dot project-today-btn' + (inToday ? ' active' : '');
+  todayBtn.title = inToday ? 'Hide from Today list' : 'Show in Today list';
+  todayBtn.innerHTML = icon('dot');
+  todayBtn.addEventListener('pointerdown', (ev) => ev.stopPropagation());
+  todayBtn.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    Store.toggleProjectInToday(proj.id);
+    document.dispatchEvent(new Event('mareo:render'));
+  });
+
   const linksBtn = document.createElement('button');
   linksBtn.type = 'button';
   linksBtn.className = 'btn-icon board-card-links-btn';
@@ -561,6 +587,7 @@ function createProjectCard(proj, { x, y, isPinned = false } = {}) {
 
   header.appendChild(title);
   header.appendChild(pinBtn);
+  header.appendChild(todayBtn);
   header.appendChild(linksBtn);
   header.appendChild(chevron);
   el.appendChild(header);

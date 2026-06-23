@@ -242,6 +242,18 @@ function renderProjectRow(proj, cat, pinned) {
     document.dispatchEvent(new Event('mareo:render'));
   });
 
+  const inToday = Store.isProjectInToday(proj.id);
+  const todayBtn = document.createElement('button');
+  todayBtn.type = 'button';
+  todayBtn.className = 'today-dot project-today-btn' + (inToday ? ' active' : '');
+  todayBtn.title = inToday ? 'Hide from Today list' : 'Show in Today list';
+  todayBtn.innerHTML = icon('dot');
+  todayBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    Store.toggleProjectInToday(proj.id);
+    document.dispatchEvent(new Event('mareo:render'));
+  });
+
   const menuBtn = document.createElement('button');
   menuBtn.className = 'btn-icon proj-menu-btn';
   menuBtn.title = 'Project options';
@@ -253,6 +265,7 @@ function renderProjectRow(proj, cat, pinned) {
 
   header.appendChild(nameEl);
   header.appendChild(pinBtn);
+  header.appendChild(todayBtn);
   header.appendChild(menuBtn);
   projRow.appendChild(header);
 
