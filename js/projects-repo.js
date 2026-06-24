@@ -15,7 +15,7 @@ import {
 export const PROJECT_CONTENT_FIELDS = [
   'name', 'color', 'links', 'order',
   'tasks', 'projectNotes', 'notesExpanded',
-  'boardX', 'boardY', 'boardMinimized',
+  'boardX', 'boardY', 'boardMinimized', 'showInToday',
 ];
 
 export const ProjectsRepo = {

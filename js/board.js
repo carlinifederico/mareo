@@ -383,7 +383,8 @@ function createMobileProjectCard(proj) {
     + (minimized ? ' minimized' : '')
     + (isPinnedMobile ? ' board-mobile-card-pinned' : '')
     + (isViewer ? ' viewer-mode' : '')
-    + (isShared ? ' shared' : '');
+    + (isShared ? ' shared' : '')
+    + (Store.isProjectInToday(proj.id) ? '' : ' today-off');
   card.dataset.projectId = proj.id;
   card.style.borderLeftColor = proj.color;
 
@@ -517,7 +518,8 @@ function createProjectCard(proj, { x, y, isPinned = false } = {}) {
     + (isSelected ? ' selected' : '')
     + (isPinned ? ' board-card-pinned' : '')
     + (isViewer ? ' viewer-mode' : '')
-    + (isShared ? ' shared' : '');
+    + (isShared ? ' shared' : '')
+    + (Store.isProjectInToday(proj.id) ? '' : ' today-off');
   el.dataset.projectId = proj.id;
   el.style.left = x + 'px';
   el.style.top = y + 'px';

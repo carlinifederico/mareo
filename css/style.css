@@ -3272,6 +3272,13 @@ button, input, select, textarea {
   margin: 0 2px;
 }
 
+/* Proyecto con Today apagado: desaturar (pierde el color) + atenuar */
+.board-project-card.today-off,
+.board-mobile-card.today-off {
+  filter: grayscale(1);
+  opacity: 0.45;
+}
+
 /* Highlight flash when navigating from Today */
 .board-project-card.flash {
   animation: cardFlash 1.4s ease;
