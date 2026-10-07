@@ -816,89 +816,71 @@ export const Store = {
     return items;
   },
 
-  // --- Day plans (Today Tasks: hourly blocks per date) ---
-  // dayPlans[dateKey][hour] = [{ id, type: 'note', projectId, noteId } | { id, type: 'text', text, done }]
-  _daySlots(dateKey, create) {
+  // --- Day plans (Today Tasks: free-form time blocks per date) ---
+  // dayPlans[dateKey] = [{ id, type: 'note'|'text', projectId?, noteId?, text?, done?,
+  //                        start (minutes from midnight), duration (minutes), color? }]
+  _dayItems(dateKey, create) {
     if (!this.data.dayPlans) this.data.dayPlans = {};
-    if (!this.data.dayPlans[dateKey] && create) this.data.dayPlans[dateKey] = {};
-    return this.data.dayPlans[dateKey] || null;
+    let day = this.data.dayPlans[dateKey];
+    // Legacy shape { [hour]: items[] } → flat list, 1h each at its hour
+    if (day && !Array.isArray(day)) {
+      const flat = [];
+      for (const h of Object.keys(day)) {
+        for (const it of day[h] || []) flat.push({ ...it, start: Number(h) * 60, duration: 60 });
+      }
+      day = this.data.dayPlans[dateKey] = flat;
+    }
+    if (!day && create) day = this.data.dayPlans[dateKey] = [];
+    return day || null;
   },
 
   _pruneDay(dateKey) {
     const day = this.data.dayPlans?.[dateKey];
-    if (!day) return;
-    for (const h of Object.keys(day)) {
-      if (!day[h] || day[h].length === 0) delete day[h];
-    }
-    if (Object.keys(day).length === 0) delete this.data.dayPlans[dateKey];
+    if (Array.isArray(day) && day.length === 0) delete this.data.dayPlans[dateKey];
   },
 
-  // Returns { [hour]: resolvedItems[] }. Note entries are resolved against
-  // the live project note; entries whose note/project is gone are skipped.
+  // Returns resolved items for the day. Note entries are resolved against the
+  // live project note; entries whose note/project is gone are skipped.
   getDayPlan(dateKey) {
-    const day = this.data.dayPlans?.[dateKey] || {};
-    const out = {};
-    for (const h of Object.keys(day)) {
-      out[h] = [];
-      for (const item of day[h]) {
-        if (item.type === 'note') {
-          const proj = this._findProject(item.projectId);
-          const note = proj && (proj.projectNotes || []).find(n => n.id === item.noteId);
-          if (!note) continue;
-          out[h].push({ ...item, projectName: proj.name, projectColor: proj.color, note });
-        } else {
-          out[h].push({ ...item });
-        }
+    const out = [];
+    for (const item of this._dayItems(dateKey, false) || []) {
+      if (item.type === 'note') {
+        const proj = this._findProject(item.projectId);
+        const note = proj && (proj.projectNotes || []).find(n => n.id === item.noteId);
+        if (!note) continue;
+        out.push({ ...item, projectName: proj.name, projectColor: proj.color, note });
+      } else {
+        out.push({ ...item });
       }
     }
     return out;
   },
 
-  addDayPlanText(dateKey, hour, text) {
-    const day = this._daySlots(dateKey, true);
-    if (!day[hour]) day[hour] = [];
-    day[hour].push({ id: 'dp-' + crypto.randomUUID(), type: 'text', text, done: false });
+  addDayPlanItem(dateKey, fields) {
+    const item = { id: 'dp-' + crypto.randomUUID(), type: 'text', text: '', done: false, start: 660, duration: 60, ...fields };
+    this._dayItems(dateKey, true).push(item);
     this.save();
+    return item.id;
   },
 
-  updateDayPlanItem(dateKey, hour, id, updates) {
-    const item = this._daySlots(dateKey, false)?.[hour]?.find(i => i.id === id);
+  updateDayPlanItem(dateKey, id, updates) {
+    const item = this._dayItems(dateKey, false)?.find(i => i.id === id);
     if (item) { Object.assign(item, updates); this.save(); }
   },
 
-  removeDayPlanItem(dateKey, hour, id) {
-    const day = this._daySlots(dateKey, false);
-    if (!day?.[hour]) return;
-    day[hour] = day[hour].filter(i => i.id !== id);
+  removeDayPlanItem(dateKey, id) {
+    const day = this._dayItems(dateKey, false);
+    if (!day) return;
+    this.data.dayPlans[dateKey] = day.filter(i => i.id !== id);
     this._pruneDay(dateKey);
     this.save();
   },
 
-  // A note lives in at most one block per day: drop it from other blocks first.
-  scheduleNoteInDay(dateKey, hour, projectId, noteId, beforeId = null) {
-    const day = this._daySlots(dateKey, true);
-    for (const h of Object.keys(day)) {
-      day[h] = day[h].filter(i => !(i.type === 'note' && i.noteId === noteId));
-    }
-    if (!day[hour]) day[hour] = [];
-    const entry = { id: 'dp-' + crypto.randomUUID(), type: 'note', projectId, noteId };
-    const idx = beforeId ? day[hour].findIndex(i => i.id === beforeId) : -1;
-    if (idx >= 0) day[hour].splice(idx, 0, entry); else day[hour].push(entry);
-    this._pruneDay(dateKey);
-    this.save();
-  },
-
-  moveDayPlanItem(dateKey, fromHour, id, toHour, beforeId = null) {
-    const day = this._daySlots(dateKey, false);
-    const from = day?.[fromHour];
-    const fromIdx = from ? from.findIndex(i => i.id === id) : -1;
-    if (fromIdx < 0 || beforeId === id) return;
-    const [moved] = from.splice(fromIdx, 1);
-    if (!day[toHour]) day[toHour] = [];
-    const idx = beforeId ? day[toHour].findIndex(i => i.id === beforeId) : -1;
-    if (idx >= 0) day[toHour].splice(idx, 0, moved); else day[toHour].push(moved);
-    this._pruneDay(dateKey);
-    this.save();
+  // A note lives in at most one block per day: drop any previous block first.
+  scheduleNoteInDay(dateKey, projectId, noteId, start, duration = 60) {
+    const day = this._dayItems(dateKey, true);
+    this.data.dayPlans[dateKey] = day.filter(i => !(i.type === 'note' && i.noteId === noteId));
+    return this.addDayPlanItem(dateKey, { type: 'note', projectId, noteId, start, duration });
   },
 
   // --- Import/Export ---
