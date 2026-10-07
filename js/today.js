@@ -46,7 +46,7 @@ export function renderTodayPanel() {
 
   const title = document.createElement('div');
   title.className = 'today-title';
-  title.textContent = 'TODAY';
+  title.innerHTML = '<span class="today-live-dot"></span>TODAY';
 
   const count = document.createElement('span');
   count.className = 'today-count';
@@ -78,8 +78,22 @@ export function renderTodayPanel() {
   header.appendChild(actions);
   panelEl.appendChild(header);
 
+  // Collapsed = compact pill; clicking anywhere on it expands again
+  if (collapsed) {
+    header.title = 'Abrir Today';
+    header.addEventListener('click', (e) => {
+      if (e.target.closest('.today-popout')) return;
+      collapsed = false;
+      renderTodayPanel();
+    });
+  }
+
   // Body
-  if (collapsed) return;
+  if (collapsed) {
+    updateFabCount(items.length);
+    fitPipToContent();
+    return;
+  }
 
   const body = document.createElement('div');
   body.className = 'today-body';
@@ -98,6 +112,31 @@ export function renderTodayPanel() {
   panelEl.appendChild(body);
   attachTodayReorderDnD(body);
   updateFabCount(items.length);
+  fitPipToContent();
+}
+
+const PIP_WIDTH = 340;
+const PIP_MAX_HEIGHT = 640;
+
+// Height the panel needs for its current content (header + rows), so the
+// pop-out window is never bigger than the task list.
+function panelContentHeight() {
+  const header = panelEl.querySelector('.today-header');
+  const body = panelEl.querySelector('.today-body');
+  const h = (header?.offsetHeight || 40) + (body ? body.scrollHeight : 0);
+  return Math.min(Math.max(h, 44), PIP_MAX_HEIGHT);
+}
+
+// Resize the PiP window to fit its content. Browsers chrome (title bar) is
+// added on top of innerHeight, so measure the difference and compensate.
+function fitPipToContent() {
+  if (!pipWindow) return;
+  requestAnimationFrame(() => {
+    if (!pipWindow) return;
+    const chrome = Math.max(0, pipWindow.outerHeight - pipWindow.innerHeight);
+    try { pipWindow.resizeTo(pipWindow.outerWidth || PIP_WIDTH, panelContentHeight() + chrome); }
+    catch { /* resize may need a user gesture — size stays as is */ }
+  });
 }
 
 function createTodayRow(item) {
@@ -272,7 +311,9 @@ async function popoutToPiP() {
     return;
   }
   try {
-    pipWindow = await documentPictureInPicture.requestWindow({ width: 340, height: 560 });
+    // Pop out expanded, sized to the current task list
+    if (collapsed) { collapsed = false; renderTodayPanel(); }
+    pipWindow = await documentPictureInPicture.requestWindow({ width: PIP_WIDTH, height: panelContentHeight() });
   } catch (err) {
     console.warn('PiP request failed:', err);
     return;

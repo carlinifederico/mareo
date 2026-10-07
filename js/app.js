@@ -22,11 +22,11 @@ let _tabDragId = null;
 let _timelineDefaultApplied = false;
 
 const ALL_VIEWS = [
-  { id: 'timeline', label: 'Timeline' },
-  { id: 'board',    label: 'Board' },
-  { id: 'expenses', label: 'Expenses' },
-  { id: 'balance',  label: 'Balance' },
-  { id: 'daytasks', label: 'TODAY TASKS' },
+  { id: 'timeline', label: 'Timeline',    icon: 'view-timeline' },
+  { id: 'board',    label: 'Board',       icon: 'view-board' },
+  { id: 'expenses', label: 'Expenses',    icon: 'wallet' },
+  { id: 'balance',  label: 'Balance',     icon: 'view-chart' },
+  { id: 'daytasks', label: 'Today Tasks', icon: 'clock' },
 ];
 
 // Auth flow: show login or app
@@ -125,6 +125,29 @@ function initApp() {
 
   // Timeline zoom (Ctrl+scroll or pinch)
   const timelineArea = document.getElementById('timeline-area');
+  // Horizontal navigation with acceleration: Shift+wheel, horizontal trackpad
+  // swipes, or plain wheel over the month/week header. Consecutive notches in
+  // the same direction ramp the speed up (up to 10x) so far dates are quick
+  // to reach; a pause or direction change resets it.
+  let hAccel = 1, hLastT = 0, hLastDir = 0;
+  timelineArea.addEventListener('wheel', (e) => {
+    if (e.ctrlKey || e.metaKey) return; // zoom handler below
+    const header = timelineArea.querySelector('.timeline-header-wrapper');
+    const hr = header?.getBoundingClientRect();
+    const overHeader = hr && e.clientY >= hr.top && e.clientY <= hr.bottom;
+    const horizontalSwipe = Math.abs(e.deltaX) > Math.abs(e.deltaY);
+    if (!e.shiftKey && !overHeader && !horizontalSwipe) return; // normal vertical scroll
+    e.preventDefault();
+    const raw = horizontalSwipe ? e.deltaX : (e.deltaY || e.deltaX);
+    const dir = Math.sign(raw);
+    const now = performance.now();
+    hAccel = (dir === hLastDir && now - hLastT < 180) ? Math.min(hAccel * 1.35, 10) : 1;
+    hLastT = now; hLastDir = dir;
+    // Trackpads send many small deltas — accelerate them less
+    const base = Math.abs(raw) < 40 ? raw * 1.5 : raw * 2;
+    timelineArea.scrollLeft += base * hAccel;
+  }, { passive: false });
+
   timelineArea.addEventListener('wheel', (e) => {
     if (!e.ctrlKey && !e.metaKey) return;
     e.preventDefault();
@@ -393,16 +416,29 @@ function renderTabs() {
     btn.dataset.view = viewId;
     btn.draggable = true;
 
-    const label = document.createTextNode(viewDef.label);
-    btn.appendChild(label);
+    btn.insertAdjacentHTML('beforeend', `<span class="view-tab-icon">${icon(viewDef.icon)}</span>`);
+    btn.appendChild(document.createTextNode(viewDef.label));
 
     if (visibleTabs.length > 1) {
       const close = document.createElement('span');
       close.className = 'tab-close';
       close.innerHTML = icon('close');
+      close.title = 'Ocultar pestaña';
+      // Two-step close so a stray click can't remove a tab: first click arms
+      // it ("¿Cerrar?"), a second click within 2.5s actually closes it.
       close.addEventListener('click', (e) => {
         e.stopPropagation();
-        removeTab(viewId);
+        if (close.classList.contains('armed')) {
+          removeTab(viewId);
+          return;
+        }
+        close.classList.add('armed');
+        close.textContent = '¿Cerrar?';
+        setTimeout(() => {
+          if (!close.isConnected) return;
+          close.classList.remove('armed');
+          close.innerHTML = icon('close');
+        }, 2500);
       });
       btn.appendChild(close);
     }
@@ -410,12 +446,6 @@ function renderTabs() {
     btn.addEventListener('click', () => {
       nav.classList.remove('open');
       switchView(viewId);
-    });
-
-    btn.addEventListener('contextmenu', (e) => {
-      e.preventDefault();
-      if (visibleTabs.length <= 1) return;
-      removeTab(viewId);
     });
 
     // Drag & drop reorder
@@ -459,7 +489,8 @@ function renderTabs() {
       const item = document.createElement('button');
       item.className = 'view-tab-more-item';
       item.dataset.view = view.id;
-      item.textContent = view.label;
+      item.innerHTML = `<span class="view-tab-icon">${icon(view.icon)}</span>`;
+      item.appendChild(document.createTextNode(view.label));
       item.addEventListener('click', (e) => {
         e.stopPropagation();
         addTab(view.id);

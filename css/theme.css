@@ -708,3 +708,86 @@ html, body {
   background: color-mix(in srgb, var(--tag-color, #888) 24%, transparent) !important;
   color: var(--text) !important;
 }
+
+/* ---------- View tab icons ---------- */
+.view-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.view-tab-icon { display: inline-flex; font-size: 13px; opacity: 0.7; }
+.view-tab.active .view-tab-icon,
+.view-tab:hover .view-tab-icon { opacity: 1; }
+.view-tab-more-item { display: flex; align-items: center; gap: 8px; }
+
+/* Tab close: only on the active tab, small and two-step (see app.js) */
+.view-tab .tab-close { display: none !important; margin-left: 2px; }
+.view-tab.active:hover .tab-close { display: inline-flex !important; opacity: 0.35; }
+.view-tab.active .tab-close.armed {
+  display: inline-flex !important;
+  opacity: 1;
+  font-size: 10px;
+  color: var(--danger);
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(239, 95, 107, 0.12);
+}
+
+/* ---------- Board: pinned projects stand out ---------- */
+.board-project-card.board-card-pinned {
+  background: color-mix(in srgb, var(--proj-color, #888) 7%, var(--bg-surface)) !important;
+  border-top-color: color-mix(in srgb, var(--proj-color, #888) 45%, var(--border));
+  border-right-color: color-mix(in srgb, var(--proj-color, #888) 45%, var(--border));
+  border-bottom-color: color-mix(in srgb, var(--proj-color, #888) 45%, var(--border));
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--proj-color, #888) 10%, transparent),
+    0 10px 28px rgba(0, 0, 0, 0.55);
+}
+.board-project-card.board-card-pinned:hover {
+  border-top-color: color-mix(in srgb, var(--proj-color, #888) 65%, var(--border));
+  border-right-color: color-mix(in srgb, var(--proj-color, #888) 65%, var(--border));
+  border-bottom-color: color-mix(in srgb, var(--proj-color, #888) 65%, var(--border));
+}
+.board-card-pinned .board-card-header {
+  border-bottom-color: color-mix(in srgb, var(--proj-color, #888) 20%, transparent);
+}
+.board-card-pinned .project-pin-btn.pinned { opacity: 1; color: var(--proj-color, var(--text)); }
+.board-pinned-header {
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  padding: 6px 2px;
+  letter-spacing: 2px;
+}
+.board-mobile-card-pinned {
+  background: color-mix(in srgb, var(--proj-color, #888) 7%, var(--bg-surface)) !important;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--proj-color, #888) 40%, transparent);
+}
+
+/* ---------- Today panel: red dot + compact collapsed pill ---------- */
+.today-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--coral);
+  box-shadow: 0 0 0 3px rgba(240, 106, 77, 0.18);
+  flex-shrink: 0;
+}
+.today-panel { width: 340px; }
+.today-panel.collapsed {
+  width: auto;
+  border-radius: 999px;
+  box-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.7);
+}
+.today-panel.collapsed .today-header {
+  border-bottom: none;
+  padding: 7px 8px 7px 14px;
+  gap: 10px;
+  cursor: pointer;
+}
+.today-panel.collapsed:hover { border-color: #2e2e33; }
+.today-panel.collapsed .today-collapse { display: none; }
+
+/* PiP window: panel fills the window, which is sized to the content */
+body.pip-mode .today-panel { width: 100%; border-radius: 0; }
+body.pip-mode .today-panel.collapsed { width: 100%; border-radius: 0; }

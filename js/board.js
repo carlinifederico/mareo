@@ -387,6 +387,7 @@ function createMobileProjectCard(proj) {
     + (Store.isProjectInToday(proj.id) ? '' : ' today-off');
   card.dataset.projectId = proj.id;
   card.style.borderLeftColor = proj.color;
+  card.style.setProperty('--proj-color', proj.color);
 
   card.addEventListener('contextmenu', (e) => {
     e.preventDefault();
@@ -525,6 +526,7 @@ function createProjectCard(proj, { x, y, isPinned = false } = {}) {
   el.style.top = y + 'px';
   el.style.width = '240px';
   el.style.borderLeft = `3px solid ${proj.color}`;
+  el.style.setProperty('--proj-color', proj.color);
 
   el.addEventListener('contextmenu', (e) => {
     e.preventDefault();
