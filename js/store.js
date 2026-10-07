@@ -817,7 +817,7 @@ export const Store = {
   },
 
   // --- Day plans (Today Tasks: free-form time blocks per date) ---
-  // dayPlans[dateKey] = [{ id, type: 'note'|'text', projectId?, noteId?, text?, done?,
+  // dayPlans[dateKey] = [{ id, type: 'note'|'text', projectId? (note's project, or a text block's tag), noteId?, text?, done?,
   //                        start (minutes from midnight), duration (minutes), color? }]
   _dayItems(dateKey, create) {
     if (!this.data.dayPlans) this.data.dayPlans = {};
@@ -850,7 +850,9 @@ export const Store = {
         if (!note) continue;
         out.push({ ...item, projectName: proj.name, projectColor: proj.color, note });
       } else {
-        out.push({ ...item });
+        // Text blocks may be tagged with a project (name + color come from it)
+        const proj = item.projectId ? this._findProject(item.projectId) : null;
+        out.push(proj ? { ...item, projectName: proj.name, projectColor: proj.color } : { ...item });
       }
     }
     return out;

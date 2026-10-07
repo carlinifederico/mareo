@@ -4136,14 +4136,10 @@ body.timeline-locked #view-timeline .note-preview-check { cursor: not-allowed; }
 }
 
 .daytasks-unscheduled {
-  width: 260px;
-  flex-shrink: 0;
-  position: sticky;
-  top: 0;
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: 6px;
-  max-height: calc(100vh - 180px);
+  max-height: calc(50vh - 100px);
   display: flex;
   flex-direction: column;
 }
@@ -4390,7 +4386,83 @@ body.timeline-locked #view-timeline .note-preview-check { cursor: not-allowed; }
   .daytasks-title { min-width: 0; font-size: 14px; }
   .daytasks-hint { display: none; }
   .daytasks-layout { flex-direction: column; }
-  .daytasks-unscheduled { width: 100%; position: static; max-height: 200px; }
+  .daytasks-side { width: 100%; position: static; }
+  .daytasks-unscheduled { max-height: 200px; }
   .daytasks-calendar { width: 100%; }
   .daytasks-color-btn, .daytasks-remove { opacity: 1; }
+}
+
+/* Today Tasks: projects list + project-tagged blocks */
+.daytasks-side {
+  width: 260px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.daytasks-project-chip { align-items: center; }
+.daytasks-project-name { font-weight: 600; color: var(--ev-color); }
+
+.daytasks-event-project {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  color: var(--ev-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 1px 0 2px;
+  user-select: none;
+}
+.daytasks-event.compact .daytasks-event-project { flex: 0 1 auto; max-width: 45%; padding: 0; }
+
+.daytasks-color-pop { display: flex; flex-direction: column; gap: 8px; max-width: 220px; }
+.daytasks-swatches {
+  display: grid;
+  grid-template-columns: repeat(5, 18px);
+  gap: 6px;
+}
+.daytasks-pop-title {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+.daytasks-pop-projects {
+  display: flex;
+  flex-direction: column;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.daytasks-pop-project {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 11px;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.daytasks-pop-project:hover { background: var(--bg-hover); }
+.daytasks-pop-project.active { color: var(--accent); }
+.daytasks-pop-dot {
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 1px solid var(--border);
 }

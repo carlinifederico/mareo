@@ -69,7 +69,11 @@ export function renderDayTasks(container) {
   // Unscheduled: Today notes not yet placed on this day
   const scheduled = new Set(items.filter(i => i.type === 'note').map(i => i.noteId));
   const unscheduled = Store.getTodayItems().filter(it => !scheduled.has(it.note.id));
-  layout.appendChild(createUnscheduledColumn(unscheduled));
+  const side = document.createElement('div');
+  side.className = 'daytasks-side';
+  side.appendChild(createUnscheduledColumn(unscheduled));
+  side.appendChild(createProjectsColumn());
+  layout.appendChild(side);
   layout.appendChild(createCalendar(key, items));
   container.appendChild(layout);
 
@@ -160,6 +164,7 @@ function createUnscheduledColumn(items) {
   for (const it of items) {
     const chip = document.createElement('div');
     chip.className = 'daytasks-chip' + (it.note.done ? ' done' : '');
+    chip.dataset.kind = 'note';
     chip.dataset.projectId = it.projectId;
     chip.dataset.noteId = it.note.id;
     chip.style.borderLeftColor = it.projectColor;
@@ -176,6 +181,63 @@ function createUnscheduledColumn(items) {
     chip.appendChild(grip);
     chip.appendChild(text);
     chip.appendChild(createProjectLabel(it.projectName, it.projectColor));
+    list.appendChild(chip);
+  }
+  col.appendChild(list);
+  return col;
+}
+
+// Active (non-archived) projects, own + shared with me
+function getPlannableProjects() {
+  const seen = new Set();
+  const out = [];
+  const add = (p) => {
+    if (!p || typeof p !== 'object' || seen.has(p.id) || Store.isProjectArchived(p.id)) return;
+    seen.add(p.id);
+    out.push(p);
+  };
+  for (const cat of Store.data.categories) for (const p of cat.projects) add(p);
+  for (const p of Store._sharedProjects || []) add(p);
+  return out;
+}
+
+function createProjectsColumn() {
+  const col = document.createElement('div');
+  col.className = 'daytasks-unscheduled daytasks-projects';
+
+  const header = document.createElement('div');
+  header.className = 'daytasks-col-header';
+  header.textContent = 'PROYECTOS';
+  col.appendChild(header);
+
+  const list = document.createElement('div');
+  list.className = 'daytasks-unscheduled-list';
+  const projects = getPlannableProjects();
+  if (projects.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'today-empty';
+    empty.textContent = 'No hay proyectos activos.';
+    list.appendChild(empty);
+  }
+  for (const p of projects) {
+    const chip = document.createElement('div');
+    chip.className = 'daytasks-chip daytasks-project-chip';
+    chip.dataset.kind = 'project';
+    chip.dataset.projectId = p.id;
+    chip.style.borderLeftColor = p.color;
+    chip.style.setProperty('--ev-color', p.color);
+    chip.title = 'Arrastrar a la grilla para bloquear tiempo para este proyecto';
+
+    const grip = document.createElement('span');
+    grip.className = 'today-drag-grip';
+    grip.innerHTML = icon('drag-handle');
+
+    const name = document.createElement('span');
+    name.className = 'daytasks-chip-text daytasks-project-name';
+    name.textContent = p.name;
+
+    chip.appendChild(grip);
+    chip.appendChild(name);
     list.appendChild(chip);
   }
   col.appendChild(list);
@@ -268,6 +330,7 @@ function positionEvent(el, start, duration) {
 
 function createEvent(key, item, col, cols) {
   const isNote = item.type === 'note';
+  const isProjectBlock = !isNote && !!item.projectName;
   const done = isNote ? !!item.note.done : !!item.done;
   const color = itemColor(item);
 
@@ -287,12 +350,19 @@ function createEvent(key, item, col, cols) {
 
   const colorBtn = document.createElement('button');
   colorBtn.className = 'daytasks-color-btn';
-  colorBtn.title = 'Cambiar color';
+  colorBtn.title = isNote ? 'Cambiar color' : 'Cambiar color / proyecto';
   colorBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     openColorPicker(colorBtn, color, (c) => {
       Store.updateDayPlanItem(key, item.id, { color: c });
       rerender();
+    }, isNote ? null : {
+      current: item.projectId || null,
+      // Picking a project drops any custom color so the block takes the project's
+      onPick: (pid) => {
+        Store.updateDayPlanItem(key, item.id, { projectId: pid, color: null });
+        rerender();
+      },
     });
   });
 
@@ -326,7 +396,7 @@ function createEvent(key, item, col, cols) {
   text.rows = 1;
   text.className = 'today-text daytasks-event-text';
   text.value = isNote ? (item.note.title || item.note.content || '') : (item.text || '');
-  text.placeholder = 'Tarea...';
+  text.placeholder = isProjectBlock ? 'Detalle...' : 'Tarea...';
   text.addEventListener('change', () => {
     if (isNote) Store.updateProjectNote(item.projectId, item.noteId, { title: text.value });
     else Store.updateDayPlanItem(key, item.id, { text: text.value });
@@ -345,6 +415,12 @@ function createEvent(key, item, col, cols) {
   resize.title = 'Arrastrar para cambiar la duración';
 
   el.appendChild(head);
+  if (isProjectBlock) {
+    const projTitle = document.createElement('div');
+    projTitle.className = 'daytasks-event-project';
+    projTitle.textContent = item.projectName;
+    el.appendChild(projTitle);
+  }
   el.appendChild(body);
   el.appendChild(resize);
   positionEvent(el, item.start, item.duration);
@@ -353,10 +429,13 @@ function createEvent(key, item, col, cols) {
   return el;
 }
 
-function openColorPicker(anchor, current, onPick) {
+// projectOpts: { current, onPick(projectId|null) } → also lists projects to tag the block
+function openColorPicker(anchor, current, onPick, projectOpts = null) {
   document.querySelector('.daytasks-color-pop')?.remove();
   const pop = document.createElement('div');
   pop.className = 'daytasks-color-pop';
+  const swatches = document.createElement('div');
+  swatches.className = 'daytasks-swatches';
   for (const c of PALETTE) {
     const sw = document.createElement('button');
     sw.className = 'daytasks-swatch' + (c === current ? ' active' : '');
@@ -366,11 +445,40 @@ function openColorPicker(anchor, current, onPick) {
       pop.remove();
       onPick(c);
     });
-    pop.appendChild(sw);
+    swatches.appendChild(sw);
   }
+  pop.appendChild(swatches);
+
+  if (projectOpts) {
+    const title = document.createElement('div');
+    title.className = 'daytasks-pop-title';
+    title.textContent = 'PROYECTO';
+    pop.appendChild(title);
+    const list = document.createElement('div');
+    list.className = 'daytasks-pop-projects';
+    const addOption = (pid, name, color) => {
+      const opt = document.createElement('button');
+      opt.className = 'daytasks-pop-project' + (pid === projectOpts.current ? ' active' : '');
+      const dot = document.createElement('span');
+      dot.className = 'daytasks-pop-dot';
+      dot.style.background = color || 'transparent';
+      opt.appendChild(dot);
+      opt.appendChild(document.createTextNode(name));
+      opt.addEventListener('click', (e) => {
+        e.stopPropagation();
+        pop.remove();
+        projectOpts.onPick(pid);
+      });
+      list.appendChild(opt);
+    };
+    addOption(null, 'Sin proyecto', null);
+    for (const p of getPlannableProjects()) addOption(p.id, p.name, p.color);
+    pop.appendChild(list);
+  }
+
   document.body.appendChild(pop);
   const r = anchor.getBoundingClientRect();
-  pop.style.top = (r.bottom + 4) + 'px';
+  pop.style.top = Math.max(8, Math.min(r.bottom + 4, window.innerHeight - pop.offsetHeight - 8)) + 'px';
   pop.style.left = Math.min(r.left, window.innerWidth - pop.offsetWidth - 8) + 'px';
   setTimeout(() => {
     document.addEventListener('pointerdown', function close(e) {
@@ -396,7 +504,7 @@ function attachEventDrag(el, key, item) {
     let start = item.start, duration = item.duration;
     let moved = false;
     let overUnscheduled = false;
-    const unscheduledEl = document.querySelector('.daytasks-unscheduled');
+    const unscheduledEl = document.querySelector('.daytasks-unscheduled:not(.daytasks-projects)');
     try { el.setPointerCapture(e.pointerId); } catch {}
 
     const onMove = (mv) => {
@@ -549,7 +657,12 @@ function attachChipDrag(container) {
       const s = dropStart(up.clientX, up.clientY);
       cleanup();
       if (s == null) return;
-      Store.scheduleNoteInDay(dateKey(selectedDate), chip.dataset.projectId, chip.dataset.noteId, s, DEFAULT_DURATION);
+      const key = dateKey(selectedDate);
+      if (chip.dataset.kind === 'project') {
+        focusItemId = Store.addDayPlanItem(key, { type: 'text', projectId: chip.dataset.projectId, start: s, duration: DEFAULT_DURATION });
+      } else {
+        Store.scheduleNoteInDay(key, chip.dataset.projectId, chip.dataset.noteId, s, DEFAULT_DURATION);
+      }
       rerender();
     };
 
