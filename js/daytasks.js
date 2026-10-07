@@ -249,6 +249,7 @@ function createProjectLabel(name, color) {
   label.className = 'today-project-label';
   label.style.backgroundColor = color;
   label.style.color = pickContrastColor(color);
+  label.style.setProperty('--tag-color', color);
   label.textContent = name;
   return label;
 }

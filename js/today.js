@@ -137,6 +137,7 @@ function createTodayRow(item) {
   const label = document.createElement('button');
   label.className = 'today-project-label';
   label.style.backgroundColor = projectColor;
+  label.style.setProperty('--tag-color', projectColor);
   label.style.color = pickContrastColor(projectColor);
   label.textContent = projectName;
   label.title = 'Open in Board';

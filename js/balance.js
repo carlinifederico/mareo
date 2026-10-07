@@ -135,15 +135,15 @@ function renderChart(container, data) {
   const gap = cw / data.length;
 
   // Background
-  ctx.fillStyle = '#0d0b1a';
+  ctx.fillStyle = '#111113';
   ctx.fillRect(0, 0, W, H);
 
   // Grid lines
   const gridLines = 5;
   ctx.strokeStyle = 'rgba(255,255,255,0.06)';
   ctx.lineWidth = 1;
-  ctx.font = '10px Inter, sans-serif';
-  ctx.fillStyle = '#8b82a8';
+  ctx.font = '10px "IBM Plex Sans Mono", monospace';
+  ctx.fillStyle = '#85858f';
   ctx.textAlign = 'right';
   for (let i = 0; i <= gridLines; i++) {
     const y = pad.top + ch - (ch / gridLines) * i;
@@ -183,8 +183,8 @@ function renderChart(container, data) {
     ctx.save();
     ctx.translate(x, pad.top + ch + 8);
     ctx.rotate(-Math.PI / 4);
-    ctx.fillStyle = '#8b82a8';
-    ctx.font = '9px Inter, sans-serif';
+    ctx.fillStyle = '#85858f';
+    ctx.font = '9px "IBM Plex Sans Mono", monospace';
     ctx.textAlign = 'right';
     ctx.fillText(labelFromKey(d.key), 0, 0);
     ctx.restore();
@@ -260,11 +260,11 @@ function renderChart(container, data) {
     { color: 'rgba(167, 139, 250, 0.7)', label: 'Extras' },
   ];
   let lx = pad.left;
-  ctx.font = '11px Inter, sans-serif';
+  ctx.font = '11px "IBM Plex Sans Mono", monospace';
   for (const leg of legends) {
     ctx.fillStyle = leg.color;
     ctx.fillRect(lx, legY - 8, 12, 12);
-    ctx.fillStyle = '#f0eef5';
+    ctx.fillStyle = '#ececef';
     ctx.textAlign = 'left';
     ctx.fillText(leg.label, lx + 16, legY + 2);
     lx += ctx.measureText(leg.label).width + 36;

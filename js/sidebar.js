@@ -223,6 +223,7 @@ function renderProjectRow(proj, cat, pinned) {
   nameEl.className = 'project-name';
   nameEl.style.backgroundColor = proj.color;
   nameEl.style.color = getContrastColor(proj.color);
+  nameEl.style.setProperty('--proj-color', proj.color);
   nameEl.textContent = proj.name;
   nameEl.addEventListener('click', (e) => {
     e.stopPropagation();
