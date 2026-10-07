@@ -90,7 +90,7 @@ export const Store = {
         notes: [],
         boardCards: [],
         expensesMonths: {},
-        visibleTabs: ['timeline', 'board', 'expenses', 'balance'],
+        visibleTabs: ['timeline', 'board', 'expenses', 'balance', 'daytasks'],
         schemaVersion: SCHEMA_VERSION,
         sharedProjects: [],
       };
@@ -107,13 +107,19 @@ export const Store = {
     if (this.data.archivedCollapsed === undefined) this.data.archivedCollapsed = true;
     if (!this.data.pinnedBoardOffset) this.data.pinnedBoardOffset = { x: 2500, y: 2700 };
     if (!this.data.todayOrder) this.data.todayOrder = [];
+    if (!this.data.dayPlans) this.data.dayPlans = {};
     if (this.data.timelineLocked === undefined) this.data.timelineLocked = true;
-    if (!this.data.visibleTabs) this.data.visibleTabs = ['timeline', 'board', 'expenses', 'balance'];
+    if (!this.data.visibleTabs) this.data.visibleTabs = ['timeline', 'board', 'expenses', 'balance', 'daytasks'];
     if (!this.data.sharedProjects) this.data.sharedProjects = [];
     if (this.data.schemaVersion == null) this.data.schemaVersion = 1;
     // Notes view was removed — drop it from visibleTabs and currentView
     this.data.visibleTabs = this.data.visibleTabs.filter(v => v !== 'notes');
     if (this.data.currentView === 'notes') this.data.currentView = 'board';
+    // One-time: surface the new Today Tasks tab for existing users
+    if (!this.data.dayTasksTabAdded) {
+      if (!this.data.visibleTabs.includes('daytasks')) this.data.visibleTabs.push('daytasks');
+      this.data.dayTasksTabAdded = true;
+    }
 
     // Field-shape migrations applied to any nested project objects we still
     // have in memory. Skip stripped (string) entries — those will be filled
@@ -810,6 +816,91 @@ export const Store = {
     return items;
   },
 
+  // --- Day plans (Today Tasks: hourly blocks per date) ---
+  // dayPlans[dateKey][hour] = [{ id, type: 'note', projectId, noteId } | { id, type: 'text', text, done }]
+  _daySlots(dateKey, create) {
+    if (!this.data.dayPlans) this.data.dayPlans = {};
+    if (!this.data.dayPlans[dateKey] && create) this.data.dayPlans[dateKey] = {};
+    return this.data.dayPlans[dateKey] || null;
+  },
+
+  _pruneDay(dateKey) {
+    const day = this.data.dayPlans?.[dateKey];
+    if (!day) return;
+    for (const h of Object.keys(day)) {
+      if (!day[h] || day[h].length === 0) delete day[h];
+    }
+    if (Object.keys(day).length === 0) delete this.data.dayPlans[dateKey];
+  },
+
+  // Returns { [hour]: resolvedItems[] }. Note entries are resolved against
+  // the live project note; entries whose note/project is gone are skipped.
+  getDayPlan(dateKey) {
+    const day = this.data.dayPlans?.[dateKey] || {};
+    const out = {};
+    for (const h of Object.keys(day)) {
+      out[h] = [];
+      for (const item of day[h]) {
+        if (item.type === 'note') {
+          const proj = this._findProject(item.projectId);
+          const note = proj && (proj.projectNotes || []).find(n => n.id === item.noteId);
+          if (!note) continue;
+          out[h].push({ ...item, projectName: proj.name, projectColor: proj.color, note });
+        } else {
+          out[h].push({ ...item });
+        }
+      }
+    }
+    return out;
+  },
+
+  addDayPlanText(dateKey, hour, text) {
+    const day = this._daySlots(dateKey, true);
+    if (!day[hour]) day[hour] = [];
+    day[hour].push({ id: 'dp-' + crypto.randomUUID(), type: 'text', text, done: false });
+    this.save();
+  },
+
+  updateDayPlanItem(dateKey, hour, id, updates) {
+    const item = this._daySlots(dateKey, false)?.[hour]?.find(i => i.id === id);
+    if (item) { Object.assign(item, updates); this.save(); }
+  },
+
+  removeDayPlanItem(dateKey, hour, id) {
+    const day = this._daySlots(dateKey, false);
+    if (!day?.[hour]) return;
+    day[hour] = day[hour].filter(i => i.id !== id);
+    this._pruneDay(dateKey);
+    this.save();
+  },
+
+  // A note lives in at most one block per day: drop it from other blocks first.
+  scheduleNoteInDay(dateKey, hour, projectId, noteId, beforeId = null) {
+    const day = this._daySlots(dateKey, true);
+    for (const h of Object.keys(day)) {
+      day[h] = day[h].filter(i => !(i.type === 'note' && i.noteId === noteId));
+    }
+    if (!day[hour]) day[hour] = [];
+    const entry = { id: 'dp-' + crypto.randomUUID(), type: 'note', projectId, noteId };
+    const idx = beforeId ? day[hour].findIndex(i => i.id === beforeId) : -1;
+    if (idx >= 0) day[hour].splice(idx, 0, entry); else day[hour].push(entry);
+    this._pruneDay(dateKey);
+    this.save();
+  },
+
+  moveDayPlanItem(dateKey, fromHour, id, toHour, beforeId = null) {
+    const day = this._daySlots(dateKey, false);
+    const from = day?.[fromHour];
+    const fromIdx = from ? from.findIndex(i => i.id === id) : -1;
+    if (fromIdx < 0 || beforeId === id) return;
+    const [moved] = from.splice(fromIdx, 1);
+    if (!day[toHour]) day[toHour] = [];
+    const idx = beforeId ? day[toHour].findIndex(i => i.id === beforeId) : -1;
+    if (idx >= 0) day[toHour].splice(idx, 0, moved); else day[toHour].push(moved);
+    this._pruneDay(dateKey);
+    this.save();
+  },
+
   // --- Import/Export ---
   exportJSON() { return JSON.stringify(this.data, null, 2); },
 
@@ -820,7 +911,8 @@ export const Store = {
     if (!this.data.notes) this.data.notes = [];
     if (!this.data.boardCards) this.data.boardCards = [];
     if (!this.data.todayOrder) this.data.todayOrder = [];
-    if (!this.data.visibleTabs) this.data.visibleTabs = ['timeline', 'board', 'expenses', 'balance'];
+    if (!this.data.dayPlans) this.data.dayPlans = {};
+    if (!this.data.visibleTabs) this.data.visibleTabs = ['timeline', 'board', 'expenses', 'balance', 'daytasks'];
     this.data.visibleTabs = this.data.visibleTabs.filter(v => v !== 'notes');
     this.save();
   },

@@ -251,7 +251,7 @@ function updateFabCount(n) {
   if (badge) badge.textContent = n > 0 ? n : '';
 }
 
-function pickContrastColor(hex) {
+export function pickContrastColor(hex) {
   // Simple luminance check for #rrggbb
   if (!hex || hex[0] !== '#' || hex.length < 7) return '#000';
   const r = parseInt(hex.slice(1, 3), 16);

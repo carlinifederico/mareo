@@ -11,6 +11,7 @@ import { initTodayPanel } from './today.js';
 import { renderExpenses, ensureCurrentMonth } from './expenses.js';
 import { icon } from './icons.js';
 import { renderBalance } from './balance.js';
+import { renderDayTasks } from './daytasks.js';
 import { initPan } from './pan.js';
 
 window._mareoModules = { Store };
@@ -25,6 +26,7 @@ const ALL_VIEWS = [
   { id: 'board',    label: 'Board' },
   { id: 'expenses', label: 'Expenses' },
   { id: 'balance',  label: 'Balance' },
+  { id: 'daytasks', label: 'TODAY TASKS' },
 ];
 
 // Auth flow: show login or app
@@ -530,6 +532,8 @@ function render() {
     renderExpenses(document.getElementById('expenses-body'));
   } else if (currentView === 'balance') {
     renderBalance(document.getElementById('balance-body'));
+  } else if (currentView === 'daytasks') {
+    renderDayTasks(document.getElementById('daytasks-body'));
   }
 }
 

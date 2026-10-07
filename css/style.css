@@ -4118,3 +4118,154 @@ body.timeline-locked #view-timeline .note-preview-check { cursor: not-allowed; }
   border-radius: 2px;
   pointer-events: none;
 }
+
+/* === Today Tasks (hourly blocks per day) === */
+.daytasks-body {
+  flex: 1;
+  overflow: auto;
+  padding: 16px;
+}
+
+.daytasks-title { min-width: 240px; }
+
+.daytasks-layout {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.daytasks-unscheduled {
+  width: 280px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  max-height: calc(100vh - 180px);
+  display: flex;
+  flex-direction: column;
+}
+.daytasks-unscheduled.drag-over { border-color: var(--accent); }
+
+.daytasks-col-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  border-bottom: 1px solid var(--border);
+}
+
+.daytasks-unscheduled-list {
+  padding: 6px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.daytasks-grid {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.daytasks-slot {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  grid-template-areas: "time list" "time add";
+  column-gap: 12px;
+  padding: 8px 10px;
+  min-height: 64px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.daytasks-slot.now { border-color: var(--accent); box-shadow: inset 3px 0 0 0 var(--accent); }
+.daytasks-slot.drag-over { border-color: var(--accent); background: var(--bg-hover); }
+
+.daytasks-time {
+  grid-area: time;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding-top: 4px;
+}
+.daytasks-slot.now .daytasks-time { color: var(--accent); }
+
+.daytasks-slot-list {
+  grid-area: list;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.daytasks-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 3px;
+}
+.daytasks-item:hover { background: var(--bg-hover); }
+.daytasks-item:hover .today-drag-grip { opacity: 1; }
+.daytasks-item:hover .today-remove { opacity: 1; }
+.daytasks-item.done .today-text,
+.daytasks-item.done .daytasks-chip-text { text-decoration: line-through; color: var(--text-muted); }
+.daytasks-item.dragging { opacity: 0.4; }
+.daytasks-item.drag-over { box-shadow: inset 0 2px 0 0 var(--accent); }
+.daytasks-item > .note-preview-check { margin-top: 3px; }
+.daytasks-item > .today-project-label,
+.daytasks-item > .today-remove { margin-top: 2px; }
+
+.daytasks-chip-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  line-height: 1.35;
+  padding: 2px 4px;
+  word-break: break-word;
+}
+
+.daytasks-ghost {
+  position: fixed;
+  z-index: 10001;
+  pointer-events: none;
+  background: var(--bg-surface);
+  border: 1px solid var(--accent);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  opacity: 0.9;
+}
+
+.daytasks-add {
+  grid-area: add;
+  margin-top: 4px;
+  background: transparent;
+  border: 1px dashed transparent;
+  border-radius: 3px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 11px;
+  padding: 4px 6px;
+  outline: none;
+}
+.daytasks-add::placeholder { color: var(--text-muted); opacity: 0.6; }
+.daytasks-slot:hover .daytasks-add { border-color: var(--border); }
+.daytasks-add:focus { border-color: var(--accent); border-style: solid; background: var(--bg); }
+
+@media (max-width: 640px) {
+  .daytasks-body { padding: 10px; }
+  .daytasks-title { min-width: 0; font-size: 14px; }
+  .daytasks-layout { flex-direction: column; }
+  .daytasks-unscheduled { width: 100%; position: static; max-height: 240px; }
+  .daytasks-grid { width: 100%; }
+  .daytasks-slot {
+    grid-template-columns: 1fr;
+    grid-template-areas: "time" "list" "add";
+  }
+}
