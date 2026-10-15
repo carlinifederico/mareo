@@ -791,3 +791,101 @@ html, body {
 /* PiP window: panel fills the window, which is sized to the content */
 body.pip-mode .today-panel { width: 100%; border-radius: 0; }
 body.pip-mode .today-panel.collapsed { width: 100%; border-radius: 0; }
+
+/* ---------- Today Tasks: Google Calendar in the background ---------- */
+.daytasks-calendar-wrap {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.daytasks-calendar-wrap .daytasks-calendar { flex: none; }
+
+.daytasks-gcal-control { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; }
+.daytasks-gcal-control + .exp-today-btn { margin-left: 0; }
+.daytasks-gcal-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-muted); }
+.daytasks-gcal-btn .icon { font-size: 13px; }
+.daytasks-gcal-btn.on { color: var(--text); background: var(--bg-elev); }
+.daytasks-gcal-status { font-size: 10px; color: var(--text-faint); }
+
+/* Timed events: dashed outline + faint hatch, text on the right so task
+   blocks (which start on the left) stay readable on top. */
+.daytasks-gcal-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+.daytasks-gcal-event {
+  --gcal-color: #8ab4f8;
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  box-sizing: border-box;
+  border: 1px dashed color-mix(in srgb, var(--gcal-color) 45%, transparent);
+  border-radius: var(--radius-sm);
+  background:
+    repeating-linear-gradient(135deg,
+      color-mix(in srgb, var(--gcal-color) 7%, transparent) 0 6px,
+      transparent 6px 12px);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  padding: 4px 8px;
+  overflow: hidden;
+  opacity: 0.85;
+}
+.daytasks-gcal-title {
+  font-size: 10px;
+  font-weight: 500;
+  color: color-mix(in srgb, var(--gcal-color) 55%, var(--text-muted));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 45%;
+}
+.daytasks-gcal-time {
+  font-size: 9px;
+  color: var(--text-faint);
+}
+.daytasks-gcal-event.compact { flex-direction: row; align-items: center; justify-content: flex-end; gap: 8px; padding: 0 8px; }
+
+/* All-day events: small chips above the grid, aligned with it */
+.daytasks-gcal-allday-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 -2px 52px;
+  padding-top: 8px;
+}
+.daytasks-gcal-allday-strip.empty { display: none; }
+.daytasks-gcal-allday {
+  --gcal-color: #8ab4f8;
+  font-size: 10px;
+  color: color-mix(in srgb, var(--gcal-color) 55%, var(--text-muted));
+  border: 1px dashed color-mix(in srgb, var(--gcal-color) 45%, transparent);
+  border-radius: 999px;
+  padding: 2px 9px;
+}
+
+/* Calendar lane: when Google Calendar is on, task blocks use the left part of
+   the grid and event names live in a quiet lane on the right. The hatch
+   still spans the full width so overlaps with tasks are visible. */
+.daytasks-grid.has-gcal { --gcal-lane: 24%; }
+.daytasks-grid.has-gcal::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: var(--gcal-lane);
+  border-left: 1px solid var(--border-subtle);
+  pointer-events: none;
+}
+.daytasks-gcal-title { max-width: calc(24% - 16px); min-width: 0; }
+.daytasks-gcal-time { max-width: calc(24% - 16px); }
+.daytasks-gcal-event.compact .daytasks-gcal-time { display: none; }
+@media (max-width: 640px) {
+  .daytasks-grid.has-gcal { --gcal-lane: 34%; }
+  .daytasks-gcal-title,
+  .daytasks-gcal-time { max-width: calc(34% - 14px); }
+}

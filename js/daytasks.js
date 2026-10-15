@@ -1,6 +1,7 @@
 import { Store } from './store.js';
 import { icon } from './icons.js';
 import { pickContrastColor } from './today.js';
+import { GCal } from './gcal.js';
 
 // Visible range 11:00–19:00, in minutes from midnight
 const DAY_START = 11 * 60;
@@ -16,6 +17,7 @@ const DAY_NAMES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Vierne
 const MONTH_NAMES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
 let selectedDate = startOfDay(new Date());
+let lastTodayKey = dateKey(new Date());  // detects midnight passing while the app stays open
 let focusItemId = null;   // focus this block's text after the next render
 let nowTimer = null;
 
@@ -55,8 +57,19 @@ function itemColor(item) {
   return item.color || item.projectColor || PALETTE[0];
 }
 
+// Entering the tab always lands on today
+export function resetDayTasksToToday() {
+  selectedDate = startOfDay(new Date());
+}
+
 export function renderDayTasks(container) {
   if (!container) return;
+  // App left open past midnight → jump to the new day
+  const todayKey = dateKey(new Date());
+  if (todayKey !== lastTodayKey) {
+    lastTodayKey = todayKey;
+    resetDayTasksToToday();
+  }
   const key = dateKey(selectedDate);
   const items = Store.getDayPlan(key);
 
@@ -131,8 +144,102 @@ function createNav() {
   nav.appendChild(title);
   nav.appendChild(nextBtn);
   nav.appendChild(hint);
+  nav.appendChild(createGcalButton());
   nav.appendChild(todayBtn);
   return nav;
+}
+
+// Google Calendar toggle: Conectar → (on/off toggle) → Reconectar when expired
+function createGcalButton() {
+  const wrap = document.createElement('span');
+  wrap.className = 'daytasks-gcal-control';
+
+  const btn = document.createElement('button');
+  btn.className = 'btn btn-secondary daytasks-gcal-btn';
+  const connected = GCal.isConnected();
+  const on = connected && GCal.isEnabled();
+  btn.classList.toggle('on', on);
+  const label = connected ? 'Calendar' : (GCal.isExpired() ? 'Reconectar Calendar' : 'Conectar Calendar');
+  btn.innerHTML = `${icon('calendar')}<span>${label}</span>`;
+  btn.title = connected
+    ? (on ? 'Ocultar eventos de Google Calendar' : 'Mostrar eventos de Google Calendar')
+    : 'Ver tus eventos de Google Calendar de fondo (solo lectura)';
+
+  const status = document.createElement('span');
+  status.className = 'daytasks-gcal-status';
+
+  btn.addEventListener('click', async () => {
+    if (connected) {
+      GCal.setEnabled(!GCal.isEnabled());
+      rerender();
+      return;
+    }
+    btn.disabled = true;
+    try {
+      await GCal.connect();
+    } catch (err) {
+      console.warn('Calendar connect failed', err);
+      if (err?.code !== 'auth/popup-closed-by-user' && err?.code !== 'auth/cancelled-popup-request') {
+        status.textContent = err?.code === 'auth/user-mismatch'
+          ? 'Usá la misma cuenta de Google de MAREO'
+          : 'No se pudo conectar';
+      }
+    }
+    btn.disabled = false;
+    rerender();
+  });
+
+  wrap.appendChild(btn);
+  wrap.appendChild(status);
+  return wrap;
+}
+
+// Paint Google Calendar events behind the task blocks (async, read-only)
+async function loadGcalLayer(key, grid, allDayStrip) {
+  if (!GCal.isConnected() || !GCal.isEnabled()) return;
+  const res = await GCal.getEvents(key);
+  // The view may have re-rendered (or changed day) while we were fetching
+  if (!grid.isConnected || dateKey(selectedDate) !== key) return;
+
+  const status = document.querySelector('.daytasks-gcal-status');
+  if (res.needsAuth) { rerender(); return; }
+  if (res.error) {
+    if (status) status.textContent = 'Calendar no disponible';
+    return;
+  }
+
+  const layer = document.createElement('div');
+  layer.className = 'daytasks-gcal-layer';
+  for (const ev of res.events) {
+    if (ev.allDay) {
+      const chip = document.createElement('span');
+      chip.className = 'daytasks-gcal-allday';
+      chip.style.setProperty('--gcal-color', ev.color);
+      chip.textContent = ev.title;
+      allDayStrip.appendChild(chip);
+      continue;
+    }
+    // Clip to the visible 11–19 window; skip events entirely outside it
+    const start = clamp(ev.start, DAY_START, DAY_END);
+    const end = clamp(ev.end, DAY_START, DAY_END);
+    if (end - start <= 0) continue;
+    const el = document.createElement('div');
+    el.className = 'daytasks-gcal-event' + (end - start <= 30 ? ' compact' : '');
+    el.style.setProperty('--gcal-color', ev.color);
+    el.style.top = minToPx(start - DAY_START) + 'px';
+    el.style.height = Math.max(minToPx(end - start) - 2, 12) + 'px';
+    const name = document.createElement('span');
+    name.className = 'daytasks-gcal-title';
+    name.textContent = ev.title;
+    const time = document.createElement('span');
+    time.className = 'daytasks-gcal-time';
+    time.textContent = `${fmtTime(ev.start)}–${fmtTime(ev.end)}`;
+    el.appendChild(name);
+    el.appendChild(time);
+    layer.appendChild(el);
+  }
+  grid.prepend(layer);
+  allDayStrip.classList.toggle('empty', !allDayStrip.childElementCount);
 }
 
 function shiftDay(delta) {
@@ -273,6 +380,7 @@ function createCalendar(key, items) {
   grid.className = 'daytasks-grid';
   grid.style.height = minToPx(DAY_END - DAY_START) + 'px';
   grid.style.setProperty('--hour-px', HOUR_PX + 'px');
+  if (GCal.isConnected() && GCal.isEnabled()) grid.classList.add('has-gcal');
 
   for (const [item, col, cols] of layoutColumns(items)) {
     grid.appendChild(createEvent(key, item, col, cols));
@@ -286,7 +394,16 @@ function createCalendar(key, items) {
   cal.appendChild(hours);
   cal.appendChild(grid);
   requestAnimationFrame(updateNowLine);
-  return cal;
+
+  // All-day Google Calendar events sit in a strip above the grid
+  const wrap = document.createElement('div');
+  wrap.className = 'daytasks-calendar-wrap';
+  const allDayStrip = document.createElement('div');
+  allDayStrip.className = 'daytasks-gcal-allday-strip empty';
+  wrap.appendChild(allDayStrip);
+  wrap.appendChild(cal);
+  loadGcalLayer(key, grid, allDayStrip);
+  return wrap;
 }
 
 function updateNowLine() {
@@ -340,8 +457,9 @@ function createEvent(key, item, col, cols) {
   el.dataset.itemId = item.id;
   el.dataset.type = item.type;
   el.style.setProperty('--ev-color', color);
-  el.style.left = `calc(${(col / cols) * 100}% + 2px)`;
-  el.style.width = `calc(${100 / cols}% - 4px)`;
+  // Blocks share the width left of the Google Calendar lane (--gcal-lane, 0 when off)
+  el.style.left = `calc((100% - var(--gcal-lane, 0px)) * ${col / cols} + 2px)`;
+  el.style.width = `calc((100% - var(--gcal-lane, 0px)) / ${cols} - 4px)`;
 
   const head = document.createElement('div');
   head.className = 'daytasks-event-head';
@@ -563,7 +681,7 @@ function attachGridCreate(grid, key) {
     const preview = document.createElement('div');
     preview.className = 'daytasks-event daytasks-preview';
     preview.style.left = '2px';
-    preview.style.width = 'calc(100% - 4px)';
+    preview.style.width = 'calc(100% - var(--gcal-lane, 0px) - 4px)';
     const pTime = document.createElement('span');
     pTime.className = 'daytasks-event-time';
     preview.appendChild(pTime);

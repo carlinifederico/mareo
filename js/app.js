@@ -11,7 +11,7 @@ import { initTodayPanel } from './today.js';
 import { renderExpenses, ensureCurrentMonth } from './expenses.js';
 import { icon } from './icons.js';
 import { renderBalance } from './balance.js';
-import { renderDayTasks } from './daytasks.js';
+import { renderDayTasks, resetDayTasksToToday } from './daytasks.js';
 import { initPan } from './pan.js';
 
 window._mareoModules = { Store };
@@ -379,6 +379,7 @@ function refreshEditModeButton() {
 }
 
 function switchView(view) {
+  if (view === 'daytasks') resetDayTasksToToday();
   currentView = view;
   Store.setView(view);
   renderTabs();
