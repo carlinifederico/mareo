@@ -80,6 +80,7 @@ const ICONS = {
   'view-timeline': '<rect x="3" y="4" width="11" height="4" rx="2" fill="currentColor"/><rect x="8" y="10" width="13" height="4" rx="2" fill="currentColor" opacity=".55"/><rect x="5" y="16" width="9" height="4" rx="2" fill="currentColor"/>',
   'view-board': '<rect x="3" y="3" width="8" height="8" rx="2.5" fill="currentColor"/><rect x="13" y="3" width="8" height="8" rx="2.5" fill="currentColor" opacity=".55"/><rect x="3" y="13" width="8" height="8" rx="2.5" fill="currentColor" opacity=".55"/><rect x="13" y="13" width="8" height="8" rx="2.5" fill="currentColor"/>',
   'view-chart': '<rect x="4" y="12" width="4" height="9" rx="1.5" fill="currentColor"/><rect x="10" y="4" width="4" height="17" rx="1.5" fill="currentColor"/><rect x="16" y="8" width="4" height="13" rx="1.5" fill="currentColor" opacity=".55"/>',
+  'view-home': '<rect x="3" y="3" width="8" height="10" rx="2.5" fill="currentColor"/><rect x="13" y="3" width="8" height="6" rx="2.5" fill="currentColor" opacity=".55"/><rect x="3" y="15" width="8" height="6" rx="2.5" fill="currentColor" opacity=".55"/><rect x="13" y="11" width="8" height="10" rx="2.5" fill="currentColor"/>',
   clock: '<path fill="currentColor" fill-rule="evenodd" d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2S2 6.477 2 12s4.477 10 10 10m.75-15a.75.75 0 0 0-1.5 0v5c0 .199.079.39.22.53l3 3a.75.75 0 1 0 1.06-1.06l-2.78-2.78z" clip-rule="evenodd"/>',
 
   // Trash / delete

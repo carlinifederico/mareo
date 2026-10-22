@@ -47,6 +47,24 @@ service cloud.firestore {
                     && resource.data.members[request.auth.uid] == 'owner';
     }
 
+    // v2: identity + production hub per project. Kept out of projects/{id}
+    // because v1 rewrites that doc with a field whitelist. Access mirrors
+    // the parent project's membership.
+    match /projectMeta/{projectId} {
+      function project() {
+        return get(/databases/$(database)/documents/projects/$(projectId)).data;
+      }
+      allow read: if request.auth != null
+                  && request.auth.uid in project().memberUids;
+      allow write: if request.auth != null
+                   && project().members[request.auth.uid] in ['owner', 'editor'];
+    }
+
+    // v2: per-user state (calendar event → project assignments, stats cache).
+    match /mareo_v2/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
     match /userProfiles/{uid} {
       // Any authenticated user can read profiles (needed to resolve
       // "invite by email" → uid). Trade-off: leaks email→uid mapping

@@ -13,15 +13,22 @@ import { icon } from './icons.js';
 import { renderBalance } from './balance.js';
 import { renderDayTasks, resetDayTasksToToday } from './daytasks.js';
 import { initPan } from './pan.js';
+import { renderHome, currentRoute } from './home.js';
+import { Meta } from './meta-repo.js';
+import { setDayTasksMode } from './daytasks.js';
 
 window._mareoModules = { Store };
 
-let currentView = 'timeline';
+let currentView = 'home';
 let appInitialized = false;
 let _tabDragId = null;
 let _timelineDefaultApplied = false;
 
+// 'home' (Studio) is v2-only: it is always the first tab and is never written
+// to visibleTabs/currentView, so v1 (same Firestore data) never sees it.
+const HOME = { id: 'home', label: 'Studio', icon: 'view-home' };
 const ALL_VIEWS = [
+  HOME,
   { id: 'timeline', label: 'Timeline',    icon: 'view-timeline' },
   { id: 'board',    label: 'Board',       icon: 'view-board' },
   { id: 'expenses', label: 'Expenses',    icon: 'wallet' },
@@ -52,10 +59,9 @@ Auth.init(
     // Load data with user ID
     await Store.load(user.uid);
     ensureCurrentMonth();
-    currentView = Store.data.currentView || 'timeline';
-    if (!Store.data.visibleTabs.includes(currentView)) {
-      currentView = Store.data.visibleTabs[0];
-    }
+    // v2 always lands on the Studio home
+    currentView = 'home';
+    loadMeta();
 
     if (!appInitialized) {
       initApp();
@@ -85,6 +91,15 @@ document.getElementById('btn-signout').addEventListener('click', () => {
   Auth.signOut();
 });
 
+// Identity + hub metadata (projectMeta) and per-user v2 data. Not awaited:
+// the app renders right away with automatic identities, then refreshes.
+function loadMeta() {
+  const ids = [];
+  for (const cat of Store.data.categories) for (const p of cat.projects) if (p && p.id) ids.push(p.id);
+  for (const p of Store._sharedProjects || []) if (p && p.id) ids.push(p.id);
+  Meta.init(Store._uid, ids).catch(err => console.warn('meta load failed', err));
+}
+
 function initApp() {
   initDragDrop();
   initBoardDrag();
@@ -105,6 +120,23 @@ function initApp() {
 
   document.addEventListener('mareo:switchView', (e) => {
     switchView(e.detail);
+  });
+
+  // Project pages live under #/p/<id> inside the Studio view
+  window.addEventListener('hashchange', () => {
+    if (currentView !== 'home') switchView('home');
+    else render();
+    document.getElementById('view-home')?.scrollTo(0, 0);
+  });
+
+  document.addEventListener('mareo:openDedication', () => {
+    setDayTasksMode('stats');
+    if (!Store.data.visibleTabs.includes('daytasks')) addTab('daytasks');
+    else switchView('daytasks');
+  });
+
+  document.addEventListener('mareo:meta', () => {
+    if (currentView === 'home' || currentView === 'daytasks') render();
   });
 
   // Year navigation
@@ -226,7 +258,7 @@ function initApp() {
   if (refreshBtn) {
     refreshBtn.addEventListener('click', async () => {
       refreshBtn.classList.add('spinning');
-      try { await Store.refresh(); }
+      try { await Store.refresh(); loadMeta(); }
       finally { setTimeout(() => refreshBtn.classList.remove('spinning'), 500); }
     });
   }
@@ -235,7 +267,7 @@ function initApp() {
     if (document.hidden) {
       _lastBlur = Date.now();
     } else if (Date.now() - _lastBlur > 30000) {
-      Store.refresh().catch(err => console.warn('auto-refresh failed', err));
+      Store.refresh().then(loadMeta).catch(err => console.warn('auto-refresh failed', err));
     }
   });
 
@@ -381,7 +413,11 @@ function refreshEditModeButton() {
 function switchView(view) {
   if (view === 'daytasks') resetDayTasksToToday();
   currentView = view;
-  Store.setView(view);
+  if (view !== 'home') {
+    Store.setView(view);
+    // Leaving the Studio drops the project-page route
+    if (currentRoute().projectId) history.replaceState(null, '', location.pathname + location.search);
+  }
   renderTabs();
 
   document.querySelectorAll('.view-container').forEach(v => {
@@ -406,21 +442,21 @@ function renderTabs() {
   nav.innerHTML = '';
 
   const visibleTabs = Store.data.visibleTabs || ['timeline'];
-  const hiddenViews = ALL_VIEWS.filter(v => !visibleTabs.includes(v.id));
+  const hiddenViews = ALL_VIEWS.filter(v => v.id !== 'home' && !visibleTabs.includes(v.id));
 
-  for (const viewId of visibleTabs) {
+  for (const viewId of ['home', ...visibleTabs.filter(v => v !== 'home')]) {
     const viewDef = ALL_VIEWS.find(v => v.id === viewId);
     if (!viewDef) continue;
 
     const btn = document.createElement('button');
     btn.className = 'view-tab' + (viewId === currentView ? ' active' : '');
     btn.dataset.view = viewId;
-    btn.draggable = true;
+    btn.draggable = viewId !== 'home';
 
     btn.insertAdjacentHTML('beforeend', `<span class="view-tab-icon">${icon(viewDef.icon)}</span>`);
     btn.appendChild(document.createTextNode(viewDef.label));
 
-    if (visibleTabs.length > 1) {
+    if (viewId !== 'home' && visibleTabs.length > 1) {
       const close = document.createElement('span');
       close.className = 'tab-close';
       close.innerHTML = icon('close');
@@ -446,6 +482,8 @@ function renderTabs() {
 
     btn.addEventListener('click', () => {
       nav.classList.remove('open');
+      // Clicking Studio while on a project page goes back to the overview
+      if (viewId === 'home' && currentRoute().projectId) { location.hash = ''; return; }
       switchView(viewId);
     });
 
@@ -461,7 +499,7 @@ function renderTabs() {
       _tabDragId = null;
     });
     btn.addEventListener('dragover', (e) => {
-      if (!_tabDragId || _tabDragId === viewId) return;
+      if (!_tabDragId || _tabDragId === viewId || viewId === 'home') return;
       e.preventDefault();
       document.querySelectorAll('.view-tab.drag-over').forEach(t => t.classList.remove('drag-over'));
       btn.classList.add('drag-over');
@@ -524,7 +562,7 @@ function removeTab(viewId) {
   const tabs = Store.data.visibleTabs.filter(id => id !== viewId);
   Store.setVisibleTabs(tabs);
   if (currentView === viewId) {
-    switchView(tabs[0]);
+    switchView('home');
   } else {
     renderTabs();
   }
@@ -553,7 +591,9 @@ function render() {
   const year = Store.data.currentYear;
   document.getElementById('current-year').textContent = year;
 
-  if (currentView === 'timeline') {
+  if (currentView === 'home') {
+    renderHome(document.getElementById('home-body'));
+  } else if (currentView === 'timeline') {
     renderTimelineHeader(document.getElementById('timeline-header'), year);
     renderSidebar(document.getElementById('sidebar-content'));
     renderGantt(document.getElementById('gantt-body'));

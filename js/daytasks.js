@@ -2,6 +2,7 @@ import { Store } from './store.js';
 import { icon } from './icons.js';
 import { pickContrastColor } from './today.js';
 import { GCal } from './gcal.js';
+import { renderDedication } from './stats.js';
 
 // Visible range 11:00–19:00, in minutes from midnight
 const DAY_START = 11 * 60;
@@ -20,6 +21,7 @@ let selectedDate = startOfDay(new Date());
 let lastTodayKey = dateKey(new Date());  // detects midnight passing while the app stays open
 let focusItemId = null;   // focus this block's text after the next render
 let nowTimer = null;
+let mode = 'agenda';      // 'agenda' (hour grid) | 'stats' (Dedicación)
 
 function startOfDay(d) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -62,8 +64,37 @@ export function resetDayTasksToToday() {
   selectedDate = startOfDay(new Date());
 }
 
+export function setDayTasksMode(m) {
+  mode = m === 'stats' ? 'stats' : 'agenda';
+}
+
+// Agenda / Dedicación switch shown on top of both modes
+function createModeSwitch() {
+  const g = document.createElement('div');
+  g.className = 'v2-segmented daytasks-mode';
+  g.setAttribute('role', 'group');
+  g.setAttribute('aria-label', 'Vista');
+  for (const [m, label] of [['agenda', 'Agenda'], ['stats', 'Dedicación']]) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = m === mode ? 'on' : '';
+    b.setAttribute('aria-pressed', String(m === mode));
+    b.textContent = label;
+    b.addEventListener('click', () => { mode = m; rerender(); });
+    g.appendChild(b);
+  }
+  return g;
+}
+
 export function renderDayTasks(container) {
   if (!container) return;
+  if (mode === 'stats') {
+    clearInterval(nowTimer);
+    container.innerHTML = '';
+    container.appendChild(createModeSwitch());
+    renderDedication(container);
+    return;
+  }
   // App left open past midnight → jump to the new day
   const todayKey = dateKey(new Date());
   if (todayKey !== lastTodayKey) {
@@ -74,6 +105,7 @@ export function renderDayTasks(container) {
   const items = Store.getDayPlan(key);
 
   container.innerHTML = '';
+  container.appendChild(createModeSwitch());
   container.appendChild(createNav());
 
   const layout = document.createElement('div');
