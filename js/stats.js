@@ -23,7 +23,6 @@ export const IGNORED = '__ignore';   // meeting marked as "not a project"
 
 const MONTHS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 const MONTHS_SHORT = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
-const NONE_COLOR = '#55575E';
 
 let viewMonth = monthKey(new Date());
 let viewSource = 'all'; // 'all' | 'blocks' | 'meetings'
@@ -169,6 +168,9 @@ export function meetingMinutes(ym) {
 // ---- Month summary ------------------------------------------------------
 
 // → { rows:[{id,name,color,blocks,meetings,minutes,pct}], total, meetings }
+// Only time assigned to a project counts: untagged blocks and unassigned
+// meetings stay out of the rows and the total (meetings are still listed
+// below the charts so they can be assigned).
 export function monthSummary(ym, source = 'all') {
   const blocks = source === 'meetings' ? new Map() : blockMinutes(ym);
   const meetings = source === 'blocks' ? { minutes: new Map(), list: [], state: 'ok' } : meetingMinutes(ym);
@@ -177,21 +179,14 @@ export function monthSummary(ym, source = 'all') {
   for (const id of ids) {
     const b = blocks.get(id) || 0;
     const m = meetings.minutes.get(id) || 0;
-    let name, color;
-    if (id === NONE) { name = 'Sin proyecto'; color = NONE_COLOR; }
-    else if (id === UNASSIGNED) { name = 'Reuniones sin asignar'; color = '#3A3C42'; }
-    else {
-      const p = Store._findProject(id);
-      if (!p) continue;
-      name = p.name;
-      color = identityFor(p).color;
-    }
+    if (id === NONE || id === UNASSIGNED) continue;
+    const p = Store._findProject(id);
+    if (!p) continue;
+    const name = p.name;
+    const color = identityFor(p).color;
     rows.push({ id, name, color, blocks: b, meetings: m, minutes: b + m });
   }
-  rows.sort((a, b) => {
-    const special = (r) => (r.id === NONE || r.id === UNASSIGNED ? 1 : 0);
-    return special(a) - special(b) || b.minutes - a.minutes;
-  });
+  rows.sort((a, b) => b.minutes - a.minutes);
   const total = rows.reduce((s, r) => s + r.minutes, 0);
   for (const r of rows) r.pct = total ? r.minutes / total : 0;
   return { rows, total, meetings };
@@ -366,7 +361,7 @@ export function renderDedication(container) {
   canvas.setAttribute('aria-label', `Dedicación de ${monthLabel(viewMonth)} por proyecto`);
   donutWrap.appendChild(canvas);
   const center = el('div', 'dd-donut-center');
-  center.append(el('strong', null, fmtHours(sum.total)), el('span', null, 'en total'));
+  center.append(el('strong', null, fmtHours(sum.total)), el('span', null, 'en proyectos'));
   donutWrap.appendChild(center);
   card.appendChild(donutWrap);
   requestAnimationFrame(() => drawDonut(canvas, sum.rows, 220));
@@ -528,7 +523,7 @@ export function renderDedicationMini(onOpen) {
   requestAnimationFrame(() => drawDonut(canvas, sum.rows, 140));
 
   const list = el('div', 'dd-mini-list');
-  const top = sum.rows.filter(r => r.id !== NONE && r.id !== UNASSIGNED).slice(0, 5);
+  const top = sum.rows.slice(0, 5);
   if (!top.length) list.appendChild(el('p', 'dd-empty', 'Cargá bloques en Today Tasks o conectá el Calendar para ver el reparto.'));
   for (const r of top) {
     const row = el('div', 'dd-mini-row');
