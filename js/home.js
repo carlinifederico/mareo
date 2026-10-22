@@ -77,7 +77,7 @@ function renderStudio() {
   const now = new Date();
   hello.appendChild(el('div', 'v2-eyebrow', `${DAYS[now.getDay()]} ${now.getDate()} ${MONTHS[now.getMonth()]} ${now.getFullYear()}`));
   hello.appendChild(el('h1', 'studio-title', `${greeting()}${firstName() ? ', ' + firstName() : ''}.`));
-  const parts = [`${projects.length} proyectos activos`, `${withHub.length} ${withHub.length === 1 ? 'hub online' : 'hubs online'}`];
+  const parts = [`${projects.length} ${projects.length === 1 ? 'proyecto activo' : 'proyectos activos'}`, `${withHub.length} ${withHub.length === 1 ? 'hub online' : 'hubs online'}`];
   if (todayItems.length) parts.push(`${todayItems.length} ${todayItems.length === 1 ? 'bloque' : 'bloques'} hoy`);
   hello.appendChild(el('p', 'studio-sub', parts.join(' · ')));
   const actions = el('div', 'studio-actions');

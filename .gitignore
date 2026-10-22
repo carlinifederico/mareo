@@ -1,3 +1,5 @@
 _MAT/
 .DS_Store
 Thumbs.db
+tools/node_modules/
+tools/plan*.json

@@ -19,6 +19,8 @@
       "**/node_modules/**",
       "_MAT",
       "_MAT/**",
+      "tools",
+      "tools/**",
       "data",
       "data/**",
       "dev-server.py",
