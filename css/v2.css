@@ -399,7 +399,8 @@ button, input, select, textarea { font-family: inherit; }
   font-size: 13px;
 }
 .hub-section:hover { background: #2A2C32; }
-.hub-open { margin-top: auto; align-self: flex-start; border: 0; font-weight: 600; }
+.hub-actions { margin-top: auto; display: flex; flex-wrap: wrap; gap: 8px; }
+.hub-open { border: 0; font-weight: 600; }
 .hub-open:hover { filter: brightness(1.08); }
 
 /* Project grid */

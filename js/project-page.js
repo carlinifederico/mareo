@@ -81,6 +81,15 @@ export function renderProjectPage(container, projectId) {
     a.rel = 'noopener';
     buttons.appendChild(a);
   }
+  const pinned = Store.isProjectPinned(project.id);
+  const pin = el('button', 'pp-btn-outline', pinned ? 'Fijado en Studio ✓' : 'Fijar en Studio');
+  pin.type = 'button';
+  pin.setAttribute('aria-pressed', String(pinned));
+  pin.addEventListener('click', () => {
+    if (pinned) Store.unpinProject(project.id); else Store.pinProject(project.id);
+    rerender();
+  });
+  buttons.appendChild(pin);
   if (canEdit(project)) {
     const editLinks = el('button', 'pp-btn-outline', (project.links || []).length ? 'Editar links' : '+ Links');
     editLinks.type = 'button';

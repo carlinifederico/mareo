@@ -69,6 +69,10 @@ function renderStudio() {
   const page = el('div', 'v2-page studio');
   const projects = listProjects();
   const withHub = projects.filter(({ project }) => identityFor(project).hub);
+  // Pinned projects (same pins as the Board), in the user's pin order
+  const pinned = (Store.data.pinnedProjects || [])
+    .map(pid => projects.find(x => x.project.id === pid))
+    .filter(Boolean);
   const todayItems = Store.getDayPlan(dateKey(new Date())).sort((a, b) => a.start - b.start);
 
   // --- Greeting + Today ---
@@ -91,14 +95,14 @@ function renderStudio() {
   top.appendChild(renderTodayCard(todayItems));
   page.appendChild(top);
 
-  // --- Hubs online ---
-  if (withHub.length) {
+  // --- Pinned projects ---
+  if (pinned.length) {
     const sec = el('section', 'studio-section');
     const head = el('div', 'studio-section-head');
-    head.appendChild(el('h2', 'studio-h2', 'Production hubs online'));
+    head.appendChild(el('h2', 'studio-h2', 'Fijados'));
     sec.appendChild(head);
     const grid = el('div', 'hub-grid');
-    for (const { project } of withHub) grid.appendChild(renderHubCard(project));
+    for (const { project } of pinned) grid.appendChild(renderFeaturedCard(project));
     sec.appendChild(grid);
     page.appendChild(sec);
   }
@@ -251,7 +255,7 @@ function coverEl(project, id, size) {
   return cover;
 }
 
-function renderHubCard(project) {
+function renderFeaturedCard(project) {
   const id = identityFor(project);
   const card = el('article', 'hub-card');
   const cover = el('a', 'hub-cover');
@@ -265,7 +269,7 @@ function renderHubCard(project) {
   const name = el('a', 'hub-name', project.name);
   name.href = `#/p/${encodeURIComponent(project.id)}`;
   top.appendChild(name);
-  top.appendChild(statusPill(true));
+  top.appendChild(statusPill(!!id.hub));
   body.appendChild(top);
 
   const pills = el('div', 'v2-pills');
@@ -274,12 +278,15 @@ function renderHubCard(project) {
   if (cur) pills.appendChild(el('span', 'v2-pill', cur.label));
   if (pills.childElementCount) body.appendChild(pills);
 
-  const sections = (id.hub.sections || []).slice(0, 4);
-  if (sections.length) {
+  // Shortcuts: hub sections, else the project's own links
+  const shortcuts = id.hub
+    ? (id.hub.sections || []).map(s => ({ label: s.label, url: s.url || id.hub.url }))
+    : (project.links || []).filter(l => l.url).map(l => ({ label: l.label || hostOf(l.url), url: l.url }));
+  if (shortcuts.length) {
     const grid = el('div', 'hub-sections');
-    for (const s of sections) {
+    for (const s of shortcuts.slice(0, 4)) {
       const a = el('a', 'hub-section', s.label);
-      a.href = s.url || id.hub.url;
+      a.href = s.url;
       a.target = '_blank';
       a.rel = 'noopener';
       grid.appendChild(a);
@@ -287,16 +294,32 @@ function renderHubCard(project) {
     body.appendChild(grid);
   }
 
-  const open = el('a', 'v2-btn hub-open');
-  open.href = id.hub.url;
-  open.target = '_blank';
-  open.rel = 'noopener';
-  open.style.background = id.color;
-  open.style.color = id.ink;
-  open.innerHTML = `<span>Abrir hub</span>${ARROW}`;
-  body.appendChild(open);
+  const actions = el('div', 'hub-actions');
+  if (id.hub) {
+    const open = el('a', 'v2-btn hub-open');
+    open.href = id.hub.url;
+    open.target = '_blank';
+    open.rel = 'noopener';
+    open.style.background = id.color;
+    open.style.color = id.ink;
+    open.innerHTML = `<span>Abrir hub</span>${ARROW}`;
+    actions.appendChild(open);
+  }
+  const page = el('a', 'v2-btn', 'Ver proyecto');
+  page.href = `#/p/${encodeURIComponent(project.id)}`;
+  if (!id.hub) {
+    page.style.background = id.color;
+    page.style.color = id.ink;
+    page.style.borderColor = 'transparent';
+  }
+  actions.appendChild(page);
+  body.appendChild(actions);
   card.appendChild(body);
   return card;
+}
+
+function hostOf(url) {
+  try { return new URL(url).hostname.replace(/^www./, ''); } catch { return 'Link'; }
 }
 
 export function statusPill(online) {
