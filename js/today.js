@@ -179,7 +179,7 @@ function createTodayRow(item) {
   label.style.setProperty('--tag-color', projectColor);
   label.style.color = pickContrastColor(projectColor);
   label.textContent = projectName;
-  label.title = 'Open in Board';
+  label.title = 'Open in Task Board';
   label.addEventListener('click', () => {
     Store.setView('board');
     document.dispatchEvent(new CustomEvent('mareo:switchView', { detail: 'board' }));

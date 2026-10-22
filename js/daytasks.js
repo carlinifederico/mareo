@@ -297,7 +297,7 @@ function createUnscheduledColumn(items) {
   if (items.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'today-empty';
-    empty.innerHTML = `Nada pendiente. Marcá notas con ${icon('dot')} en el Board y arrastralas a la grilla.`;
+    empty.innerHTML = `Nada pendiente. Marcá notas con ${icon('dot')} en el Task Board y arrastralas a la grilla.`;
     list.appendChild(empty);
   }
   for (const it of items) {

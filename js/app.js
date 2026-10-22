@@ -30,7 +30,7 @@ const HOME = { id: 'home', label: 'Studio', icon: 'view-home' };
 const ALL_VIEWS = [
   HOME,
   { id: 'timeline', label: 'Timeline',    icon: 'view-timeline' },
-  { id: 'board',    label: 'Board',       icon: 'view-board' },
+  { id: 'board',    label: 'Task Board',  icon: 'view-board' },
   { id: 'expenses', label: 'Expenses',    icon: 'wallet' },
   { id: 'balance',  label: 'Balance',     icon: 'view-chart' },
   { id: 'daytasks', label: 'Today Tasks', icon: 'clock' },

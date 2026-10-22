@@ -252,7 +252,7 @@ function renderNotes(project, id) {
   const notes = (project.projectNotes || []).filter(n => (n.title || n.content || '').trim());
   const open = notes.filter(n => !n.done);
   const done = notes.filter(n => n.done).slice(0, 3);
-  if (!notes.length) card.appendChild(el('p', 'pp-muted', 'Sin notas. Las notas del Board aparecen acá.'));
+  if (!notes.length) card.appendChild(el('p', 'pp-muted', 'Sin notas. Las notas del Task Board aparecen acá.'));
   for (const n of [...open.slice(0, 8), ...done]) {
     const row = el('label', 'pp-note' + (n.done ? ' done' : ''));
     const cb = document.createElement('input');
@@ -270,7 +270,7 @@ function renderNotes(project, id) {
     row.append(cb, text);
     card.appendChild(row);
   }
-  if (open.length > 8) card.appendChild(el('p', 'pp-muted', `y ${open.length - 8} más en el Board`));
+  if (open.length > 8) card.appendChild(el('p', 'pp-muted', `y ${open.length - 8} más en el Task Board`));
   return card;
 }
 
