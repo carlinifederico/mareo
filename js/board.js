@@ -149,6 +149,24 @@ export function renderBoard(container) {
   }
 }
 
+// Other views that reuse createNoteRow (the project page) call this after
+// rendering so Enter / Tab / Backspace keep focus on the right note.
+export function focusPendingNote(root) {
+  if (!focusNoteIdAfterRender) return;
+  const id = focusNoteIdAfterRender;
+  focusNoteIdAfterRender = null;
+  requestAnimationFrame(() => {
+    const input = root.querySelector(`.note-preview-text[data-note-id="${id}"]`);
+    if (input) { input.focus(); input.select(); autoResizeTextarea(input); }
+  });
+}
+
+export function addNoteAndFocus(projectId) {
+  const n = Store.addProjectNote(projectId, { title: '', content: '' });
+  if (n) focusNoteIdAfterRender = n.id;
+  document.dispatchEvent(new Event('mareo:render'));
+}
+
 function autoResizeTextarea(el) {
   if (!el) return;
   el.style.height = 'auto';
@@ -725,7 +743,7 @@ function createProjectCard(proj, { x, y, isPinned = false } = {}) {
   return el;
 }
 
-function createNoteRow(proj, note) {
+export function createNoteRow(proj, note) {
   const depth = Math.min(1, Math.max(0, note.depth || 0));
   const row = document.createElement('div');
   row.className = 'note-preview-item board-note-row'
@@ -820,7 +838,7 @@ function createNoteRow(proj, note) {
   return row;
 }
 
-function attachNoteReorderDnD(body, proj) {
+export function attachNoteReorderDnD(body, proj) {
   let dragNoteId = null;
   body.addEventListener('dragstart', (e) => {
     const item = e.target.closest('.board-note-row');

@@ -8,6 +8,8 @@ import { identityFor, glyphSvg, GLYPHS, PALETTE, listProjects } from './identity
 import { projectMonths, fmtHours } from './stats.js';
 import { showLinksModal } from './modal.js';
 import { statusPill } from './home.js';
+import { createNoteRow, attachNoteReorderDnD, focusPendingNote, addNoteAndFocus } from './board.js';
+import { showEditTaskModal, showTaskContextMenu } from './gantt.js';
 
 const MONTHS_SHORT = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
 const ARROW = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M7 17L17 7M8 7h9v9"/></svg>';
@@ -63,7 +65,7 @@ export function renderProjectPage(container, projectId) {
   hubPill.classList.add('pp-hub-pill');
   eyebrow.appendChild(hubPill);
   heroText.appendChild(eyebrow);
-  heroText.appendChild(el('h1', 'pp-title', project.name));
+  heroText.appendChild(renderTitle(project));
 
   const buttons = el('div', 'pp-hero-actions');
   if (id.hub) {
@@ -90,6 +92,14 @@ export function renderProjectPage(container, projectId) {
     rerender();
   });
   buttons.appendChild(pin);
+  const archived = Store.isProjectArchived(project.id);
+  const arch = el('button', 'pp-btn-outline', archived ? 'Desarchivar' : 'Archivar');
+  arch.type = 'button';
+  arch.addEventListener('click', () => {
+    if (archived) Store.unarchiveProject(project.id); else Store.archiveProject(project.id);
+    rerender();
+  });
+  buttons.appendChild(arch);
   if (canEdit(project)) {
     const editLinks = el('button', 'pp-btn-outline', (project.links || []).length ? 'Editar links' : '+ Links');
     editLinks.type = 'button';
@@ -147,6 +157,27 @@ export function renderProjectPage(container, projectId) {
   if (canEdit(project)) page.appendChild(renderIdentityEditor(project, id));
 
   container.appendChild(page);
+  focusPendingNote(page);
+}
+
+// Project name, edited in place. Same field the timeline and Task Board show.
+function renderTitle(project) {
+  const h1 = el('h1', 'pp-title', project.name);
+  if (!canEdit(project)) return h1;
+  h1.contentEditable = 'plaintext-only';
+  h1.spellcheck = false;
+  h1.title = 'Click para renombrar';
+  h1.setAttribute('aria-label', 'Nombre del proyecto');
+  h1.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); h1.blur(); }
+    if (e.key === 'Escape') { h1.textContent = project.name; h1.blur(); }
+  });
+  h1.addEventListener('blur', () => {
+    const name = h1.textContent.replace(/\s+/g, ' ').trim();
+    if (!name) { h1.textContent = project.name; return; }
+    if (name !== project.name) { Store.updateProject(project.id, { name }); rerender(); }
+  });
+  return h1;
 }
 
 function hostOf(url) {
@@ -244,37 +275,58 @@ function hubUrlForm(project, id, labelText) {
   return form;
 }
 
+// Same note rows as the Task Board card: edit text, check, Enter for a new
+// note, Tab to indent, drag to reorder, Today dot, delete.
 function renderNotes(project, id) {
   const card = el('section', 'v2-card pp-notes');
+  card.style.setProperty('--proj-color', id.color);
   const head = el('div', 'v2-card-head');
   head.appendChild(el('h2', 'v2-card-title', 'Notas y tareas'));
   card.appendChild(head);
-  const notes = (project.projectNotes || []).filter(n => (n.title || n.content || '').trim());
-  const open = notes.filter(n => !n.done);
-  const done = notes.filter(n => n.done).slice(0, 3);
-  if (!notes.length) card.appendChild(el('p', 'pp-muted', 'Sin notas. Las notas del Task Board aparecen acá.'));
-  for (const n of [...open.slice(0, 8), ...done]) {
-    const row = el('label', 'pp-note' + (n.done ? ' done' : ''));
-    const cb = document.createElement('input');
-    cb.type = 'checkbox';
-    cb.checked = !!n.done;
-    cb.disabled = !canEdit(project);
-    cb.style.accentColor = id.color;
-    cb.addEventListener('change', () => {
-      Store.updateProjectNote(project.id, n.id, { done: cb.checked });
-      rerender();
-    });
-    const text = el('span', 'pp-note-text');
-    text.appendChild(el('span', null, n.title || n.content.split('\n')[0]));
-    if (n.today) text.appendChild(el('span', 'pp-muted', 'En Today'));
-    row.append(cb, text);
-    card.appendChild(row);
+  const body = el('div', 'board-card-body pp-notes-body');
+  const notes = project.projectNotes || [];
+  if (!notes.length) body.appendChild(el('p', 'pp-muted', 'Sin notas todavía.'));
+  for (const n of notes) {
+    const row = createNoteRow(project, n);
+    if (!canEdit(project)) {
+      row.draggable = false;
+      row.querySelectorAll('input, textarea, button').forEach(x => { x.disabled = true; });
+    }
+    body.appendChild(row);
   }
-  if (open.length > 8) card.appendChild(el('p', 'pp-muted', `y ${open.length - 8} más en el Task Board`));
+  if (canEdit(project)) {
+    attachNoteReorderDnD(body, project);
+    const add = el('button', 'note-preview-add board-card-add-note', '+ Nota');
+    add.type = 'button';
+    add.addEventListener('click', () => addNoteAndFocus(project.id));
+    body.appendChild(add);
+  }
+  card.appendChild(body);
   return card;
 }
 
+// Tasks in tree order (parents first, children right under them), by start.
+function taskTree(project) {
+  const tasks = project.tasks || [];
+  const byStart = (a, b) => (a.startDay || 0) - (b.startDay || 0);
+  const out = [];
+  const walk = (parentId, depth) => {
+    for (const t of tasks.filter(x => (x.parentId || null) === parentId).sort(byStart)) {
+      out.push({ task: t, depth });
+      walk(t.id, depth + 1);
+    }
+  };
+  walk(null, 0);
+  return out;
+}
+
+let focusTaskLabelAfterRender = null;
+
+// Same tasks as the main timeline. Rename in the label, drag a bar to move it,
+// drag its right edge to change the duration, click it for dates / color /
+// deadline, right-click for subtasks, notes, links and delete.
 function renderMiniTimeline(project, id) {
+  const editable = canEdit(project);
   const card = el('section', 'v2-card pp-timeline');
   const head = el('div', 'v2-card-head');
   head.appendChild(el('h2', 'v2-card-title', `Timeline ${new Date().getFullYear()}`));
@@ -284,40 +336,128 @@ function renderMiniTimeline(project, id) {
   head.appendChild(go);
   card.appendChild(head);
 
-  const tasks = (project.tasks || []).filter(t => !t.parentId).sort((a, b) => (a.startDay || 0) - (b.startDay || 0));
-  if (!tasks.length) {
-    card.appendChild(el('p', 'pp-muted', 'Sin tareas en el timeline.'));
-    return card;
-  }
-  const scroll = el('div', 'pp-tl-scroll');
-  const grid = el('div', 'pp-tl');
-  const months = el('div', 'pp-tl-months');
-  for (const m of MONTHS_SHORT) months.appendChild(el('span', null, m));
-  grid.appendChild(months);
+  const rows = taskTree(project);
   const yearDays = 366;
   const doy = todayDoy();
-  for (const t of tasks) {
-    const r = el('div', 'pp-tl-row');
-    r.appendChild(el('span', 'pp-tl-label', t.label || ''));
-    const track = el('div', 'pp-tl-track');
-    const bar = el('span', 'pp-tl-bar');
-    const s = t.startDay || 0, d = t.durationDays || 1;
-    bar.style.left = `${(s / yearDays) * 100}%`;
-    bar.style.width = `${Math.max((d / yearDays) * 100, 0.8)}%`;
-    const active = doy >= s && doy < s + d;
-    bar.style.background = active ? id.color : (t.color || id.color);
-    bar.style.opacity = doy >= s + d ? '0.45' : '1';
-    bar.title = `${t.label} · ${fmtDoy(s)} → ${fmtDoy(s + d - 1)}`;
-    track.appendChild(bar);
-    r.appendChild(track);
-    grid.appendChild(r);
+  if (!rows.length) card.appendChild(el('p', 'pp-muted', 'Sin tareas en el timeline.'));
+  else {
+    const scroll = el('div', 'pp-tl-scroll');
+    const grid = el('div', 'pp-tl');
+    const months = el('div', 'pp-tl-months');
+    for (const m of MONTHS_SHORT) months.appendChild(el('span', null, m));
+    grid.appendChild(months);
+    for (const { task: t, depth } of rows) {
+      const r = el('div', 'pp-tl-row');
+      r.appendChild(taskLabel(t, depth, editable));
+      const track = el('div', 'pp-tl-track');
+      const bar = el('span', 'pp-tl-bar' + (depth ? ' sub' : ''));
+      const s = t.startDay || 0, d = t.durationDays || 1;
+      bar.style.left = `${(s / yearDays) * 100}%`;
+      bar.style.width = `${Math.max((d / yearDays) * 100, 0.8)}%`;
+      const active = doy >= s && doy < s + d;
+      bar.style.background = active ? id.color : (t.color || id.color);
+      bar.style.opacity = doy >= s + d ? '0.45' : '1';
+      bar.title = `${t.label} · ${fmtDoy(s)} → ${fmtDoy(s + d - 1)}`;
+      if (editable) attachBarEditing(bar, track, t, yearDays);
+      track.appendChild(bar);
+      r.appendChild(track);
+      grid.appendChild(r);
+    }
+    const now = el('span', 'pp-tl-now');
+    now.style.left = `calc(var(--tl-label) + (100% - var(--tl-label)) * ${doy / yearDays})`;
+    grid.appendChild(now);
+    scroll.appendChild(grid);
+    card.appendChild(scroll);
   }
-  const now = el('span', 'pp-tl-now');
-  now.style.left = `calc(var(--tl-label) + (100% - var(--tl-label)) * ${doy / yearDays})`;
-  grid.appendChild(now);
-  scroll.appendChild(grid);
-  card.appendChild(scroll);
+
+  if (editable) {
+    const add = el('button', 'v2-btn pp-tl-add', '+ Tarea');
+    add.type = 'button';
+    add.addEventListener('click', () => {
+      const t = Store.addTask(project.id, { label: 'Nueva tarea', startDay: doy, durationDays: 7, color: project.color });
+      if (t) focusTaskLabelAfterRender = t.id;
+      rerender();
+    });
+    card.appendChild(add);
+  }
+  if (focusTaskLabelAfterRender) {
+    const tid = focusTaskLabelAfterRender;
+    focusTaskLabelAfterRender = null;
+    requestAnimationFrame(() => {
+      const input = document.querySelector(`.pp-tl-label[data-task-id="${tid}"]`);
+      if (input) { input.focus(); input.select(); }
+    });
+  }
   return card;
+}
+
+function taskLabel(task, depth, editable) {
+  const pad = `${depth * 14}px`;
+  if (!editable) {
+    const span = el('span', 'pp-tl-label', task.label || '');
+    span.style.paddingLeft = pad;
+    return span;
+  }
+  const input = document.createElement('input');
+  input.className = 'pp-tl-label';
+  input.dataset.taskId = task.id;
+  input.value = task.label || '';
+  input.placeholder = 'Tarea…';
+  input.style.paddingLeft = pad;
+  input.setAttribute('aria-label', 'Nombre de la tarea');
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') input.blur();
+    if (e.key === 'Escape') { input.value = task.label || ''; input.blur(); }
+  });
+  input.addEventListener('change', () => {
+    const label = input.value.trim();
+    if (!label) { input.value = task.label || ''; return; }
+    Store.updateTask(task.id, { label });
+    rerender();
+  });
+  return input;
+}
+
+function attachBarEditing(bar, track, task, yearDays) {
+  bar.classList.add('editable');
+  const handle = el('span', 'pp-tl-handle');
+  bar.appendChild(handle);
+  bar.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    showTaskContextMenu(e, task);
+  });
+  bar.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    const resize = e.target === handle;
+    const pxPerDay = track.getBoundingClientRect().width / yearDays;
+    const s0 = task.startDay || 0, d0 = task.durationDays || 1;
+    const x0 = e.clientX;
+    let moved = false, s = s0, d = d0;
+    bar.setPointerCapture(e.pointerId);
+    const onMove = (ev) => {
+      const dx = ev.clientX - x0;
+      if (!moved && Math.abs(dx) < 4) return;
+      moved = true;
+      const days = Math.round(dx / pxPerDay);
+      if (resize) d = Math.max(1, d0 + days);
+      else s = Math.max(0, Math.min(yearDays - 1, s0 + days));
+      bar.style.left = `${(s / yearDays) * 100}%`;
+      bar.style.width = `${Math.max((d / yearDays) * 100, 0.8)}%`;
+      bar.title = `${task.label} · ${fmtDoy(s)} → ${fmtDoy(s + d - 1)}`;
+    };
+    const onUp = () => {
+      bar.removeEventListener('pointermove', onMove);
+      bar.removeEventListener('pointerup', onUp);
+      bar.removeEventListener('pointercancel', onUp);
+      if (!moved) { showEditTaskModal(task); return; }
+      if (s !== s0 || d !== d0) Store.updateTask(task.id, { startDay: s, durationDays: d });
+      rerender();
+    };
+    bar.addEventListener('pointermove', onMove);
+    bar.addEventListener('pointerup', onUp);
+    bar.addEventListener('pointercancel', onUp);
+  });
 }
 
 function renderProjectDedication(project, id) {
@@ -447,12 +587,37 @@ function renderIdentityEditor(project, id) {
   thumbs.appendChild(trow);
   sec.appendChild(thumbs);
 
-  // Stage + aliases
+  // Category (own projects only) + stage + aliases
   const more = el('div', 'pp-id-group pp-id-fields');
+  const cat = Store._findCategoryForProject(project.id);
+  if (cat) more.appendChild(categoryField(project, cat));
   more.appendChild(textField(project, 'Etapa', 'stage', id.stage, 'Desarrollo, Preproducción…', v => v));
   more.appendChild(textField(project, 'Alias (separados por coma) para reconocer reuniones', 'aliases', id.aliases.join(', '), 'Opi, OQ', v => v.split(',').map(s => s.trim()).filter(Boolean)));
   sec.appendChild(more);
   return sec;
+}
+
+function categoryField(project, cat) {
+  const wrap = el('div', 'pp-field');
+  const fid = `f-cat-${project.id}`;
+  const label = el('label', 'v2-eyebrow', 'CATEGORÍA');
+  label.htmlFor = fid;
+  const select = document.createElement('select');
+  select.id = fid;
+  select.className = 'v2-input';
+  for (const c of Store.data.categories) {
+    const o = el('option', null, c.name);
+    o.value = c.id;
+    o.selected = c.id === cat.id;
+    select.appendChild(o);
+  }
+  select.addEventListener('change', () => {
+    const to = Store.data.categories.find(c => c.id === select.value);
+    if (to && to.id !== cat.id) Store.moveProjectToCategory(project.id, cat.id, to.id, to.projects.length);
+    rerender();
+  });
+  wrap.append(label, select);
+  return wrap;
 }
 
 function textField(project, labelText, key, value, placeholder, parse) {

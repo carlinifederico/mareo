@@ -554,7 +554,7 @@ function _dateStrToDoy(year, dateStr) {
   return Math.floor((d - jan1) / 86400000);
 }
 
-function showEditTaskModal(task) {
+export function showEditTaskModal(task) {
   const year = Store.data.currentYear;
   const dateStr = _doyToDateStr(year, task.startDay || 0);
   showModal({
@@ -583,7 +583,7 @@ function showEditTaskModal(task) {
   });
 }
 
-function showTaskContextMenu(e, task) {
+export function showTaskContextMenu(e, task) {
   document.querySelectorAll('.context-menu').forEach(m => m.remove());
   const menu = document.createElement('div');
   menu.className = 'context-menu';
