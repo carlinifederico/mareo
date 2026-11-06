@@ -64,7 +64,14 @@ async function load() {
     const since = Date.now() - DAYS * 86400000;
     const docs = snap.docs.map(d => d.data());
     claude = docs.find(x => x.kind === 'claude-status') || null;
-    items = docs.filter(x => !x.kind && !x.auto && (x.updatedAt || 0) >= since);
+    // A forked session repeats its parent's history: one row per project + process, the latest
+    const latest = new Map();
+    for (const x of docs.filter(d => !d.kind && !d.auto && (d.updatedAt || 0) >= since)) {
+      const key = `${x.projectId || x.projectName}|${String(x.process || x.title).toLowerCase()}`;
+      const cur = latest.get(key);
+      if (!cur || x.status === 'running' || (cur.status !== 'running' && (x.updatedAt || 0) > (cur.updatedAt || 0))) latest.set(key, x);
+    }
+    items = [...latest.values()];
     loadError = '';
   } catch (err) {
     loadError = err?.code || String(err);
@@ -326,7 +333,7 @@ function row(it, kind) {
   r.appendChild(name);
 
   // What it is about right now: the question, the step being worked on, or the status
-  const hint = kind === 'working' ? (currentStep(it) || 'Trabajando')
+  const hint = kind === 'working' ? (currentStep(it) || it.lastPrompt || 'Trabajando')
     : kind === 'scheduled' ? (it.recap || '')
     : it.status === 'decide' && it.ask ? it.ask
     : (NEEDS[it.status]?.label || '');
