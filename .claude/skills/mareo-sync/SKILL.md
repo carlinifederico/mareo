@@ -30,7 +30,8 @@ only for hubs already linked (Opi, NATURIS); never pull a brief from someone els
      (depth ≤ 3). This catches hubs shared by link that the list doesn't show, like Opi's.
 3. **Match each hub to a project:** match on the project name, accent-insensitive.
    Known mappings:
-   - OPI AND THE QUIET ONES = `proj-silence`
+   - OPI AND THE QUIET ONES = `proj-silence`. Its hub moved off Claude artifacts to
+     https://opi-hub-e5unvvjl.pages.dev/ (2026-11-06); never replace it with the old artifact.
    - TRUCCO = `TRC`
 
    If a match is ambiguous, or a hub has no matching project, ask the user. Never guess between

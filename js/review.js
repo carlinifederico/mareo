@@ -1,8 +1,10 @@
-// "Revisar" tab (v2 only): what the Claude Code sessions are doing for each
-// project, the progress of their task lists, and what waits for the user.
+// "Revisar" tab (v2 only): the processes Claude Code sessions are working on,
+// per project, with their progress. Processes being worked on go on top;
+// the rest (waiting for an answer, done, queued) go below to review.
 // Data comes from workItems/{sessionId}, written by tools/mareo-work.mjs from
-// the local session transcripts. "Revisado" marks live in mareo_v2/{uid}.reviewed
-// as { sessionId: updatedAt }, so a session that moves again shows up again.
+// the local session transcripts; `process` is the short name of what each
+// session works on. "Visto" marks live in mareo_v2/{uid}.reviewed as
+// { sessionId: updatedAt }, so a session that moves again shows up again.
 
 import { Store } from './store.js';
 import { Meta } from './meta-repo.js';
@@ -11,6 +13,8 @@ import { db, collection, query, where, getDocs } from './firebase-config.js';
 
 const DAYS = 7;
 const REFRESH_MS = 2 * 60 * 1000;
+// A queued session touched this recently still counts as in process
+const ACTIVE_MS = 3 * 60 * 60 * 1000;
 const STATUS = {
   decide:  { label: 'Te pregunta', rank: 0 },
   review:  { label: 'Listo',       rank: 1 },
@@ -22,7 +26,7 @@ let items = null;       // null = not loaded yet
 let loadedAt = 0;
 let loading = false;
 let loadError = '';
-let filter = 'open';    // 'open' = not reviewed yet, 'all'
+let showSeen = false;
 let timer = null;
 
 function el(tag, cls, text) {
@@ -109,6 +113,39 @@ function barRow(cls, { done, total, pct }, color) {
   return row;
 }
 
+function isActive(it) {
+  return it.status === 'running' || (it.status === 'paused' && Date.now() - (it.updatedAt || 0) < ACTIVE_MS);
+}
+
+function pctOf(it) {
+  const steps = it.steps || [];
+  if (!steps.length) return null;
+  return Math.round((steps.filter(s => s.status === 'completed').length / steps.length) * 100);
+}
+
+function currentStep(it) {
+  const steps = it.steps || [];
+  return (steps.find(s => s.status === 'in_progress') || steps.find(s => s.status === 'pending') || {}).label || '';
+}
+
+function byProject(list) {
+  const groups = new Map();
+  for (const it of list) {
+    const key = it.projectId || it.projectName;
+    if (!groups.has(key)) groups.set(key, { name: it.projectName, color: projectColor(it), list: [] });
+    groups.get(key).list.push(it);
+  }
+  return [...groups.values()]
+    .map(g => ({ ...g, last: Math.max(...g.list.map(x => x.updatedAt || 0)) }))
+    .sort((a, b) => b.last - a.last);
+}
+
+function sectionTitle(text, n) {
+  const h = el('h2', 'rv-section');
+  h.append(text, el('span', 'rv-section-n', String(n)));
+  return h;
+}
+
 export function renderReview(container) {
   container.innerHTML = '';
   if (items === null) load();
@@ -117,23 +154,12 @@ export function renderReview(container) {
   const page = el('div', 'v2-page rv-page');
   const head = el('header', 'rv-head');
   head.appendChild(el('h1', 'rv-title', 'Revisar'));
-  const tools = el('div', 'rv-tools');
-  const seg = el('div', 'v2-segmented');
-  seg.setAttribute('role', 'group');
-  for (const [id, label] of [['open', 'Pendiente'], ['all', 'Todo']]) {
-    const b = el('button', filter === id ? 'on' : '', label);
-    b.type = 'button';
-    b.setAttribute('aria-pressed', String(filter === id));
-    b.addEventListener('click', () => { filter = id; rerender(); });
-    seg.appendChild(b);
-  }
   const refresh = el('button', 'pp-btn-outline', loading ? '…' : 'Actualizar');
   refresh.type = 'button';
   refresh.disabled = loading;
   refresh.title = `Leído ${ago(loadedAt)}`;
   refresh.addEventListener('click', () => load());
-  tools.append(seg, refresh);
-  head.appendChild(tools);
+  head.appendChild(refresh);
   page.appendChild(head);
 
   if (items === null) {
@@ -143,96 +169,104 @@ export function renderReview(container) {
   }
   if (loadError) page.appendChild(el('p', 'rv-error', `No pude leer las sesiones (${loadError}).`));
 
-  // Everything queued in the last days, across projects
   const human = items.filter(x => !x.auto);
+  const active = human.filter(isActive);
+  const waiting = human.filter(x => !isActive(x));
+  const unseen = waiting.filter(x => !isReviewed(x));
+
+  // One bar for everything queued
   const all = stepCounts(human);
   const total = el('section', 'v2-card rv-total');
   const tHead = el('div', 'rv-total-head');
-  tHead.append(el('b', null, 'Todas las tareas'), el('span', 'rv-total-pct', `${all.pct}%`));
+  tHead.append(el('b', null, 'Todo lo encolado'), el('span', 'rv-total-pct', `${all.pct}%`));
   total.append(tHead, barRow('rv-total-bar', all));
-  const chips = el('div', 'rv-chips');
-  for (const st of ['decide', 'running', 'paused', 'review']) {
-    const n = human.filter(x => x.status === st && !(st === 'review' && isReviewed(x))).length;
-    if (n) chips.appendChild(el('span', `rv-status ${st}`, `${n} ${STATUS[st].label.toLowerCase()}`));
-  }
-  total.appendChild(chips);
   page.appendChild(total);
 
-  // Group by project, most recently active first
-  const groups = new Map();
-  for (const it of items) {
-    const key = it.projectId || it.projectName;
-    if (!groups.has(key)) groups.set(key, { name: it.projectName, color: projectColor(it), list: [] });
-    groups.get(key).list.push(it);
+  // In process: one big row per process
+  page.appendChild(sectionTitle('En proceso', active.length));
+  if (!active.length) page.appendChild(el('p', 'rv-empty', 'Nada en proceso ahora.'));
+  for (const g of byProject(active)) {
+    const sec = el('section', 'v2-card rv-group');
+    sec.style.setProperty('--proj', g.color);
+    const name = el('h3', 'rv-group-name');
+    name.append(el('span', 'rv-dot'), g.name);
+    sec.appendChild(name);
+    for (const it of g.list.sort((a, b) => b.updatedAt - a.updatedAt)) sec.appendChild(renderActive(it, g.color));
+    page.appendChild(sec);
   }
-  const ordered = [...groups.values()]
-    .map(g => ({ ...g, last: Math.max(...g.list.map(x => x.updatedAt || 0)) }))
-    .sort((a, b) => b.last - a.last);
 
-  let shown = 0;
-  for (const g of ordered) {
-    const sessions = g.list.filter(x => !x.auto).sort((a, b) =>
-      (STATUS[a.status]?.rank ?? 9) - (STATUS[b.status]?.rank ?? 9) || b.updatedAt - a.updatedAt);
-    const visible = filter === 'open' ? sessions.filter(x => x.status === 'running' || !isReviewed(x)) : sessions;
-    if (!visible.length) continue;
-    shown++;
-    page.appendChild(renderGroup(g, sessions, visible, g.list.filter(x => x.auto)));
+  // Waiting: compact rows to review
+  const list = showSeen ? waiting : unseen;
+  page.appendChild(sectionTitle('Esperando', unseen.length));
+  if (!list.length) page.appendChild(el('p', 'rv-empty', 'Nada para revisar.'));
+  for (const g of byProject(list)) {
+    const sec = el('section', 'v2-card rv-group rv-waiting');
+    sec.style.setProperty('--proj', g.color);
+    const name = el('h3', 'rv-group-name');
+    name.append(el('span', 'rv-dot'), g.name);
+    sec.appendChild(name);
+    const sorted = g.list.sort((a, b) => (STATUS[a.status]?.rank ?? 9) - (STATUS[b.status]?.rank ?? 9) || b.updatedAt - a.updatedAt);
+    for (const it of sorted) sec.appendChild(renderWaiting(it, g.color));
+    page.appendChild(sec);
   }
-  if (!shown) page.appendChild(el('p', 'rv-empty', 'Nada pendiente.'));
+  const seen = waiting.length - unseen.length;
+  if (seen) {
+    const t = el('button', 'rv-mark rv-seen-toggle', showSeen ? 'Ocultar vistos' : `Ver vistos (${seen})`);
+    t.type = 'button';
+    t.addEventListener('click', () => { showSeen = !showSeen; rerender(); });
+    page.appendChild(t);
+  }
   container.appendChild(page);
 }
 
-function renderGroup(g, sessions, visible, autos) {
-  const sec = el('section', 'v2-card rv-group');
-  sec.style.setProperty('--proj', g.color);
-  const head = el('div', 'rv-group-head');
-  const name = el('h2', 'v2-card-title rv-group-name');
-  name.append(el('span', 'rv-dot'), g.name);
-  head.appendChild(name);
-  const c = stepCounts(sessions);
-  if (c.total) head.appendChild(barRow('rv-group-progress', c, g.color));
-  sec.appendChild(head);
-
-  const list = el('div', 'rv-list');
-  for (const it of visible) list.appendChild(renderSession(it, g.color));
-  sec.appendChild(list);
-
-  if (autos.length) {
-    const last = autos.reduce((a, b) => (b.updatedAt > a.updatedAt ? b : a));
-    sec.appendChild(el('p', 'pp-muted rv-autos', `${autos.length} automáticas · última ${ago(last.updatedAt)}`));
-  }
-  return sec;
-}
-
-function renderSession(it, color) {
-  const reviewed = isReviewed(it) && it.status !== 'running';
-  const card = el('article', `rv-item ${it.status}${reviewed ? ' reviewed' : ''}`);
-  if (it.recap) card.title = it.recap;
-  const top = el('div', 'rv-item-top');
-  top.appendChild(el('span', `rv-status ${it.status}`, STATUS[it.status]?.label || it.status));
-  top.appendChild(el('span', 'rv-when', ago(it.updatedAt)));
-  card.appendChild(top);
-  card.appendChild(el('h3', 'rv-item-title', it.title || 'Sesión'));
+function renderActive(it, color) {
+  const row = el('article', `rv-proc ${it.status}`);
+  if (it.recap) row.title = it.recap;
+  const top = el('div', 'rv-proc-top');
+  top.appendChild(el('h4', 'rv-proc-name', it.process || it.title));
+  const pct = pctOf(it);
+  top.appendChild(el('span', 'rv-proc-pct', pct == null ? '' : `${pct}%`));
+  row.appendChild(top);
+  if (pct != null) row.appendChild(progressBar(pct, color));
+  const now = currentStep(it);
+  const meta = el('div', 'rv-proc-meta');
+  meta.append(el('span', `rv-status ${it.status}`, STATUS[it.status]?.label || ''), el('span', 'rv-proc-now', now || it.title));
+  row.appendChild(meta);
 
   const steps = it.steps || [];
   if (steps.length) {
-    card.appendChild(barRow('rv-item-progress', stepCounts([it]), color));
+    const det = el('details', 'rv-proc-steps');
+    det.appendChild(el('summary', null, `${steps.filter(s => s.status === 'completed').length}/${steps.length} pasos`));
     const ol = el('ol', 'rv-steps');
     for (const s of steps) {
       const li = el('li', `rv-step ${s.status}`);
       li.append(el('span', 'rv-step-mark', s.status === 'completed' ? '✓' : s.status === 'in_progress' ? '●' : '○'), el('span', null, s.label));
       ol.appendChild(li);
     }
-    card.appendChild(ol);
+    det.appendChild(ol);
+    row.appendChild(det);
   }
-  if (it.ask && it.status === 'decide') card.appendChild(el('p', 'rv-ask', it.ask));
+  return row;
+}
 
-  if (it.status !== 'running') {
-    const b = el('button', 'rv-mark', reviewed ? '↺' : '✓ Visto');
-    b.type = 'button';
-    b.title = reviewed ? 'Volver a pendiente' : 'Marcar como revisado';
-    b.addEventListener('click', () => markReviewed(it, !reviewed));
-    top.appendChild(b);
-  }
-  return card;
+function renderWaiting(it, color) {
+  const reviewed = isReviewed(it);
+  const row = el('div', `rv-wait ${it.status}${reviewed ? ' reviewed' : ''}`);
+  row.title = it.ask || it.recap || it.title;
+  row.appendChild(el('span', `rv-status ${it.status}`, STATUS[it.status]?.label || ''));
+  const text = el('div', 'rv-wait-text');
+  text.appendChild(el('b', null, it.process || it.title));
+  if (it.status === 'decide' && it.ask) text.appendChild(el('span', 'rv-wait-ask', it.ask));
+  row.appendChild(text);
+  const pct = pctOf(it);
+  const bar = el('div', 'rv-wait-bar');
+  if (pct != null) bar.append(progressBar(pct, color), el('span', 'rv-pct', `${pct}%`));
+  row.appendChild(bar);
+  row.appendChild(el('span', 'rv-when', ago(it.updatedAt)));
+  const b = el('button', 'rv-mark', reviewed ? '↺' : '✓ Visto');
+  b.type = 'button';
+  b.title = reviewed ? 'Volver a pendiente' : 'Marcar como revisado';
+  b.addEventListener('click', () => markReviewed(it, !reviewed));
+  row.appendChild(b);
+  return row;
 }

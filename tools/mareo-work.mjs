@@ -16,6 +16,7 @@
 //   node tools/mareo-work.mjs                 last 7 days, write
 //   node tools/mareo-work.mjs --days 3 --dry-run [--json]
 //   node tools/mareo-work.mjs --watch         rescan every 2 minutes
+//   --no-names                                 skip naming new sessions with Claude
 //
 // Auth: same as mareo-sync.mjs (Firebase CLI login, Firestore REST as owner).
 
@@ -23,6 +24,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import readline from 'node:readline';
+import { spawnSync } from 'node:child_process';
 
 const PROJECT = 'mareo-app-8de88';
 const DB = `https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/(default)/documents`;
@@ -168,16 +170,80 @@ async function listProjects(token) {
   return (j.documents || []).map(d => ({ id: d.name.split('/').pop(), name: d.fields?.name?.stringValue || '' }));
 }
 
+// ---- Process names -------------------------------------------------------------
+// Each session gets a short name for what it is working on ("Encuesta",
+// "Spaceship Luna"), written by Claude (haiku, no tools, not saved as a
+// session) from its task list and last request. Names are cached per session
+// and content, so the CLI only runs for sessions that are new or changed course.
+const TOOLS_DIR = process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, 'mareo-tools') : path.join(os.homedir(), '.mareo-tools');
+const NAMES_FILE = path.join(TOOLS_DIR, 'process-names.json');
+const CLAUDE_BIN = [path.join(os.homedir(), '.local', 'bin', 'claude.exe'), path.join(os.homedir(), '.local', 'bin', 'claude')].find(p => fs.existsSync(p)) || 'claude';
+const MAX_NAMES_PER_RUN = 25;
+
+function nameKey(sessionId, s) {
+  const basis = s.steps.map(x => x.label).join('|') || s.lastPrompt || s.title;
+  let h = 0;
+  for (const ch of basis) h = (h * 31 + ch.charCodeAt(0)) | 0;
+  return `${sessionId}:${(h >>> 0).toString(36)}`;
+}
+
+function readNames() {
+  try { return JSON.parse(fs.readFileSync(NAMES_FILE, 'utf8')); } catch { return {}; }
+}
+
+function nameProcesses(pending, names) {
+  if (!pending.length) return;
+  const known = {};
+  for (const [k, v] of Object.entries(names)) if (v.project) (known[v.project] ||= new Set()).add(v.name);
+  const prompt = [
+    'Ponele a cada sesión de trabajo el nombre corto del proceso o desafío en el que está, en español, de 1 a 3 palabras',
+    '(ejemplos: "Encuesta", "Spaceship Luna", "Pestaña Revisar", "Build para Jorge"). Sin el nombre del proyecto.',
+    'Si es el mismo proceso que un nombre ya usado en ese proyecto, repetí ese nombre exacto.',
+    'Respondé SOLO un objeto JSON {"<key>": "<nombre>"} sin texto extra.',
+    '',
+    'Nombres ya usados por proyecto: ' + JSON.stringify(Object.fromEntries(Object.entries(known).map(([p, s]) => [p, [...s]]))),
+    '',
+    'Sesiones:',
+    JSON.stringify(pending.map(p => ({ key: p.key, proyecto: p.project, titulo: p.title, pedido: clip(p.lastPrompt, 300), pasos: p.steps.map(x => x.label) }))),
+  ].join('\n');
+  const r = spawnSync(CLAUDE_BIN, ['-p', '--model', 'haiku', '--no-session-persistence', '--tools', ''], {
+    input: prompt, cwd: TOOLS_DIR, encoding: 'utf8', timeout: 180000, windowsHide: true,
+  });
+  const m = /\{[\s\S]*\}/.exec(r.stdout || '');
+  if (!m) { console.error('naming failed:', (r.stderr || r.error?.message || '').slice(0, 200)); return; }
+  let out;
+  try { out = JSON.parse(m[0]); } catch { return; }
+  for (const p of pending) if (typeof out[p.key] === 'string' && out[p.key].trim()) names[p.key] = { name: clip(out[p.key], 40), project: p.project };
+  fs.writeFileSync(NAMES_FILE, JSON.stringify(names));
+}
+
 async function once(dryRun) {
   const days = Number(opt('--days') || 7);
   const token = await accessToken();
   const projects = await listProjects(token);
   const files = await scan(days);
-  let written = 0;
-  const all = [];
+  const rows = [];
   for (const f of files) {
     const s = await readSession(f.file);
     if (!s.cwd || (!s.firstPrompt && !s.steps.length)) continue;
+    if (norm(s.cwd).startsWith(norm(TOOLS_DIR))) continue; // our own naming calls
+    rows.push({ f, s });
+  }
+
+  const names = readNames();
+  const pending = [];
+  for (const { f, s } of rows) {
+    if (s.firstPrompt.startsWith('<scheduled-task')) continue;
+    const key = nameKey(f.sessionId, s);
+    if (!names[key] && pending.length < MAX_NAMES_PER_RUN) {
+      pending.push({ key, project: projectFor(s.cwd, projects).projectName, title: s.title || s.aiTitle, lastPrompt: s.lastPrompt || s.firstPrompt, steps: s.steps });
+    }
+  }
+  if (!flag('--no-names')) nameProcesses(pending, names);
+
+  let written = 0;
+  const all = [];
+  for (const { f, s } of rows) {
     const auto = s.firstPrompt.startsWith('<scheduled-task');
     const autoName = auto ? (/name="([^"]+)"/.exec(s.firstPrompt) || [])[1] : '';
     const proj = projectFor(s.cwd, projects);
@@ -191,6 +257,7 @@ async function once(dryRun) {
       sessionId: f.sessionId,
       ...proj,
       folder: s.cwd,
+      process: auto ? clip(autoName || title, 40) : (names[nameKey(f.sessionId, s)]?.name || clip(title, 40)),
       title: clip(title, 90),
       auto,
       status: statusOf(s, f.mtime),
@@ -206,7 +273,7 @@ async function once(dryRun) {
     };
     if (dryRun && flag('--json')) { all.push(item); continue; }
     if (dryRun) {
-      console.log(`${item.projectName.padEnd(24)} ${item.status.padEnd(8)} ${String(item.progress ?? '-').padStart(3)}% ${auto ? '[auto] ' : ''}${item.title}`);
+      console.log(`${item.projectName.padEnd(24)} ${item.status.padEnd(8)} ${String(item.progress ?? '-').padStart(3)}% ${auto ? '[auto] ' : ''}${item.process}  ·  ${item.title}`);
       continue;
     }
     const res = await fetch(`${DB}/workItems/${encodeURIComponent(f.sessionId)}`, {
