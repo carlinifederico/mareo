@@ -97,7 +97,7 @@ function applyPlan(plan, input) {
 }
 
 async function readSession(file) {
-  const s = { title: '', aiTitle: '', firstPrompt: '', lastPrompt: '', cwd: '', startedAt: null, steps: [], recap: '', ask: '', lastPlanAt: 0, lastWrapAt: 0, userTurns: 0 };
+  const s = { entrypoint: '', title: '', aiTitle: '', firstPrompt: '', lastPrompt: '', cwd: '', startedAt: null, steps: [], recap: '', ask: '', lastPlanAt: 0, lastWrapAt: 0, userTurns: 0 };
   let seq = 0;
   const rl = readline.createInterface({ input: fs.createReadStream(file), crlfDelay: Infinity });
   for await (const line of rl) {
@@ -108,6 +108,7 @@ async function readSession(file) {
     let j; try { j = JSON.parse(line); } catch { continue; }
     seq++;
     if (!s.cwd && j.cwd) s.cwd = j.cwd;
+    if (!s.entrypoint && j.entrypoint) s.entrypoint = j.entrypoint;
     if (!s.startedAt && j.timestamp) s.startedAt = Date.parse(j.timestamp);
     if (j.type === 'custom-title') s.title = j.customTitle || s.title;
     else if (j.type === 'ai-title') s.aiTitle = j.aiTitle || j.title || s.aiTitle;
@@ -217,6 +218,11 @@ function nameProcesses(pending, names) {
   fs.writeFileSync(NAMES_FILE, JSON.stringify(names));
 }
 
+// Scheduled tasks and headless `claude -p` runs (scripts like the guitar watcher)
+function isAuto(s) {
+  return s.firstPrompt.startsWith('<scheduled-task') || s.entrypoint === 'sdk-cli';
+}
+
 async function once(dryRun) {
   const days = Number(opt('--days') || 7);
   const token = await accessToken();
@@ -233,7 +239,7 @@ async function once(dryRun) {
   const names = readNames();
   const pending = [];
   for (const { f, s } of rows) {
-    if (s.firstPrompt.startsWith('<scheduled-task')) continue;
+    if (isAuto(s)) continue;
     const key = nameKey(f.sessionId, s);
     if (!names[key] && pending.length < MAX_NAMES_PER_RUN) {
       pending.push({ key, project: projectFor(s.cwd, projects).projectName, title: s.title || s.aiTitle, lastPrompt: s.lastPrompt || s.firstPrompt, steps: s.steps });
@@ -244,7 +250,7 @@ async function once(dryRun) {
   let written = 0;
   const all = [];
   for (const { f, s } of rows) {
-    const auto = s.firstPrompt.startsWith('<scheduled-task');
+    const auto = isAuto(s);
     const autoName = auto ? (/name="([^"]+)"/.exec(s.firstPrompt) || [])[1] : '';
     const proj = projectFor(s.cwd, projects);
     // A session named after its folder ("BANANA AIRWAYS") says nothing: use what was asked
