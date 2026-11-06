@@ -111,6 +111,7 @@ export function identityFor(project) {
     hub: meta.hub && meta.hub.url ? meta.hub : null,
     stage: meta.stage || '',
     aliases: meta.aliases || [],
+    brief: meta.brief && meta.brief.syncedAt ? meta.brief : null,
   };
 }
 

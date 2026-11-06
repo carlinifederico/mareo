@@ -15,7 +15,11 @@
 //
 // plan.json: [{ "projectId": "proj-…", "hubUrl": "https://claude.ai/artifact/…",
 //               "hubTitle": "…", "sections": [{"label","url"}], "imagePath": "G:/…/key.jpg",
-//               "aliases": ["Opi"], "stage": "Preproducción" }]
+//               "aliases": ["Opi"], "stage": "Preproducción",
+//               "brief": { "summary", "facts": [{label,value,note?}],
+//                 "milestones": [{label,date:"YYYY-MM-DD"}], "nextSteps": [{who?,text}],
+//                 "meetings": [{date,title,summary?}], "sources": [{label,url}] } }]
+// `brief` is the "Al día" block of the project page; each sync replaces it whole.
 // Fields the user edited in the app (meta.locked.hub / .thumb / .icon) are
 // never overwritten.
 
@@ -184,6 +188,7 @@ async function apply(planFile, dryRun) {
     if (entry.aliases) update.aliases = entry.aliases;
     if (entry.stage) update.stage = entry.stage;
     if (entry.icon && !locked.icon) update.icon = entry.icon;
+    if (entry.brief) update.brief = { ...entry.brief, syncedAt: now };
 
     const keys = Object.keys(update);
     if (!keys.length) { console.log(`${id}: nada que actualizar${skipped.length ? ' · salteado: ' + skipped.join(', ') : ''}`); continue; }

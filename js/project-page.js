@@ -122,6 +122,14 @@ export function renderProjectPage(container, projectId) {
   hero.appendChild(art);
   page.appendChild(hero);
 
+  // --- Up to date: written by /mareo-sync from the hub, meetings and folders ---
+  if (id.brief) {
+    const row0 = el('div', 'pp-row');
+    row0.appendChild(renderBriefSummary(id.brief, id));
+    row0.appendChild(renderBriefNext(project, id.brief, id));
+    page.appendChild(row0);
+  }
+
   // --- Stages ---
   const stages = buildStages(project);
   if (stages.length) {
@@ -251,6 +259,103 @@ function renderHubPanel(project, id) {
   return card;
 }
 
+function fmtIsoDate(iso) {
+  const [y, m, d] = String(iso || '').split('-').map(Number);
+  if (!y || !m) return iso || '';
+  return d ? `${d} ${MONTHS_SHORT[m - 1].toLowerCase()} ${y}` : `${MONTHS_SHORT[m - 1].toLowerCase()} ${y}`;
+}
+
+function briefSource(brief, id) {
+  const p = el('p', 'pp-muted pp-brief-src');
+  p.append(`Actualizado solo el ${new Date(brief.syncedAt).toLocaleDateString('es-AR')}`);
+  for (const s of (brief.sources || []).slice(0, 4)) {
+    p.append(' · ');
+    const a = el('a', null, s.label);
+    a.href = s.url;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.style.color = id.color;
+    p.appendChild(a);
+  }
+  return p;
+}
+
+// Summary, key facts and dated milestones that /mareo-sync gathered.
+function renderBriefSummary(brief, id) {
+  const card = el('section', 'v2-card pp-brief');
+  const head = el('div', 'v2-card-head');
+  head.appendChild(el('h2', 'v2-card-title', 'Al día'));
+  card.appendChild(head);
+  if (brief.summary) card.appendChild(el('p', 'pp-brief-summary', brief.summary));
+  if ((brief.facts || []).length) {
+    const grid = el('dl', 'pp-brief-facts');
+    for (const f of brief.facts) {
+      const box = el('div', 'pp-brief-fact');
+      box.append(el('dt', null, f.label), el('dd', null, f.value));
+      if (f.note) box.appendChild(el('dd', 'pp-muted', f.note));
+      grid.appendChild(box);
+    }
+    card.appendChild(grid);
+  }
+  const ms = (brief.milestones || []).filter(m => m.date).sort((a, b) => a.date.localeCompare(b.date));
+  if (ms.length) {
+    card.appendChild(el('h3', 'pp-brief-h', 'Hitos'));
+    const ul = el('ul', 'pp-brief-list');
+    const today = new Date().toISOString().slice(0, 10);
+    for (const m of ms) {
+      const li = el('li', m.date < today ? 'past' : null);
+      li.append(el('span', 'pp-brief-date', fmtIsoDate(m.date)), el('span', null, m.label));
+      ul.appendChild(li);
+    }
+    card.appendChild(ul);
+  }
+  card.appendChild(briefSource(brief, id));
+  return card;
+}
+
+// Next steps (each one can become a project note) and the latest meetings.
+function renderBriefNext(project, brief, id) {
+  const card = el('section', 'v2-card pp-brief-next');
+  const head = el('div', 'v2-card-head');
+  head.appendChild(el('h2', 'v2-card-title', 'Próximos pasos'));
+  card.appendChild(head);
+  const steps = brief.nextSteps || [];
+  if (!steps.length) card.appendChild(el('p', 'pp-muted', 'Sin pasos pendientes en las fuentes.'));
+  const have = new Set((project.projectNotes || []).map(n => (n.title || '').trim()));
+  const ul = el('ul', 'pp-brief-list');
+  for (const s of steps) {
+    const li = el('li');
+    if (s.who) li.appendChild(el('span', 'pp-brief-who', s.who));
+    li.appendChild(el('span', null, s.text));
+    if (canEdit(project)) {
+      const added = have.has(s.text.trim());
+      const b = el('button', 'pp-brief-add', added ? 'En notas' : '+ Nota');
+      b.type = 'button';
+      b.disabled = added;
+      b.title = added ? 'Ya está en tus notas' : 'Copiar a las notas del proyecto';
+      b.addEventListener('click', () => {
+        Store.addProjectNote(project.id, { title: s.text, content: '' });
+        rerender();
+      });
+      li.appendChild(b);
+    }
+    ul.appendChild(li);
+  }
+  card.appendChild(ul);
+  const meets = (brief.meetings || []).slice(0, 5);
+  if (meets.length) {
+    card.appendChild(el('h3', 'pp-brief-h', 'Últimas reuniones'));
+    const mu = el('ul', 'pp-brief-list');
+    for (const m of meets) {
+      const li = el('li');
+      li.append(el('span', 'pp-brief-date', fmtIsoDate(m.date)), el('span', null, m.title + (m.summary ? ` — ${m.summary}` : '')));
+      mu.appendChild(li);
+    }
+    card.appendChild(mu);
+  }
+  return card;
+}
+
 function hubUrlForm(project, id, labelText) {
   const form = el('form', 'pp-inline-form');
   const fid = `hub-url-${project.id}`;
@@ -339,7 +444,11 @@ function renderMiniTimeline(project, id) {
   const rows = taskTree(project);
   const yearDays = 366;
   const doy = todayDoy();
-  if (!rows.length) card.appendChild(el('p', 'pp-muted', 'Sin tareas en el timeline.'));
+  const year = new Date().getFullYear();
+  const marks = ((id.brief && id.brief.milestones) || [])
+    .filter(m => /^\d{4}-\d{2}-\d{2}$/.test(m.date || '') && Number(m.date.slice(0, 4)) === year)
+    .map(m => ({ ...m, doy: Math.floor((new Date(m.date + 'T12:00') - new Date(year, 0, 1)) / 86400000) }));
+  if (!rows.length && !marks.length) card.appendChild(el('p', 'pp-muted', 'Sin tareas en el timeline.'));
   else {
     const scroll = el('div', 'pp-tl-scroll');
     const grid = el('div', 'pp-tl');
@@ -360,6 +469,22 @@ function renderMiniTimeline(project, id) {
       bar.title = `${t.label} · ${fmtDoy(s)} → ${fmtDoy(s + d - 1)}`;
       if (editable) attachBarEditing(bar, track, t, yearDays);
       track.appendChild(bar);
+      r.appendChild(track);
+      grid.appendChild(r);
+    }
+    // Milestones from /mareo-sync: read-only diamonds on their own row
+    if (marks.length) {
+      const r = el('div', 'pp-tl-row');
+      r.appendChild(el('span', 'pp-tl-label pp-muted', 'Hitos'));
+      const track = el('div', 'pp-tl-track');
+      for (const m of marks) {
+        const dot = el('span', 'pp-tl-mark');
+        dot.style.left = `${(m.doy / yearDays) * 100}%`;
+        dot.style.background = id.color;
+        dot.title = `${m.label} · ${fmtIsoDate(m.date)}`;
+        dot.setAttribute('aria-label', dot.title);
+        track.appendChild(dot);
+      }
       r.appendChild(track);
       grid.appendChild(r);
     }

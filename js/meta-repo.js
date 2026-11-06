@@ -7,7 +7,9 @@
 //
 //   projectMeta/{projectId} — identity + hub, shared by the project's members:
 //     { icon, monogram, color, stage, aliases[], hub:{url,title,source,syncedAt,
-//       sections:[{label,url}]}, thumb (webp dataURL), locked:{hub,thumb,icon} }
+//       sections:[{label,url}]}, thumb (webp dataURL), locked:{hub,thumb,icon},
+//       brief:{syncedAt, summary, facts[], milestones[], nextSteps[], meetings[],
+//       sources[]} — the project page's "Al día" block, written only by the sync }
 //   mareo_v2/{uid}          — per-user v2 state: eventAssignments, title rules,
 //                             cached monthly meeting stats.
 //

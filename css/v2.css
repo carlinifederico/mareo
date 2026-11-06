@@ -566,6 +566,41 @@ button, input, select, textarea { font-family: inherit; }
 .pp-inline-form .v2-input { flex: 1 1 240px; }
 .pp-identity .pp-inline-form, .pp-field .pp-inline-form { padding: 0; }
 
+/* "Al día": brief written by /mareo-sync (projectMeta.brief) */
+.pp-brief { flex: 999 1 560px; }
+.pp-brief-next { flex: 1 1 320px; }
+.pp-brief-summary { margin: 0 0 16px; font-size: 16px; line-height: 1.5; max-width: 70ch; }
+.pp-brief-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 10px;
+  margin: 0 0 16px;
+}
+.pp-brief-fact { border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; }
+.pp-brief-fact dt { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
+.pp-brief-fact dd { margin: 2px 0 0; font-weight: 600; }
+.pp-brief-fact dd.pp-muted { font-weight: 400; font-size: 12.5px; }
+.pp-brief-h { margin: 18px 0 8px; font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
+.pp-brief-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; font-size: 14.5px; }
+.pp-brief-list li { display: flex; align-items: baseline; gap: 10px; }
+.pp-brief-list li > span:last-of-type { flex: 1; min-width: 0; }
+.pp-brief-list li.past { opacity: 0.5; }
+.pp-brief-date { flex: none; width: 92px; font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); }
+.pp-brief-who { flex: none; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--bg-elev); }
+.pp-brief-add {
+  flex: none;
+  font: inherit; font-size: 12px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+}
+.pp-brief-add:hover:not(:disabled) { border-color: #5A5C64; }
+.pp-brief-add:disabled { cursor: default; color: var(--text-muted); border-color: transparent; }
+.pp-brief-src { margin: 16px 0 0; font-size: 12.5px; }
+
 /* Notes: Task Board rows (board.js createNoteRow), sized for the page */
 .pp-notes-body { display: flex; flex-direction: column; gap: 2px; }
 .pp-notes .board-note-row {
@@ -620,6 +655,15 @@ button, input, select, textarea { font-family: inherit; }
 .pp-tl-track { position: relative; flex: 1; height: 28px; background: #1F2125; border-radius: 8px; }
 .pp-tl-bar { position: absolute; top: 0; bottom: 0; border-radius: 8px; }
 .pp-tl-bar.sub { top: 5px; bottom: 5px; }
+.pp-tl-mark {
+  position: absolute;
+  top: 50%;
+  width: 12px; height: 12px;
+  margin: -6px 0 0 -6px;
+  transform: rotate(45deg);
+  border-radius: 2px;
+  box-shadow: 0 0 0 2px #1F2125;
+}
 .pp-tl-bar.editable { cursor: grab; touch-action: none; }
 .pp-tl-bar.editable:active { cursor: grabbing; }
 .pp-tl-bar.editable:hover { box-shadow: 0 0 0 2px var(--text); }
