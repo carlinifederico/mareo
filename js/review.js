@@ -26,6 +26,7 @@ const NEEDS = {
 };
 
 let items = null;       // null = not loaded yet
+let claude = null;      // workItems/claude-status: plan limits, extra usage
 let loadedAt = 0;
 let loading = false;
 let loadError = '';
@@ -61,7 +62,9 @@ async function load() {
   try {
     const snap = await getDocs(query(collection(db, 'workItems'), where('ownerUid', '==', Store._uid)));
     const since = Date.now() - DAYS * 86400000;
-    items = snap.docs.map(d => d.data()).filter(x => !x.auto && (x.updatedAt || 0) >= since);
+    const docs = snap.docs.map(d => d.data());
+    claude = docs.find(x => x.kind === 'claude-status') || null;
+    items = docs.filter(x => !x.kind && !x.auto && (x.updatedAt || 0) >= since);
     loadError = '';
   } catch (err) {
     loadError = err?.code || String(err);
@@ -151,6 +154,7 @@ export function renderReview(container) {
   // Every process falls in one kind; the filter shows one kind or all but the done ones
   const kinds = { progress: [], check: [], scheduled: [], done: [] };
   for (const it of items) kinds[kindOf(it)]?.push(it);
+  page.appendChild(claudePanel(kinds));
   const filters = el('div', 'v2-segmented rv-filters');
   filters.setAttribute('role', 'group');
   filters.setAttribute('aria-label', 'Filtrar');
@@ -181,6 +185,65 @@ export function renderReview(container) {
   if (!ordered.length) page.appendChild(el('p', 'pp-muted rv-empty', 'Nada acá.'));
   for (const g of ordered) page.appendChild(projectCard(g));
   container.appendChild(page);
+}
+
+function untilText(ms) {
+  const min = Math.max(0, Math.round((ms - Date.now()) / 60000));
+  const d = Math.floor(min / 1440), h = Math.floor((min % 1440) / 60), m = min % 60;
+  return d ? `${d} d ${h} h` : h ? `${h} h ${m} min` : `${m} min`;
+}
+
+// General view of Claude: plan limits with their reset, extra usage, and how
+// many processes are in each state across every project.
+function claudePanel(kinds) {
+  const card = el('section', 'v2-card rv-claude');
+  const head = el('div', 'rv-claude-head');
+  head.appendChild(el('h2', 'rv-claude-title', 'Claude'));
+  if (claude?.plan) head.appendChild(el('span', 'rv-status', `Plan ${claude.plan}`));
+  card.appendChild(head);
+
+  const grid = el('div', 'rv-claude-grid');
+  const limits = el('div', 'rv-limits');
+  const windows = [...(claude?.windows || [])];
+  if (claude?.fiveHour != null) windows.unshift({ id: 'five', label: 'Últimas 5 horas', percentUsed: claude.fiveHour });
+  if (!windows.length) limits.appendChild(el('p', 'pp-muted', 'Sin datos de uso todavía.'));
+  for (const w of windows) {
+    const pct = Math.min(100, Math.max(0, Math.round(w.percentUsed || 0)));
+    const l = el('div', `rv-limit${pct >= 90 ? ' full' : pct >= 70 ? ' high' : ''}`);
+    const top = el('div', 'rv-limit-top');
+    top.append(el('span', null, w.label), el('b', null, `${pct}%`));
+    l.appendChild(top);
+    l.appendChild(progressBar(pct, pct >= 90 ? '#E9705C' : pct >= 70 ? '#E9A15C' : '#8FCB86'));
+    if (w.resetsAt) {
+      const d = new Date(w.resetsAt);
+      l.appendChild(el('span', 'rv-limit-reset', `Se reinicia ${WEEKDAYS[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1} ${d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })} · en ${untilText(w.resetsAt)}`));
+    }
+    limits.appendChild(l);
+  }
+  const ex = claude?.extraUsage;
+  if (ex && ex.enabled) {
+    const x = el('div', 'rv-extra');
+    x.append(el('span', null, 'Uso extra activo'), el('b', null, `${ex.currency || 'USD'} ${Number(ex.spent || 0).toFixed(2)}`));
+    if (claude.planTakenAt) x.appendChild(el('span', 'rv-limit-reset', `gastado · dato ${ago(claude.planTakenAt)}`));
+    limits.appendChild(x);
+  }
+  grid.appendChild(limits);
+
+  const counts = el('div', 'rv-counts');
+  const working = kinds.progress.filter(x => x.status === 'running').length;
+  for (const [n, label, cls] of [
+    [working, 'trabajando ahora', 'running'],
+    [kinds.progress.length - working, 'en curso', 'progress'],
+    [kinds.check.length, 'para revisar', 'check'],
+    [kinds.scheduled.length, 'programadas', 'scheduled'],
+  ]) {
+    const c = el('div', `rv-count ${cls}`);
+    c.append(el('b', null, String(n)), el('span', null, label));
+    counts.appendChild(c);
+  }
+  grid.appendChild(counts);
+  card.appendChild(grid);
+  return card;
 }
 
 // progress: in course · check: finished, asked or stopped, waiting for the user

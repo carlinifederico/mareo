@@ -247,6 +247,45 @@ function scheduledTasks() {
   return out;
 }
 
+// ---- Claude plan status -----------------------------------------------------
+// The desktop app samples plan usage into %APPDATA%/Claude/plan-usage-history.json
+// ({ t, org, u: { fh: 5-hour %, sd: weekly % } }). The plan name, reset times
+// and extra-usage spend come from a snapshot a Claude session saves in
+// mareo-tools/plan.json (the get_usage tool); weekly reset times roll forward.
+function claudeStatus() {
+  const status = { ownerUid: OWNER_UID, sessionId: 'claude-status', kind: 'claude-status', syncedAt: Date.now() };
+  try {
+    const hist = JSON.parse(fs.readFileSync(path.join(process.env.APPDATA || '', 'Claude', 'plan-usage-history.json'), 'utf8'));
+    const samples = (hist.samples || []).filter(s => s && s.u);
+    const org = samples.length ? samples[samples.length - 1].org : null;
+    const mine = samples.filter(s => s.org === org);
+    const last = mine[mine.length - 1];
+    if (last) {
+      status.sampledAt = last.t;
+      if (last.u.sd != null) status.weekly = last.u.sd;
+      if (last.u.fh != null) status.fiveHour = last.u.fh;
+    }
+    // Weekly % over the last 14 days, one point per sample, for a small chart
+    const since = Date.now() - 14 * 86400000;
+    status.weeklyHistory = mine.filter(s => s.t >= since && s.u.sd != null).map(s => ({ t: s.t, v: s.u.sd }));
+  } catch { /* no history yet */ }
+  try {
+    const snap = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'plan.json'), 'utf8'));
+    status.plan = snap.plan || '';
+    status.planTakenAt = Date.parse(snap.takenAt) || null;
+    status.windows = (snap.windows || []).map(w => {
+      let resetsAt = Date.parse(w.resetsAt) || 0;
+      const period = (w.periodDays || 0) * 86400000;
+      while (period && resetsAt && resetsAt < Date.now()) resetsAt += period;
+      // The live weekly % beats the snapshot when it is newer
+      const live = w.id === 'weekly' && status.weekly != null && (status.sampledAt || 0) > (status.planTakenAt || 0);
+      return { id: w.id, label: w.label, percentUsed: live ? status.weekly : w.percentUsed, resetsAt };
+    });
+    if (snap.extraUsage) status.extraUsage = snap.extraUsage;
+  } catch { /* no snapshot yet */ }
+  return status;
+}
+
 // Scheduled tasks and headless `claude -p` runs (scripts like the guitar watcher)
 function isAuto(s) {
   return s.firstPrompt.startsWith('<scheduled-task') || s.entrypoint === 'sdk-cli';
@@ -347,6 +386,16 @@ async function once(dryRun) {
     });
     if (!res.ok) throw new Error(`workItems/${item.sessionId} → ${res.status} ${await res.text()}`);
     written++;
+  }
+  const cs = claudeStatus();
+  if (dryRun) console.log('claude-status', JSON.stringify({ ...cs, weeklyHistory: (cs.weeklyHistory || []).length }));
+  else {
+    const res = await fetch(`${DB}/workItems/claude-status`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fields: Object.fromEntries(Object.entries(cs).map(([k, v]) => [k, toValue(v)])) }),
+    });
+    if (!res.ok) throw new Error(`workItems/claude-status → ${res.status} ${await res.text()}`);
   }
   if (all.length) console.log(JSON.stringify(all));
   if (!dryRun) console.log(`${new Date().toLocaleTimeString('es-AR')} · ${written} sesiones actualizadas`);

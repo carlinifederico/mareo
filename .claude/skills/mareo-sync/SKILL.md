@@ -69,7 +69,11 @@ only for hubs already linked (Opi, NATURIS); never pull a brief from someone els
      Next steps become notes only when the user clicks "+ Nota" on the project page.
 7. Run `node tools/mareo-sync.mjs --apply <plan.json> --dry-run`, then without `--dry-run`.
    In an interactive session show the dry-run summary first; in the scheduled run just apply.
-8. Report which projects got a hub, thumbnail or brief, and list artifacts or folders you could
+8. Refresh the Claude plan snapshot for the Revisar tab: call `mcp__ccd_session_mgmt__get_usage` and
+   write `%LOCALAPPDATA%\mareo-tools\plan.json` as `{ takenAt, plan, windows: [{ id: "weekly" |
+   "weekly-<model>", label (Spanish), percentUsed, resetsAt, periodDays: 7 }], extraUsage: { enabled,
+   spent (number), currency } }`. `tools/mareo-work.mjs` (every 5 minutes) publishes it.
+9. Report which projects got a hub, thumbnail or brief, and list artifacts or folders you could
    not match to a project (ask, don't guess). The app picks changes up on reload.
 
 ## Notes

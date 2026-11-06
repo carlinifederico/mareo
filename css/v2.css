@@ -589,6 +589,29 @@ button, input, select, textarea { font-family: inherit; }
 .rv-part.done .rv-part-title { color: var(--text-muted); }
 .rv-status.scheduled { background: rgba(185, 140, 255, 0.16); color: #B98CFF; }
 .rv-filters { align-self: flex-start; }
+.rv-claude { display: flex; flex-direction: column; gap: 14px; }
+.rv-claude-head { display: flex; align-items: center; gap: 10px; }
+.rv-claude-title { margin: 0; font-size: 18px; font-weight: 700; }
+.rv-claude-grid { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+.rv-limits { display: flex; flex-direction: column; gap: 12px; }
+.rv-limit { display: flex; flex-direction: column; gap: 5px; }
+.rv-limit-top { display: flex; justify-content: space-between; gap: 10px; font-size: 13.5px; }
+.rv-limit-top b { font-variant-numeric: tabular-nums; }
+.rv-limit.full .rv-limit-top b { color: #E9705C; }
+.rv-limit.high .rv-limit-top b { color: #E9A15C; }
+.rv-limit .rv-bar { flex: none; height: 10px; }
+.rv-limit-reset { font-size: 12px; color: var(--text-muted); }
+.rv-extra { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 10px 12px; border-radius: 10px; background: rgba(233, 161, 92, 0.1); font-size: 13.5px; }
+.rv-extra b { color: #E9A15C; font-size: 16px; }
+.rv-counts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.rv-count { border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; }
+.rv-count b { font-size: 26px; font-weight: 700; line-height: 1.1; }
+.rv-count span { font-size: 12.5px; color: var(--text-muted); }
+.rv-count.running b { color: #6FD3FF; }
+.rv-count.progress b { color: #6FD3FF; }
+.rv-count.check b { color: #8FCB86; }
+.rv-count.scheduled b { color: #B98CFF; }
+@media (max-width: 760px) { .rv-claude-grid { grid-template-columns: 1fr; } }
 .rv-part-n { font-family: var(--font-mono); font-size: 11px; padding: 0 7px; border-radius: 999px; background: rgba(255, 255, 255, 0.08); color: var(--text); letter-spacing: 0; }
 .rv-project .rv-row.live .rv-proc { font-size: 20px; }
 .rv-project .rv-row.live .rv-bar { height: 12px; }
