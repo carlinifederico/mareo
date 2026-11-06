@@ -65,6 +65,13 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
+    // v2: one doc per local Claude Code session (Revisar tab). Written only by
+    // tools/mareo-work.mjs as the project owner; readable by its owner.
+    match /workItems/{sessionId} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.ownerUid;
+      allow write: if false;
+    }
+
     match /userProfiles/{uid} {
       // Any authenticated user can read profiles (needed to resolve
       // "invite by email" → uid). Trade-off: leaks email→uid mapping

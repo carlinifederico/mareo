@@ -16,6 +16,7 @@ import { initPan } from './pan.js';
 import { renderHome, currentRoute } from './home.js';
 import { Meta } from './meta-repo.js';
 import { setDayTasksMode } from './daytasks.js';
+import { renderReview } from './review.js';
 
 window._mareoModules = { Store };
 
@@ -27,8 +28,12 @@ let _timelineDefaultApplied = false;
 // 'home' (Studio) is v2-only: it is always the first tab and is never written
 // to visibleTabs/currentView, so v1 (same Firestore data) never sees it.
 const HOME = { id: 'home', label: 'Studio', icon: 'view-home' };
+// 'review' (Revisar) is v2-only too: always second, never in visibleTabs.
+const REVIEW = { id: 'review', label: 'Revisar', icon: 'clipboard' };
+const FIXED_TABS = ['home', 'review'];
 const ALL_VIEWS = [
   HOME,
+  REVIEW,
   { id: 'timeline', label: 'Timeline',    icon: 'view-timeline' },
   { id: 'board',    label: 'Task Board',  icon: 'view-board' },
   { id: 'expenses', label: 'Expenses',    icon: 'wallet' },
@@ -413,7 +418,7 @@ function refreshEditModeButton() {
 function switchView(view) {
   if (view === 'daytasks') resetDayTasksToToday();
   currentView = view;
-  if (view !== 'home') {
+  if (!FIXED_TABS.includes(view)) {
     Store.setView(view);
     // Leaving the Studio drops the project-page route
     if (currentRoute().projectId) history.replaceState(null, '', location.pathname + location.search);
@@ -442,21 +447,21 @@ function renderTabs() {
   nav.innerHTML = '';
 
   const visibleTabs = Store.data.visibleTabs || ['timeline'];
-  const hiddenViews = ALL_VIEWS.filter(v => v.id !== 'home' && !visibleTabs.includes(v.id));
+  const hiddenViews = ALL_VIEWS.filter(v => !FIXED_TABS.includes(v.id) && !visibleTabs.includes(v.id));
 
-  for (const viewId of ['home', ...visibleTabs.filter(v => v !== 'home')]) {
+  for (const viewId of [...FIXED_TABS, ...visibleTabs.filter(v => !FIXED_TABS.includes(v))]) {
     const viewDef = ALL_VIEWS.find(v => v.id === viewId);
     if (!viewDef) continue;
 
     const btn = document.createElement('button');
     btn.className = 'view-tab' + (viewId === currentView ? ' active' : '');
     btn.dataset.view = viewId;
-    btn.draggable = viewId !== 'home';
+    btn.draggable = !FIXED_TABS.includes(viewId);
 
     btn.insertAdjacentHTML('beforeend', `<span class="view-tab-icon">${icon(viewDef.icon)}</span>`);
     btn.appendChild(document.createTextNode(viewDef.label));
 
-    if (viewId !== 'home' && visibleTabs.length > 1) {
+    if (!FIXED_TABS.includes(viewId) && visibleTabs.length > 1) {
       const close = document.createElement('span');
       close.className = 'tab-close';
       close.innerHTML = icon('close');
@@ -499,7 +504,7 @@ function renderTabs() {
       _tabDragId = null;
     });
     btn.addEventListener('dragover', (e) => {
-      if (!_tabDragId || _tabDragId === viewId || viewId === 'home') return;
+      if (!_tabDragId || _tabDragId === viewId || FIXED_TABS.includes(viewId)) return;
       e.preventDefault();
       document.querySelectorAll('.view-tab.drag-over').forEach(t => t.classList.remove('drag-over'));
       btn.classList.add('drag-over');
@@ -606,6 +611,8 @@ function render() {
     renderBalance(document.getElementById('balance-body'));
   } else if (currentView === 'daytasks') {
     renderDayTasks(document.getElementById('daytasks-body'));
+  } else if (currentView === 'review') {
+    renderReview(document.getElementById('review-body'));
   }
 }
 
