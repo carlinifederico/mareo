@@ -38,7 +38,7 @@ const MAX_LINE = 400 * 1024; // skip giant tool results; titles and plans are sm
 // Session folder → MAREO project. Matched against the session's cwd, accent-insensitive.
 // Folders not listed here are matched to a MAREO project with the same name.
 const FOLDER_PROJECTS = [
-  [/banana airways/, 'proj-eed460ef-50cd-4605-a4ab-aad252ccadda', 'BANANA AIRWAYS'],
+  [/banana airways|avioncito/, 'proj-eed460ef-50cd-4605-a4ab-aad252ccadda', 'BANANA AIRWAYS'],
   [/the silence between|[\\/]opi\b/, 'proj-silence', 'OPI AND THE QUIET ONES'],
   [/[\\/]mareo\b/, null, 'MAREO'],
 ];
