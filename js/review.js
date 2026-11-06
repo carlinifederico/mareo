@@ -186,9 +186,18 @@ function projectCard(g) {
   const running = g.list.filter(inCourse).sort((a, b) => b.updatedAt - a.updatedAt);
   const rest = g.list.filter(x => !inCourse(x))
     .sort((a, b) => (NEEDS[a.status]?.rank ?? 9) - (NEEDS[b.status]?.rank ?? 9) || b.updatedAt - a.updatedAt);
-  for (const it of running) sec.appendChild(row(it, 'working'));
-  for (const it of rest) sec.appendChild(row(it, 'needs'));
+  if (running.length) sec.appendChild(part('En progreso', 'progress', running, 'working'));
+  if (rest.length) sec.appendChild(part('Terminadas · para chequear', 'check', rest, 'needs'));
   return sec;
+}
+
+function part(title, cls, list, kind) {
+  const box = el('div', `rv-part ${cls}`);
+  const h = el('div', 'rv-part-title');
+  h.append(title, el('span', 'rv-part-n', String(list.length)));
+  box.appendChild(h);
+  for (const it of list) box.appendChild(row(it, kind));
+  return box;
 }
 
 function block(title, list, emptyText, kind) {
@@ -237,7 +246,8 @@ function row(it, kind) {
 
   const pct = pctOf(it);
   const prog = el('div', 'rv-prog');
-  if (pct != null) prog.append(progressBar(pct, color), el('span', 'rv-pct', `${pct}%`));
+  // Only work in progress gets a bar; a finished one at 100% would read as progress too
+  if (kind === 'working' && pct != null) prog.append(progressBar(pct, color), el('span', 'rv-pct', `${pct}%`));
   r.appendChild(prog);
   r.appendChild(el('span', 'rv-when', ago(it.updatedAt)));
 

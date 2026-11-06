@@ -576,6 +576,14 @@ button, input, select, textarea { font-family: inherit; }
 .rv-project-name { margin: 2px 0 4px; display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 700; }
 .rv-project-name .rv-dot { width: 12px; height: 12px; }
 .rv-project .rv-proj { display: none; }
+.rv-project { gap: 10px; }
+.rv-part { border-radius: 12px; padding: 4px 14px 6px; }
+.rv-part.progress { background: rgba(111, 211, 255, 0.07); border: 1px solid rgba(111, 211, 255, 0.35); }
+.rv-part.check { background: rgba(143, 203, 134, 0.05); border: 1px dashed rgba(143, 203, 134, 0.35); }
+.rv-part-title { display: flex; align-items: center; gap: 8px; padding: 8px 0 2px; font-size: 11.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+.rv-part.progress .rv-part-title { color: #6FD3FF; }
+.rv-part.check .rv-part-title { color: #8FCB86; }
+.rv-part-n { font-family: var(--font-mono); font-size: 11px; padding: 0 7px; border-radius: 999px; background: rgba(255, 255, 255, 0.08); color: var(--text); letter-spacing: 0; }
 .rv-project .rv-row.live .rv-proc { font-size: 20px; }
 .rv-project .rv-row.live .rv-bar { height: 12px; }
 .rv-project .rv-row.live .rv-pct { font-size: 15px; font-weight: 700; color: var(--text); width: 44px; }
