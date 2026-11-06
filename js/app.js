@@ -105,7 +105,24 @@ function loadMeta() {
   Meta.init(Store._uid, ids).catch(err => console.warn('meta load failed', err));
 }
 
+// An open tab keeps running the code it loaded. When a newer deploy is out
+// (index.html points at a different app.js?v=), reload as the user comes back
+// to the tab, so fixes reach them without a manual refresh.
+const BUILD = new URL(document.querySelector('script[src*="js/app.js"]')?.src || location.href).searchParams.get('v');
+async function reloadIfNewBuild() {
+  if (!BUILD) return;
+  try {
+    const html = await (await fetch('index.html', { cache: 'no-store' })).text();
+    const live = /js\/app\.js\?v=(\w+)/.exec(html)?.[1];
+    if (live && live !== BUILD) location.reload();
+  } catch { /* offline: keep the current build */ }
+}
+
 function initApp() {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') reloadIfNewBuild();
+  });
+  reloadIfNewBuild();
   initDragDrop();
   initBoardDrag();
   initTodayPanel();
