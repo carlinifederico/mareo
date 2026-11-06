@@ -583,6 +583,12 @@ button, input, select, textarea { font-family: inherit; }
 .rv-part-title { display: flex; align-items: center; gap: 8px; padding: 8px 0 2px; font-size: 11.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
 .rv-part.progress .rv-part-title { color: #6FD3FF; }
 .rv-part.check .rv-part-title { color: #8FCB86; }
+.rv-part.scheduled { background: rgba(185, 140, 255, 0.06); border: 1px solid rgba(185, 140, 255, 0.35); }
+.rv-part.scheduled .rv-part-title { color: #B98CFF; }
+.rv-part.done { border: 1px solid var(--border); opacity: 0.75; }
+.rv-part.done .rv-part-title { color: var(--text-muted); }
+.rv-status.scheduled { background: rgba(185, 140, 255, 0.16); color: #B98CFF; }
+.rv-filters { align-self: flex-start; }
 .rv-part-n { font-family: var(--font-mono); font-size: 11px; padding: 0 7px; border-radius: 999px; background: rgba(255, 255, 255, 0.08); color: var(--text); letter-spacing: 0; }
 .rv-project .rv-row.live .rv-proc { font-size: 20px; }
 .rv-project .rv-row.live .rv-bar { height: 12px; }

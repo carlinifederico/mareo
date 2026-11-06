@@ -2,8 +2,10 @@
 // running across the user's projects, so they can tell at a glance which ones
 // need them. One card per project (projects with something running first);
 // inside, the running processes on top with their percentage, then the ones
-// waiting for the user: a question, stopped halfway, or finished to review.
-// Processes the user ticked ("ya lo vi, me olvido") fold into "Dormidas".
+// waiting for the user: a question, stopped halfway, or finished to review;
+// then one-time scheduled tasks that have not started, with their start date.
+// Processes the user ticked ("ya lo vi, me olvido") move to "Terminadas".
+// A filter shows one kind at a time: En proceso, Revisar, Programadas, Terminadas.
 // A ticked process sleeps until the user asks that session something new
 // (its userTurns grows), whatever Claude keeps doing on its own.
 // Data comes from workItems/{sessionId}, written by tools/mareo-work.mjs from
@@ -27,7 +29,8 @@ let items = null;       // null = not loaded yet
 let loadedAt = 0;
 let loading = false;
 let loadError = '';
-let showSleeping = false;
+let filter = 'all';
+const FILTERS = [['all', 'Todo'], ['progress', 'En proceso'], ['check', 'Revisar'], ['scheduled', 'Programadas'], ['done', 'Terminadas']];
 const open = new Set(); // rows with their steps unfolded
 let timer = null;
 
@@ -145,37 +148,51 @@ export function renderReview(container) {
   }
   if (loadError) page.appendChild(el('p', 'rv-error', `No pude leer las sesiones (${loadError}).`));
 
-  const awake = items.filter(x => !isSleeping(x));
-  const sleeping = items.filter(isSleeping).sort((a, b) => b.updatedAt - a.updatedAt);
+  // Every process falls in one kind; the filter shows one kind or all but the done ones
+  const kinds = { progress: [], check: [], scheduled: [], done: [] };
+  for (const it of items) kinds[kindOf(it)]?.push(it);
+  const filters = el('div', 'v2-segmented rv-filters');
+  filters.setAttribute('role', 'group');
+  filters.setAttribute('aria-label', 'Filtrar');
+  for (const [id, label] of FILTERS) {
+    const n = id === 'all' ? items.length - kinds.done.length : kinds[id].length;
+    const b = el('button', filter === id ? 'on' : '', `${label} ${n}`);
+    b.type = 'button';
+    b.setAttribute('aria-pressed', String(filter === id));
+    b.addEventListener('click', () => { filter = id; rerender(); });
+    filters.appendChild(b);
+  }
+  page.appendChild(filters);
 
-  // One card per project; projects with something running first
+  const shown = items.filter(it => filter === 'all' ? kindOf(it) !== 'done' : kindOf(it) === filter);
+
+  // One card per project; projects with something in progress first
   const groups = new Map();
-  for (const it of awake) {
+  for (const it of shown) {
     const key = it.projectId || it.projectName;
     if (!groups.has(key)) groups.set(key, { name: it.projectName, color: projectColor(it), list: [] });
     groups.get(key).list.push(it);
   }
   const ordered = [...groups.values()].map(g => ({
     ...g,
-    running: g.list.some(inCourse),
-    last: Math.max(...g.list.map(x => x.updatedAt || 0)),
+    running: g.list.some(x => kindOf(x) === 'progress'),
+    last: Math.max(...g.list.map(x => x.scheduledFor || x.updatedAt || 0)),
   })).sort((a, b) => (b.running - a.running) || b.last - a.last);
-  if (!ordered.length) page.appendChild(el('p', 'pp-muted rv-empty', 'Nada pendiente.'));
+  if (!ordered.length) page.appendChild(el('p', 'pp-muted rv-empty', 'Nada acá.'));
   for (const g of ordered) page.appendChild(projectCard(g));
-
-  if (sleeping.length) {
-    const t = el('button', 'rv-sleep-toggle', `${showSleeping ? '▾' : '▸'} Dormidas (${sleeping.length})`);
-    t.type = 'button';
-    t.setAttribute('aria-expanded', String(showSleeping));
-    t.addEventListener('click', () => { showSleeping = !showSleeping; rerender(); });
-    page.appendChild(t);
-    if (showSleeping) page.appendChild(block(null, sleeping, '', 'sleeping'));
-  }
   container.appendChild(page);
 }
 
-// A project: its running processes on top with their progress, then what
-// waits for the user (question, stopped halfway, finished to review).
+// progress: in course · check: finished, asked or stopped, waiting for the user
+// scheduled: a one-time scheduled task that has not started · done: ticked by the user
+function kindOf(it) {
+  if (it.status === 'scheduled') return (it.scheduledFor || 0) > Date.now() ? 'scheduled' : null;
+  if (isSleeping(it)) return 'done';
+  return inCourse(it) ? 'progress' : 'check';
+}
+
+// A project: in progress on top with its percentage, then what waits for the
+// user, then what is scheduled to start (and, under Terminadas, what is done).
 function projectCard(g) {
   const sec = el('section', `v2-card rv-project${g.running ? ' live' : ''}`);
   sec.style.setProperty('--proj', g.color);
@@ -183,11 +200,15 @@ function projectCard(g) {
   head.append(el('span', 'rv-dot'), g.name);
   if (g.running) head.appendChild(el('span', 'rv-status running', 'En curso'));
   sec.appendChild(head);
-  const running = g.list.filter(inCourse).sort((a, b) => b.updatedAt - a.updatedAt);
-  const rest = g.list.filter(x => !inCourse(x))
-    .sort((a, b) => (NEEDS[a.status]?.rank ?? 9) - (NEEDS[b.status]?.rank ?? 9) || b.updatedAt - a.updatedAt);
-  if (running.length) sec.appendChild(part('En progreso', 'progress', running, 'working'));
-  if (rest.length) sec.appendChild(part('Terminadas · para chequear', 'check', rest, 'needs'));
+  const of = (k) => g.list.filter(x => kindOf(x) === k);
+  const progress = of('progress').sort((a, b) => b.updatedAt - a.updatedAt);
+  const check = of('check').sort((a, b) => (NEEDS[a.status]?.rank ?? 9) - (NEEDS[b.status]?.rank ?? 9) || b.updatedAt - a.updatedAt);
+  const scheduled = of('scheduled').sort((a, b) => a.scheduledFor - b.scheduledFor);
+  const done = of('done').sort((a, b) => b.updatedAt - a.updatedAt);
+  if (progress.length) sec.appendChild(part('En progreso', 'progress', progress, 'working'));
+  if (check.length) sec.appendChild(part('Terminadas · para chequear', 'check', check, 'needs'));
+  if (scheduled.length) sec.appendChild(part('Programadas', 'scheduled', scheduled, 'scheduled'));
+  if (done.length) sec.appendChild(part('Terminadas', 'done', done, 'sleeping'));
   return sec;
 }
 
@@ -200,16 +221,21 @@ function part(title, cls, list, kind) {
   return box;
 }
 
-function block(title, list, emptyText, kind) {
-  const sec = el('section', `v2-card rv-block ${kind}`);
-  if (title) {
-    const h = el('h2', 'rv-block-title');
-    h.append(title, el('span', 'rv-block-n', String(list.length)));
-    sec.appendChild(h);
-  }
-  if (!list.length) sec.appendChild(el('p', 'pp-muted rv-empty', emptyText));
-  for (const it of list) sec.appendChild(row(it, kind));
-  return sec;
+function inTime(ms) {
+  const h = Math.round((ms - Date.now()) / 3600000);
+  if (h < 1) return 'en minutos';
+  if (h < 24) return `en ${h} h`;
+  const d = Math.round(h / 24);
+  return d === 1 ? 'en 1 día' : `en ${d} días`;
+}
+
+const WEEKDAYS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+function whenScheduled(ms) {
+  const d = new Date(ms);
+  const days = Math.round((new Date(d).setHours(0, 0, 0, 0) - new Date().setHours(0, 0, 0, 0)) / 86400000);
+  const hm = d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+  const day = days === 0 ? 'hoy' : days === 1 ? 'mañana' : `${WEEKDAYS[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1}`;
+  return `${day} · ${hm}`;
 }
 
 function row(it, kind) {
@@ -226,6 +252,8 @@ function row(it, kind) {
   box.title = sleeping ? 'Despertar' : 'Listo, ya lo vi: dormir hasta que le pida algo';
   box.setAttribute('aria-label', `${box.title}: ${it.projectName} · ${it.process || it.title}`);
   box.addEventListener('change', () => setSleeping(it, box.checked));
+  // Nothing to tick on work that has not started yet
+  if (kind === 'scheduled') box.style.visibility = 'hidden';
   r.appendChild(box);
 
   const name = el('div', 'rv-name');
@@ -236,10 +264,12 @@ function row(it, kind) {
 
   // What it is about right now: the question, the step being worked on, or the status
   const hint = kind === 'working' ? (currentStep(it) || 'Trabajando')
+    : kind === 'scheduled' ? (it.recap || '')
     : it.status === 'decide' && it.ask ? it.ask
     : (NEEDS[it.status]?.label || '');
   const info = el('div', 'rv-info');
   if (kind === 'working') info.appendChild(el('span', 'rv-status running', it.status === 'running' ? 'Trabajando' : 'En curso'));
+  else if (kind === 'scheduled') info.appendChild(el('span', 'rv-status scheduled', `Empieza ${whenScheduled(it.scheduledFor)}`));
   else if (!sleeping && NEEDS[it.status]) info.appendChild(el('span', `rv-status ${it.status}`, NEEDS[it.status].label));
   if (hint && hint !== NEEDS[it.status]?.label && hint !== 'Trabajando') info.appendChild(el('span', 'rv-hint', hint));
   r.appendChild(info);
@@ -249,7 +279,7 @@ function row(it, kind) {
   // Only work in progress gets a bar; a finished one at 100% would read as progress too
   if (kind === 'working' && pct != null) prog.append(progressBar(pct, color), el('span', 'rv-pct', `${pct}%`));
   r.appendChild(prog);
-  r.appendChild(el('span', 'rv-when', ago(it.updatedAt)));
+  r.appendChild(el('span', 'rv-when', kind === 'scheduled' ? inTime(it.scheduledFor) : ago(it.updatedAt)));
 
   const steps = it.steps || [];
   const more = el('button', 'rv-more', open.has(it.sessionId) ? '▾' : '▸');

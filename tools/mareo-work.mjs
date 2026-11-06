@@ -218,6 +218,35 @@ function nameProcesses(pending, names) {
   fs.writeFileSync(NAMES_FILE, JSON.stringify(names));
 }
 
+// ---- Scheduled tasks ----------------------------------------------------------
+// One-time tasks scheduled in the desktop app ("arrancá el domingo con X") show
+// up as "Programadas" until they fire. The app keeps their schedule in
+// %APPDATA%/Claude/claude-code-sessions/<account>/<org>/scheduled-tasks.json;
+// recurring ones (digests, watchers) are routine and stay out.
+function scheduledTasks() {
+  const root = path.join(process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'), 'Claude', 'claude-code-sessions');
+  const out = [];
+  let accounts = [];
+  try { accounts = fs.readdirSync(root); } catch { return out; }
+  for (const a of accounts) {
+    let orgs = [];
+    try { orgs = fs.readdirSync(path.join(root, a)); } catch { continue; }
+    for (const o of orgs) {
+      const file = path.join(root, a, o, 'scheduled-tasks.json');
+      if (!fs.existsSync(file)) continue;
+      try {
+        for (const task of JSON.parse(fs.readFileSync(file, 'utf8')).scheduledTasks || []) {
+          if (!task.fireAt || task.cronExpression) continue;
+          let description = '';
+          try { description = (/^description:s*(.+)$/m.exec(fs.readFileSync(task.filePath, 'utf8')) || [])[1] || ''; } catch { /* file gone */ }
+          out.push({ ...task, description });
+        }
+      } catch { /* half-written file: next run */ }
+    }
+  }
+  return out;
+}
+
 // Scheduled tasks and headless `claude -p` runs (scripts like the guitar watcher)
 function isAuto(s) {
   return s.firstPrompt.startsWith('<scheduled-task') || s.entrypoint === 'sdk-cli';
@@ -288,6 +317,35 @@ async function once(dryRun) {
       body: JSON.stringify({ fields: Object.fromEntries(Object.entries(item).map(([k, v]) => [k, toValue(v)])) }),
     });
     if (!res.ok) throw new Error(`workItems/${f.sessionId} → ${res.status} ${await res.text()}`);
+    written++;
+  }
+  for (const task of scheduledTasks()) {
+    const proj = projectFor(task.cwd || '', projects);
+    const name = String(task.displayName || task.id).replace(/^[^:]{2,40}:s*/, '');
+    const item = {
+      ownerUid: OWNER_UID,
+      sessionId: `sched-${task.id}`,
+      ...proj,
+      folder: task.cwd || '',
+      process: clip(name, 40),
+      title: clip(task.displayName || task.id, 90),
+      auto: false,
+      status: 'scheduled',
+      scheduledFor: Number(task.fireAt),
+      enabled: !!task.enabled,
+      steps: [],
+      recap: clip(task.description, 240),
+      updatedAt: Date.now(),
+      syncedAt: Date.now(),
+    };
+    if (!task.enabled) item.scheduledFor = 0; // cancelled or already fired: hide it
+    if (dryRun) { if (flag('--json')) all.push(item); else console.log(`${item.projectName.padEnd(24)} sched    ${new Date(Number(task.fireAt)).toLocaleString('es-AR')} ${item.process}`); continue; }
+    const res = await fetch(`${DB}/workItems/${encodeURIComponent(item.sessionId)}`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fields: Object.fromEntries(Object.entries(item).map(([k, v]) => [k, toValue(v)])) }),
+    });
+    if (!res.ok) throw new Error(`workItems/${item.sessionId} → ${res.status} ${await res.text()}`);
     written++;
   }
   if (all.length) console.log(JSON.stringify(all));
