@@ -1,10 +1,9 @@
 // "Revisar" tab (v2 only): a control room for every process Claude Code is
 // running across the user's projects, so they can tell at a glance which ones
-// need them. One row per process (session), labelled PROJECT · process name,
-// in three blocks:
-//   Te necesitan     — Claude asked something, finished, or stopped halfway
-//   Claude trabajando — the session is writing right now
-//   Dormidas         — the user ticked "ya lo vi, me olvido"; folded away
+// need them. One card per project (projects with something running first);
+// inside, the running processes on top with their percentage, then the ones
+// waiting for the user: a question, stopped halfway, or finished to review.
+// Processes the user ticked ("ya lo vi, me olvido") fold into "Dormidas".
 // A ticked process sleeps until the user asks that session something new
 // (its userTurns grows), whatever Claude keeps doing on its own.
 // Data comes from workItems/{sessionId}, written by tools/mareo-work.mjs from
@@ -68,6 +67,13 @@ async function load() {
   loadedAt = Date.now();
   loading = false;
   rerender();
+}
+
+// In course: writing now, or halfway through its task list and touched today
+// (between two messages a session sits idle, but the work is still going)
+const IN_COURSE_MS = 24 * 60 * 60 * 1000;
+function inCourse(it) {
+  return it.status === 'running' || (it.status === 'paused' && Date.now() - (it.updatedAt || 0) < IN_COURSE_MS);
 }
 
 function sleepMap() {
@@ -140,13 +146,22 @@ export function renderReview(container) {
   if (loadError) page.appendChild(el('p', 'rv-error', `No pude leer las sesiones (${loadError}).`));
 
   const awake = items.filter(x => !isSleeping(x));
-  const needs = awake.filter(x => NEEDS[x.status])
-    .sort((a, b) => NEEDS[a.status].rank - NEEDS[b.status].rank || b.updatedAt - a.updatedAt);
-  const working = awake.filter(x => x.status === 'running').sort((a, b) => b.updatedAt - a.updatedAt);
   const sleeping = items.filter(isSleeping).sort((a, b) => b.updatedAt - a.updatedAt);
 
-  page.appendChild(block('Te necesitan', needs, 'Nada te espera.', 'needs'));
-  page.appendChild(block('Claude trabajando', working, 'Ninguna sesión trabajando ahora.', 'working'));
+  // One card per project; projects with something running first
+  const groups = new Map();
+  for (const it of awake) {
+    const key = it.projectId || it.projectName;
+    if (!groups.has(key)) groups.set(key, { name: it.projectName, color: projectColor(it), list: [] });
+    groups.get(key).list.push(it);
+  }
+  const ordered = [...groups.values()].map(g => ({
+    ...g,
+    running: g.list.some(inCourse),
+    last: Math.max(...g.list.map(x => x.updatedAt || 0)),
+  })).sort((a, b) => (b.running - a.running) || b.last - a.last);
+  if (!ordered.length) page.appendChild(el('p', 'pp-muted rv-empty', 'Nada pendiente.'));
+  for (const g of ordered) page.appendChild(projectCard(g));
 
   if (sleeping.length) {
     const t = el('button', 'rv-sleep-toggle', `${showSleeping ? '▾' : '▸'} Dormidas (${sleeping.length})`);
@@ -157,6 +172,23 @@ export function renderReview(container) {
     if (showSleeping) page.appendChild(block(null, sleeping, '', 'sleeping'));
   }
   container.appendChild(page);
+}
+
+// A project: its running processes on top with their progress, then what
+// waits for the user (question, stopped halfway, finished to review).
+function projectCard(g) {
+  const sec = el('section', `v2-card rv-project${g.running ? ' live' : ''}`);
+  sec.style.setProperty('--proj', g.color);
+  const head = el('h2', 'rv-project-name');
+  head.append(el('span', 'rv-dot'), g.name);
+  if (g.running) head.appendChild(el('span', 'rv-status running', 'En curso'));
+  sec.appendChild(head);
+  const running = g.list.filter(inCourse).sort((a, b) => b.updatedAt - a.updatedAt);
+  const rest = g.list.filter(x => !inCourse(x))
+    .sort((a, b) => (NEEDS[a.status]?.rank ?? 9) - (NEEDS[b.status]?.rank ?? 9) || b.updatedAt - a.updatedAt);
+  for (const it of running) sec.appendChild(row(it, 'working'));
+  for (const it of rest) sec.appendChild(row(it, 'needs'));
+  return sec;
 }
 
 function block(title, list, emptyText, kind) {
@@ -175,7 +207,7 @@ function row(it, kind) {
   const color = projectColor(it);
   const sleeping = kind === 'sleeping';
   const wrap = el('div', 'rv-row-wrap');
-  const r = el('div', `rv-row ${it.status}`);
+  const r = el('div', `rv-row ${it.status}${kind === 'working' ? ' live' : ''}`);
   r.style.setProperty('--proj', color);
 
   const box = document.createElement('input');
@@ -198,8 +230,8 @@ function row(it, kind) {
     : it.status === 'decide' && it.ask ? it.ask
     : (NEEDS[it.status]?.label || '');
   const info = el('div', 'rv-info');
-  if (!sleeping && NEEDS[it.status]) info.appendChild(el('span', `rv-status ${it.status}`, NEEDS[it.status].label));
-  if (kind === 'working') info.appendChild(el('span', 'rv-status running', 'Trabajando'));
+  if (kind === 'working') info.appendChild(el('span', 'rv-status running', it.status === 'running' ? 'Trabajando' : 'En curso'));
+  else if (!sleeping && NEEDS[it.status]) info.appendChild(el('span', `rv-status ${it.status}`, NEEDS[it.status].label));
   if (hint && hint !== NEEDS[it.status]?.label && hint !== 'Trabajando') info.appendChild(el('span', 'rv-hint', hint));
   r.appendChild(info);
 

@@ -571,6 +571,14 @@ button, input, select, textarea { font-family: inherit; }
 .rv-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .rv-title { margin: 0; font-size: 36px; font-weight: 700; letter-spacing: -0.02em; }
 .rv-error { color: #E9A15C; margin: 0; }
+.rv-project { display: flex; flex-direction: column; padding: 12px 20px 10px; }
+.rv-project.live { border-color: rgba(111, 211, 255, 0.35); }
+.rv-project-name { margin: 2px 0 4px; display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 700; }
+.rv-project-name .rv-dot { width: 12px; height: 12px; }
+.rv-project .rv-proj { display: none; }
+.rv-project .rv-row.live .rv-proc { font-size: 20px; }
+.rv-project .rv-row.live .rv-bar { height: 12px; }
+.rv-project .rv-row.live .rv-pct { font-size: 15px; font-weight: 700; color: var(--text); width: 44px; }
 .rv-block { display: flex; flex-direction: column; padding: 8px 20px 12px; }
 .rv-block.needs { border-color: rgba(245, 197, 66, 0.35); }
 .rv-block.working { border-color: rgba(111, 211, 255, 0.3); }
