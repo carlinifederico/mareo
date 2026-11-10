@@ -636,13 +636,13 @@ button, input, select, textarea { font-family: inherit; }
 .rv-name { display: flex; flex-direction: column; min-width: 0; }
 .rv-proj { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rv-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--proj); flex: none; }
-.rv-proc { font-size: 16px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rv-proc { font-size: 16px; font-weight: 700; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .rv-info { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .rv-hint { min-width: 0; font-size: 13px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rv-row.decide .rv-hint { color: #F5C542; }
 .rv-status { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--bg-elev); white-space: nowrap; flex: none; }
 .rv-status.decide { background: rgba(245, 197, 66, 0.16); color: #F5C542; }
-.rv-status.paused { background: rgba(233, 161, 92, 0.16); color: #E9A15C; }
+.rv-status.paused, .rv-status.stopped { background: rgba(233, 161, 92, 0.16); color: #E9A15C; }
 .rv-status.review { background: rgba(143, 203, 134, 0.16); color: #8FCB86; }
 .rv-status.running { background: rgba(111, 211, 255, 0.14); color: #6FD3FF; }
 .rv-prog { display: flex; align-items: center; gap: 8px; }

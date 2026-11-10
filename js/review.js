@@ -21,7 +21,8 @@ const DAYS = 7;
 const REFRESH_MS = 2 * 60 * 1000;
 const NEEDS = {
   decide: { label: 'Te pregunta',      rank: 0 },
-  paused: { label: 'Se frenó',         rank: 1 },
+  paused:  { label: 'Se frenó',        rank: 1 },
+  stopped: { label: 'Quedó a medias',  rank: 1 },
   review: { label: 'Terminó · revisá', rank: 2 },
 };
 

@@ -11,6 +11,7 @@
 //   decide   — finished a turn with a question for the user
 //   review   — finished a turn, nothing pending but checking the result
 //   paused   — has unfinished steps and nobody is working on it
+//   stopped  — an older task list left unfinished while the session moved on
 // Scheduled-task runs are flagged `auto` so the tab can fold them away.
 //
 //   node tools/mareo-work.mjs                 last 7 days, write
@@ -100,7 +101,7 @@ async function readSession(file) {
   const s = { entrypoint: '', title: '', aiTitle: '', firstPrompt: '', lastPrompt: '', cwd: '', startedAt: null, steps: [], recap: '', ask: '', lastPlanAt: 0, lastWrapAt: 0, userTurns: 0, plans: [],
     // Requests after the last task list: work done without a new list (e.g. a
     // survey worked on through many short messages). Becomes its own piece.
-    tail: [], tailAt: 0, tailRecap: '', tailAsk: '', tailWrapped: false };
+    tail: [], tailFirst: '', tailAt: 0, tailRecap: '', tailAsk: '', tailWrapped: false };
   // Every new task list (update_plan with items) is one piece of work; a long
   // session holds many, and they can belong to different processes.
   let seq = 0, recent = [], plan = null;
@@ -124,6 +125,7 @@ async function readSession(file) {
       if (!text.startsWith('<')) {
         s.lastPrompt = text; s.userTurns++;
         recent.push(clip(text, 300)); if (recent.length > 3) recent.shift();
+        if (!s.tail.length) s.tailFirst = clip(text, 300);
         s.tail.push(clip(text, 300)); if (s.tail.length > 12) s.tail.shift();
         s.tailAt = Date.parse(j.timestamp) || s.tailAt;
         s.tailWrapped = false;
@@ -135,14 +137,15 @@ async function readSession(file) {
           s.steps = applyPlan(s.steps, c.input || {});
           s.lastPlanAt = seq;
           if (Array.isArray(c.input?.items)) {
-            plan = { steps: s.steps, prompts: recent.slice(), at: Date.parse(j.timestamp) || 0, userTurns: s.userTurns, recap: '', ask: '', wrapped: false };
+            plan = { steps: s.steps, prompts: recent.slice(), at: Date.parse(j.timestamp) || 0, userTurns: s.userTurns, recap: '', ask: '', wrapped: false, seq };
             s.plans.push(plan);
             recent = [];
           } else if (plan) plan.steps = s.steps;
           if (plan) { plan.wrapped = false; plan.lastAt = Date.parse(j.timestamp) || plan.at; }
           // Requests followed by a task-list update belong to that list
-          Object.assign(s, { tail: [], tailRecap: '', tailAsk: '', tailWrapped: false });
+          Object.assign(s, { tail: [], tailFirst: '', tailRecap: '', tailAsk: '', tailWrapped: false });
         }
+        if (c.name === 'mcp__ccd_turn__wrap_up') s.lastAnyWrapSeq = seq;
         if (c.name === 'mcp__ccd_turn__wrap_up' && s.tail.length && s.plans.length) {
           // A wrap-up for work done after the last list: it closes the tail, not the list
           Object.assign(s, { tailRecap: clip(c.input?.recap, 400), tailAsk: clip(c.input?.ask, 160), tailWrapped: true });
@@ -220,7 +223,7 @@ function nameKey(sessionId, steps, context) {
 
 // Stable while no new task list starts, so the tail is named once
 function tailKey(sessionId, s) {
-  return nameKey(sessionId, [], 'tail:' + s.tail[0]);
+  return nameKey(sessionId, [], 'tail:' + s.tailFirst);
 }
 
 function readNames() {
@@ -228,15 +231,18 @@ function readNames() {
 }
 
 // One call per session that has unnamed work: Claude sees all its pieces in
-// order (already-named ones as context) and groups them into a few processes.
+// order (already-named ones as context), groups them into a few processes and\n// gives each a title the user recognizes at a glance (Sonnet: haiku's were too terse).
 function nameProcesses(groups, names) {
   for (const g of groups) {
     const known = [...new Set(Object.values(names).filter(v => v.project === g.project).map(v => v.name))];
     const prompt = [
       'Esta es una sesión de trabajo con Claude, con sus pedidos en orden. Cada pedido tiene los mensajes del usuario y la lista de pasos.',
-      'Agrupalos en POCOS procesos (los desafíos de fondo que se están haciendo, idealmente 1 a 4 por sesión) y ponele a cada proceso un nombre corto en español, de 1 a 3 palabras',
-      '(ejemplos: "Encuesta", "Spaceship Luna", "Pestaña Revisar", "Build para Jorge"). Sin el nombre del proyecto.',
-      'Pensá en el proceso de fondo, no en la tarea puntual: si imágenes, ajustes o subidas son para la encuesta, el proceso es "Encuesta".',
+      'Agrupalos en POCOS procesos (los desafíos de fondo que se están haciendo, idealmente 1 a 4 por sesión) y ponele a cada proceso un TÍTULO claro en español rioplatense.',
+      'El título tiene que dejar entender qué se está haciendo y sobre qué, para que el dueño lo reconozca de un vistazo sin abrir la sesión, como el nombre de una tarea en un tablero de producción:',
+      'de 3 a 7 palabras, con verbo o resultado concreto y el objeto concreto (qué nivel, qué pieza, para quién, qué entrega). Sin jerga técnica (nada de "geometry nodes", "gates", "push", "fork", "r2"), sin nombres de archivos ni ramas, sin el nombre del proyecto.',
+      'Buenos ejemplos: "Encuesta de niveles con las 12 imágenes", "Horizonte de la Luna en Blender", "Props de la Luna para agarrar", "Pestaña Revisar en MAREO", "Build del casco para Jorge", "Video del prototipo para el hub".',
+      'Malos ejemplos (no hagas esto): "Hub ronda 2", "Geometry nodes palco", "Push a main", "Vistas técnicas", "Encuesta".',
+      'Pensá en el proceso de fondo, no en la tarea puntual: si imágenes, ajustes o subidas son para la encuesta, el proceso es la encuesta.',
       'Los pedidos cortos de seguimiento ("dale", "sí", "y?", correcciones) van en el proceso del pedido anterior. Si un proceso ya tiene nombre (campo "nombre"), reusalo exacto.',
       'Respondé SOLO un objeto JSON {"<key>": "<nombre>"} con una entrada por cada pedido SIN nombre, sin texto extra.',
       '',
@@ -244,7 +250,7 @@ function nameProcesses(groups, names) {
       '',
       JSON.stringify(g.pieces.map(p => ({ key: p.key, nombre: names[p.key]?.name, pedidos: p.prompts.filter(Boolean).map(x => clip(x, 220)), pasos: p.steps.map(x => x.label) }))),
     ].join('\n');
-    const r = spawnSync(CLAUDE_BIN, ['-p', '--model', 'haiku', '--no-session-persistence', '--tools', ''], {
+    const r = spawnSync(CLAUDE_BIN, ['-p', '--model', 'sonnet', '--no-session-persistence', '--tools', ''], {
       input: prompt, cwd: TOOLS_DIR, encoding: 'utf8', timeout: 180000, windowsHide: true,
     });
     const m = /\{[\s\S]*\}/.exec(r.stdout || '');
@@ -252,7 +258,7 @@ function nameProcesses(groups, names) {
     let out;
     try { out = JSON.parse(m[0]); } catch { console.error('naming: bad JSON', m[0].slice(0, 200)); continue; }
     if (flag('--debug-names')) console.error('naming', g.project, JSON.stringify(out).slice(0, 600), '| asked', g.pieces.filter(p => !names[p.key]).length);
-    for (const p of g.pieces) if (!names[p.key] && typeof out[p.key] === 'string' && out[p.key].trim()) names[p.key] = { name: clip(out[p.key], 40), project: g.project };
+    for (const p of g.pieces) if (!names[p.key] && typeof out[p.key] === 'string' && out[p.key].trim()) names[p.key] = { name: clip(out[p.key], 60), project: g.project };
     fs.writeFileSync(NAMES_FILE, JSON.stringify(names));
   }
 }
@@ -358,11 +364,29 @@ async function once(dryRun) {
     if (plans.length && s.tail.length) pieces.push({ key: tailKey(f.sessionId, s), prompts: s.tail, steps: [] });
     if (pieces.some(p => !names[p.key]) && groups.length < MAX_NAMING_CALLS) groups.push({ project, pieces });
   }
+  // --dump-names <file>: write every session's pieces (named or not) for a person
+  // or a Claude session to title by hand into process-names.json
+  if (opt('--dump-names')) {
+    const allGroups = [];
+    for (const { f, s } of rows) {
+      if (isAuto(s)) continue;
+      const plans = s.plans.filter(p => (p.lastAt || p.at) >= since).slice(-MAX_PLANS_PER_SESSION);
+      const pieces = plans.map(p => ({ key: nameKey(f.sessionId, p.steps, p.prompts.join('|')), prompts: p.prompts, steps: p.steps.map(x => x.label) }));
+      if (plans.length && s.tail.length) pieces.push({ key: tailKey(f.sessionId, s), prompts: s.tail, steps: [] });
+      if (!plans.length) pieces.push({ key: nameKey(f.sessionId, s.steps, s.lastPrompt || s.title), prompts: [s.lastPrompt || s.firstPrompt], steps: s.steps.map(x => x.label) });
+      allGroups.push({ session: f.sessionId, project: projectFor(s.cwd, projects).projectName, title: s.title || s.aiTitle, pieces: pieces.map(p => ({ ...p, name: names[p.key]?.name || null, prompts: p.prompts.map(x => clip(x, 200)) })) });
+    }
+    fs.writeFileSync(opt('--dump-names'), JSON.stringify(allGroups, null, 1));
+    console.log(`${allGroups.length} sesiones → ${opt('--dump-names')}`);
+    return;
+  }
   if (!flag('--no-names')) nameProcesses(groups, names);
 
   let written = 0;
   const all = [];
+  const written_ids = new Set();
   const put = async (id, item) => {
+    written_ids.add(id);
     if (dryRun && flag('--json')) { all.push(item); return; }
     if (dryRun) {
       console.log(`${item.projectName.padEnd(24)} ${item.status.padEnd(8)} ${String(item.progress ?? '-').padStart(3)}% ${item.auto ? '[auto] ' : ''}${item.process}  ·  ${item.title}`);
@@ -443,7 +467,8 @@ async function once(dryRun) {
           : current && Date.now() - f.mtime < RUNNING_MS ? 'running'
           : p.wrapped ? (p.ask ? 'decide' : 'review')
           : current ? 'paused' // still talking about it, no wrap-up yet: in course
-          : p.steps.some(x => x.status !== 'completed') ? 'paused' : 'review',
+          // an older list left unfinished while the session moved on: stopped halfway
+          : p.steps.some(x => x.status !== 'completed') ? ((s.lastAnyWrapSeq || 0) > (p.seq || 0) ? 'stopped' : 'paused') : 'review',
         steps: p.steps.slice(0, 14),
         progress: pct(p.steps),
         recap: p.recap,
@@ -455,6 +480,26 @@ async function once(dryRun) {
       // That process may have had its own row while it was not the current one
       if (current && !dryRun) await fetch(`${DB}/workItems/${encodeURIComponent(`${f.sessionId}~${slug(name)}`)}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
     }
+  }
+  // Rows of earlier processes that no longer exist (renamed or regrouped):
+  // <session>~<process> ids of sessions seen this run that were not written.
+  if (!dryRun) {
+    const seen = new Set(rows.map(r => r.f.sessionId));
+    let pageToken = '';
+    do {
+      const q = new URLSearchParams({ pageSize: '300', 'mask.fieldPaths': 'ownerUid' });
+      if (pageToken) q.set('pageToken', pageToken);
+      const res = await fetch(`${DB}/workItems?${q}`, { headers: { Authorization: `Bearer ${token}` } });
+      const j = await res.json();
+      for (const d of j.documents || []) {
+        const id = decodeURIComponent(d.name.split('/').pop());
+        const sid = id.split('~')[0];
+        if (id.includes('~') && seen.has(sid) && !written_ids.has(id)) {
+          await fetch(`${DB}/workItems/${encodeURIComponent(id)}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+        }
+      }
+      pageToken = j.nextPageToken || '';
+    } while (pageToken);
   }
   for (const task of scheduledTasks()) {
     const proj = projectFor(task.cwd || '', projects);
