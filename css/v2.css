@@ -948,3 +948,7 @@ input.pp-tl-label:focus { background: var(--bg-elev); outline: 2px solid var(--a
 
 /* Notes synced with a production hub lane (js/hub-tasks.js) */
 .board-note-row.hub-linked .note-preview-check { accent-color: #e0a84a; }
+.note-group-label { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted, #8a8a8a); padding: 6px 4px 3px; }
+.note-group-label.is-main { color: #e0a84a; font-weight: 600; }
+.note-group-label.is-rest { margin-top: 6px; border-top: 1px solid var(--border, rgba(127,127,127,.25)); padding-top: 8px; }
+.board-note-row.hub-main .note-preview-text { font-weight: 600; }

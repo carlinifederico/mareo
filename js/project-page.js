@@ -8,7 +8,7 @@ import { identityFor, glyphSvg, GLYPHS, PALETTE, listProjects } from './identity
 import { projectMonths, fmtHours } from './stats.js';
 import { showLinksModal } from './modal.js';
 import { statusPill } from './home.js';
-import { createNoteRow, attachNoteReorderDnD, focusPendingNote, addNoteAndFocus } from './board.js';
+import { appendNoteRows, attachNoteReorderDnD, focusPendingNote, addNoteAndFocus } from './board.js';
 import { showEditTaskModal, showTaskContextMenu } from './gantt.js';
 
 const MONTHS_SHORT = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
@@ -391,14 +391,13 @@ function renderNotes(project, id) {
   const body = el('div', 'board-card-body pp-notes-body');
   const notes = project.projectNotes || [];
   if (!notes.length) body.appendChild(el('p', 'pp-muted', 'Sin notas todavía.'));
-  for (const n of notes) {
-    const row = createNoteRow(project, n);
+  appendNoteRows(body, project, notes, (row) => {
     if (!canEdit(project)) {
       row.draggable = false;
       row.querySelectorAll('input, textarea, button').forEach(x => { x.disabled = true; });
     }
-    body.appendChild(row);
-  }
+    return row;
+  });
   if (canEdit(project)) {
     attachNoteReorderDnD(body, project);
     const add = el('button', 'note-preview-add board-card-add-note', '+ Nota');

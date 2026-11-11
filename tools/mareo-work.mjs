@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import crypto from 'node:crypto';
 // MAREO work sync: reads the local Claude Code sessions (~/.claude/projects/*/*.jsonl)
 // and writes one workItems/{sessionId} doc per session, so the v2 "Revisar" tab
 // shows what each session is doing, its task list with progress, and what is
@@ -208,6 +209,12 @@ async function listProjects(token) {
 // task list, so the CLI only runs for new work.
 const TOOLS_DIR = process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, 'mareo-tools') : path.join(os.homedir(), '.mareo-tools');
 const NAMES_FILE = path.join(TOOLS_DIR, 'process-names.json');
+// What this machine last wrote to each workItems doc (hash without syncedAt).
+// Unchanged docs are skipped and stale ones are found here, with no reads:
+// rewriting every row each 5 minutes ran past Firestore's free daily quota.
+const WRITTEN_FILE = path.join(TOOLS_DIR, 'written.json');
+const readWritten = () => { try { return JSON.parse(fs.readFileSync(WRITTEN_FILE, 'utf8')); } catch { return {}; } };
+const hashOf = (item) => { const { syncedAt, ...rest } = item; if (rest.status === 'scheduled') delete rest.updatedAt; return crypto.createHash('sha1').update(JSON.stringify(rest)).digest('hex'); };
 const CLAUDE_BIN = [path.join(os.homedir(), '.local', 'bin', 'claude.exe'), path.join(os.homedir(), '.local', 'bin', 'claude')].find(p => fs.existsSync(p)) || 'claude';
 const MAX_NAMING_CALLS = 8; // sessions named per run
 const MAX_PLANS_PER_SESSION = 12;
@@ -385,6 +392,25 @@ async function once(dryRun) {
   let written = 0;
   const all = [];
   const written_ids = new Set();
+  const cache = readWritten();
+  const remove = async (id) => {
+    if (!(id in cache)) return;
+    const res = await fetch(`${DB}/workItems/${encodeURIComponent(id)}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+    if (res.ok) { delete cache[id]; fs.writeFileSync(WRITTEN_FILE, JSON.stringify(cache)); }
+  };
+  const patch = async (id, item) => {
+    const h = hashOf(item);
+    if (cache[id] === h) return false;
+    const res = await fetch(`${DB}/workItems/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fields: Object.fromEntries(Object.entries(item).map(([k, v]) => [k, toValue(v)])) }),
+    });
+    if (!res.ok) throw new Error(`workItems/${id} → ${res.status} ${await res.text()}`);
+    cache[id] = h;
+    fs.writeFileSync(WRITTEN_FILE, JSON.stringify(cache));
+    return true;
+  };
   const put = async (id, item) => {
     written_ids.add(id);
     if (dryRun && flag('--json')) { all.push(item); return; }
@@ -392,13 +418,7 @@ async function once(dryRun) {
       console.log(`${item.projectName.padEnd(24)} ${item.status.padEnd(8)} ${String(item.progress ?? '-').padStart(3)}% ${item.auto ? '[auto] ' : ''}${item.process}  ·  ${item.title}`);
       return;
     }
-    const res = await fetch(`${DB}/workItems/${encodeURIComponent(id)}`, {
-      method: 'PATCH',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fields: Object.fromEntries(Object.entries(item).map(([k, v]) => [k, toValue(v)])) }),
-    });
-    if (!res.ok) throw new Error(`workItems/${id} → ${res.status} ${await res.text()}`);
-    written++;
+    if (await patch(id, item)) written++;
   };
   const pct = (steps) => steps.length ? Math.round((steps.filter(x => x.status === 'completed').length / steps.length) * 100) : null;
 
@@ -478,28 +498,16 @@ async function once(dryRun) {
         updatedAt: current ? Math.round(f.mtime) : (p.lastAt || p.at),
       });
       // That process may have had its own row while it was not the current one
-      if (current && !dryRun) await fetch(`${DB}/workItems/${encodeURIComponent(`${f.sessionId}~${slug(name)}`)}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+      if (current && !dryRun) await remove(`${f.sessionId}~${slug(name)}`);
     }
   }
   // Rows of earlier processes that no longer exist (renamed or regrouped):
   // <session>~<process> ids of sessions seen this run that were not written.
   if (!dryRun) {
     const seen = new Set(rows.map(r => r.f.sessionId));
-    let pageToken = '';
-    do {
-      const q = new URLSearchParams({ pageSize: '300', 'mask.fieldPaths': 'ownerUid' });
-      if (pageToken) q.set('pageToken', pageToken);
-      const res = await fetch(`${DB}/workItems?${q}`, { headers: { Authorization: `Bearer ${token}` } });
-      const j = await res.json();
-      for (const d of j.documents || []) {
-        const id = decodeURIComponent(d.name.split('/').pop());
-        const sid = id.split('~')[0];
-        if (id.includes('~') && seen.has(sid) && !written_ids.has(id)) {
-          await fetch(`${DB}/workItems/${encodeURIComponent(id)}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
-        }
-      }
-      pageToken = j.nextPageToken || '';
-    } while (pageToken);
+    for (const id of Object.keys(cache)) {
+      if (id.includes('~') && seen.has(id.split('~')[0]) && !written_ids.has(id)) await remove(id);
+    }
   }
   for (const task of scheduledTasks()) {
     const proj = projectFor(task.cwd || '', projects);
@@ -522,23 +530,12 @@ async function once(dryRun) {
     };
     if (!task.enabled) item.scheduledFor = 0; // cancelled or already fired: hide it
     if (dryRun) { if (flag('--json')) all.push(item); else console.log(`${item.projectName.padEnd(24)} sched    ${new Date(Number(task.fireAt)).toLocaleString('es-AR')} ${item.process}`); continue; }
-    const res = await fetch(`${DB}/workItems/${encodeURIComponent(item.sessionId)}`, {
-      method: 'PATCH',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fields: Object.fromEntries(Object.entries(item).map(([k, v]) => [k, toValue(v)])) }),
-    });
-    if (!res.ok) throw new Error(`workItems/${item.sessionId} → ${res.status} ${await res.text()}`);
-    written++;
+    if (await patch(item.sessionId, item)) written++;
   }
   const cs = claudeStatus();
   if (dryRun) console.log('claude-status', JSON.stringify({ ...cs, weeklyHistory: (cs.weeklyHistory || []).length }));
   else {
-    const res = await fetch(`${DB}/workItems/claude-status`, {
-      method: 'PATCH',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fields: Object.fromEntries(Object.entries(cs).map(([k, v]) => [k, toValue(v)])) }),
-    });
-    if (!res.ok) throw new Error(`workItems/claude-status → ${res.status} ${await res.text()}`);
+    await patch('claude-status', cs);
   }
   if (all.length) console.log(JSON.stringify(all));
   if (!dryRun) console.log(`${new Date().toLocaleTimeString('es-AR')} · ${written} sesiones actualizadas`);

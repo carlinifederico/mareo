@@ -505,9 +505,7 @@ function createMobileProjectCard(proj) {
     placeholder.textContent = 'no notes yet';
     body.appendChild(placeholder);
   }
-  for (const note of notes) {
-    body.appendChild(createNoteRow(proj, note));
-  }
+  appendNoteRows(body, proj, notes);
   // Note: intentionally NOT calling attachNoteReorderDnD on mobile — drag-drop
   // fights touch scroll, and we've hidden the grip handle in CSS.
 
@@ -721,9 +719,7 @@ function createProjectCard(proj, { x, y, isPinned = false } = {}) {
     placeholder.textContent = 'no notes yet';
     body.appendChild(placeholder);
   }
-  for (const note of notes) {
-    body.appendChild(createNoteRow(proj, note));
-  }
+  appendNoteRows(body, proj, notes);
 
   // Wire up drag-drop reorder on the body
   attachNoteReorderDnD(body, proj);
@@ -743,13 +739,31 @@ function createProjectCard(proj, { x, y, isPinned = false } = {}) {
   return el;
 }
 
+// Notes rows, with the hub's priority tasks (hubMain, see hub-tasks.js) in
+// their own group on top and the rest below a divider.
+export function appendNoteRows(body, proj, notes, decorate = (row) => row) {
+  const main = notes.filter(n => n.hubMain);
+  const rest = notes.filter(n => !n.hubMain);
+  const label = (text, cls) => {
+    const el = document.createElement('div');
+    el.className = 'note-group-label ' + cls;
+    el.textContent = text;
+    body.appendChild(el);
+  };
+  if (main.length) label('Prioridad · hub', 'is-main');
+  for (const note of main) body.appendChild(decorate(createNoteRow(proj, note)));
+  if (main.length && rest.length) label('Otras', 'is-rest');
+  for (const note of rest) body.appendChild(decorate(createNoteRow(proj, note)));
+}
+
 export function createNoteRow(proj, note) {
   const depth = Math.min(1, Math.max(0, note.depth || 0));
   const row = document.createElement('div');
   row.className = 'note-preview-item board-note-row'
     + (note.done ? ' done' : '')
     + (depth > 0 ? ' indented' : '')
-    + (note.hubId ? ' hub-linked' : '');
+    + (note.hubId ? ' hub-linked' : '')
+    + (note.hubMain ? ' hub-main' : '');
   row.dataset.noteId = note.id;
   row.dataset.depth = String(depth);
   row.draggable = true;

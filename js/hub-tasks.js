@@ -4,7 +4,9 @@
 // view, after a refresh, and a few seconds after a note of that project is
 // edited. Each synced note carries hubId (the board doc id), hubAt (the hub
 // version it last matched) and hubSynced (its own updatedAt at that moment),
-// so a change on either side is detected and the newer one wins.
+// so a change on either side is detected and the newer one wins. Tasks made
+// on the hub are the priority ones (hubMain) and show first; tasks MAREO
+// uploads carry from:'mareo' on the hub.
 import { Store } from './store.js';
 
 const LINKS = [
@@ -21,7 +23,8 @@ const state = new Map(); // projectId -> { rows: Map(id -> row), lastAt, loaded 
 const tombstones = new Set(); // hub ids deleted here, until the hub confirms
 let running = false, again = false, timer = null, selfSave = false;
 
-const linkFor = (projectId) => LINKS.find(l => l.projectId === projectId);
+const same = (a, b) => (a || '').trim().toLowerCase() === (b || '').trim().toLowerCase();
+const linkFor =(projectId) => LINKS.find(l => l.projectId === projectId);
 const mine = (l) => Store._uid === l.uid;
 
 async function api(l, body) {
@@ -69,12 +72,22 @@ async function syncProject(l) {
     if (tombstones.has(id)) continue;
     const n = byHub.get(id);
     if (!n) {
+      // A note with the same title that lost its link (a save that never
+      // reached Firestore, another device): link it instead of duplicating.
+      const twin = proj.projectNotes.find(x => !x.hubId && !(x.depth > 0) && same(x.title, r.data.title));
+      if (twin) {
+        Object.assign(twin, { hubId: id, hubAt: r.at, hubSynced: twin.updatedAt, hubMain: !r.data.from });
+        byHub.set(id, twin);
+        changed = true;
+        continue;
+      }
       fresh.push({
         id: 'pn-' + crypto.randomUUID(), title: r.data.title || '', content: '', done: !!r.data.done,
-        createdAt: r.data.created_at || now(), updatedAt: now(), hubId: id, hubAt: r.at,
+        createdAt: r.data.created_at || now(), updatedAt: now(), hubId: id, hubAt: r.at, hubMain: !r.data.from,
       });
       continue;
     }
+    if (n.hubMain !== !r.data.from) { n.hubMain = !r.data.from; changed = true; }
     const localChanged = (n.updatedAt || 0) > (n.hubSynced || 0);
     const hubChanged = r.at > (n.hubAt || 0);
     if (hubChanged && (!localChanged || r.at >= n.updatedAt)) {
@@ -104,10 +117,10 @@ async function syncProject(l) {
     const seen = n.updatedAt;
     const t = now();
     const out = await write({ op: 'add', col: 'board', data: {
-      title: n.title.trim(), note: '', due: '', scene: '', lane: l.lane, order: ++order, done: !!n.done,
+      title: n.title.trim(), note: '', due: '', scene: '', lane: l.lane, order: ++order, done: !!n.done, from: 'mareo',
       created_by: l.email, created_at: n.createdAt || t, by: l.email, at: t,
     } });
-    if (out) { n.hubId = out.id; n.hubAt = out.at; n.hubSynced = seen; dirty = true; }
+    if (out) { n.hubId = out.id; n.hubAt = out.at; n.hubSynced = seen; n.hubMain = false; dirty = true; }
   }
 
   if (changed || dirty) {
