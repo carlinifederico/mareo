@@ -6,13 +6,13 @@
 // version it last matched) and hubSynced (its own updatedAt at that moment),
 // so a change on either side is detected and the newer one wins.
 import { Store } from './store.js';
-import { Auth } from './auth.js';
 
 const LINKS = [
   {
     projectId: 'proj-silence',
     hub: 'https://opi-hub-e5unvvjl.pages.dev',
-    lane: 'fede', name: 'Fede', email: 'carlini@3dar.com',
+    uid: '7kJgWTraHBdsVXzzn9X8owXszS92', // MAREO account (carlinifederico@gmail.com)
+    lane: 'fede', name: 'Fede', email: 'carlini@3dar.com', // hub identity
   },
 ];
 
@@ -22,7 +22,7 @@ const tombstones = new Set(); // hub ids deleted here, until the hub confirms
 let running = false, again = false, timer = null, selfSave = false;
 
 const linkFor = (projectId) => LINKS.find(l => l.projectId === projectId);
-const mine = (l) => (Auth.currentUser?.email || '').toLowerCase() === l.email;
+const mine = (l) => Store._uid === l.uid;
 
 async function api(l, body) {
   const res = await fetch(l.hub + '/api/db' + (body ? '' : '?since=' + Math.max(0, state.get(l.projectId).lastAt - 10000)), {
