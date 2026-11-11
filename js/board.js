@@ -748,7 +748,8 @@ export function createNoteRow(proj, note) {
   const row = document.createElement('div');
   row.className = 'note-preview-item board-note-row'
     + (note.done ? ' done' : '')
-    + (depth > 0 ? ' indented' : '');
+    + (depth > 0 ? ' indented' : '')
+    + (note.hubId ? ' hub-linked' : '');
   row.dataset.noteId = note.id;
   row.dataset.depth = String(depth);
   row.draggable = true;
@@ -773,6 +774,7 @@ export function createNoteRow(proj, note) {
   textInput.className = 'note-preview-text';
   textInput.value = note.title || note.content || '';
   textInput.placeholder = 'Note...';
+  if (note.hubId) row.title = 'Synced with the production hub (Tareas)';
   textInput.dataset.noteId = note.id;
   textInput.addEventListener('change', () => {
     Store.updateProjectNote(proj.id, note.id, { title: textInput.value });

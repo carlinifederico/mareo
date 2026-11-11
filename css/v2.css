@@ -945,3 +945,6 @@ input.pp-tl-label:focus { background: var(--bg-elev); outline: 2px solid var(--a
   .dd-pct-bar { display: none; }
   .dd-month { min-width: 0; font-size: 22px; }
 }
+
+/* Notes synced with a production hub lane (js/hub-tasks.js) */
+.board-note-row.hub-linked .note-preview-check { accent-color: #e0a84a; }

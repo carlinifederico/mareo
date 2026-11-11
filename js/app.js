@@ -17,6 +17,7 @@ import { renderHome, currentRoute } from './home.js';
 import { Meta } from './meta-repo.js';
 import { setDayTasksMode } from './daytasks.js';
 import { renderReview } from './review.js';
+import { initHubTasks, syncHubTasks } from './hub-tasks.js';
 
 window._mareoModules = { Store };
 
@@ -76,6 +77,7 @@ Auth.init(
     renderTabs();
     switchView(currentView);
     render();
+    syncHubTasks();
   },
   // On sign out
   () => {
@@ -123,6 +125,7 @@ function initApp() {
     if (document.visibilityState === 'visible') reloadIfNewBuild();
   });
   reloadIfNewBuild();
+  initHubTasks();
   initDragDrop();
   initBoardDrag();
   initTodayPanel();
