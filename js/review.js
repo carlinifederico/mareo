@@ -1,15 +1,11 @@
-// "Revisar" tab (v2 only): a control room for every process Claude Code is
-// running across the user's projects, so they can tell at a glance which ones
-// need them. One card per project (projects with something running first);
-// inside, the running processes on top with their percentage, then the ones
-// waiting for the user: a question, stopped halfway, or finished to review;
-// then one-time scheduled tasks that have not started, with their start date.
-// Processes the user ticked ("ya lo vi, me olvido") move to "Terminadas".
-// A filter shows one kind at a time: En proceso, Revisar, Programadas, Terminadas.
-// A ticked process sleeps until the user asks that session something new
-// (its userTurns grows), whatever Claude keeps doing on its own.
+// "Revisar" tab (v2 only): what is in progress right now, by project.
+// One card per project, with its big processes ("Site", "Pitch") as rows.
+// Only live work shows: a process Claude is working on, or one touched in the
+// last day. What nobody touched for a day clears itself, and a process the
+// user ticks ("listo") hides until they ask that session something new (its
+// userTurns grows). Upcoming one-time scheduled tasks show as a small line.
 // Data comes from workItems/{sessionId}, written by tools/mareo-work.mjs from
-// the local session transcripts. Sleep marks live in
+// the local session transcripts. Tick marks live in
 // mareo_v2/{uid}.hibernated as { sessionId: userTurns at the time }.
 
 import { Store } from './store.js';
@@ -18,21 +14,14 @@ import { identityFor } from './identity.js';
 import { db, collection, query, where, getDocs } from './firebase-config.js';
 
 const DAYS = 7;
+const LIVE_MS = 24 * 60 * 60 * 1000; // untouched longer than this: it clears itself
 const REFRESH_MS = 2 * 60 * 1000;
-const NEEDS = {
-  decide: { label: 'Te pregunta',      rank: 0 },
-  paused:  { label: 'Se frenó',        rank: 1 },
-  stopped: { label: 'Quedó a medias',  rank: 1 },
-  review: { label: 'Terminó · revisá', rank: 2 },
-};
 
 let items = null;       // null = not loaded yet
 let claude = null;      // workItems/claude-status: plan limits, extra usage
 let loadedAt = 0;
 let loading = false;
 let loadError = '';
-let filter = 'all';
-const FILTERS = [['all', 'Todo'], ['progress', 'En proceso'], ['check', 'Revisar'], ['scheduled', 'Programadas'], ['done', 'Terminadas']];
 const open = new Set(); // rows with their steps unfolded
 let timer = null;
 
@@ -67,7 +56,7 @@ async function load() {
     claude = docs.find(x => x.kind === 'claude-status') || null;
     // A forked session repeats its parent's history: one row per project + process, the latest
     const latest = new Map();
-    for (const x of docs.filter(d => !d.kind && !d.auto && (d.updatedAt || 0) >= since)) {
+    for (const x of docs.filter(d => !d.kind && !d.auto && ((d.updatedAt || 0) >= since || d.status === 'scheduled'))) {
       const key = `${x.projectId || x.projectName}|${String(x.process || x.title).toLowerCase()}`;
       const cur = latest.get(key);
       if (!cur || x.status === 'running' || (cur.status !== 'running' && (x.updatedAt || 0) > (cur.updatedAt || 0))) latest.set(key, x);
@@ -83,29 +72,36 @@ async function load() {
   rerender();
 }
 
-// In course: writing now, or halfway through its task list and touched today
-// (between two messages a session sits idle, but the work is still going)
-const IN_COURSE_MS = 24 * 60 * 60 * 1000;
-function inCourse(it) {
-  return it.status === 'running' || (it.status === 'paused' && Date.now() - (it.updatedAt || 0) < IN_COURSE_MS);
-}
-
 function sleepMap() {
   return Meta.user().hibernated || {};
 }
 
-function isSleeping(it) {
+function isTicked(it) {
   const mark = sleepMap()[it.sessionId];
   return mark != null && (it.userTurns || 0) <= mark;
 }
 
-function setSleeping(it, on) {
-  const hibernated = { ...sleepMap() };
-  if (on) hibernated[it.sessionId] = it.userTurns || 0;
-  else delete hibernated[it.sessionId];
-  Meta.updateUser({ hibernated });
+function tick(it) {
+  Meta.updateUser({ hibernated: { ...sleepMap(), [it.sessionId]: it.userTurns || 0 } });
   rerender();
 }
+
+// working: Claude is on it now · asks: it asked the user something
+// waiting: touched in the last day, Claude's turn is over · scheduled: starts later
+// null: finished long ago, ticked, or a scheduled task that already fired
+function kindOf(it) {
+  if (it.status === 'scheduled') return (it.scheduledFor || 0) > Date.now() ? 'scheduled' : null;
+  if (isTicked(it)) return null;
+  if (it.status === 'running') return 'working';
+  if (Date.now() - (it.updatedAt || 0) > LIVE_MS) return null;
+  return it.status === 'decide' ? 'asks' : 'waiting';
+}
+
+const KIND = {
+  working: { label: 'Trabajando', rank: 0 },
+  asks: { label: 'Te pregunta', rank: 1 },
+  waiting: { label: 'Esperándote', rank: 2 },
+};
 
 function projectColor(it) {
   const p = it.projectId && Store._findProject(it.projectId);
@@ -143,7 +139,9 @@ export function renderReview(container) {
 
   const page = el('div', 'v2-page rv-page');
   const head = el('header', 'rv-head');
-  head.appendChild(el('h1', 'rv-title', 'Revisar'));
+  const titles = el('div');
+  titles.append(el('h1', 'rv-title', 'En curso'), el('p', 'pp-muted rv-sub', 'Lo que se está haciendo ahora, por proyecto. Lo que nadie toca en un día se limpia solo.'));
+  head.appendChild(titles);
   const refresh = el('button', 'pp-btn-outline', loading ? '…' : 'Actualizar');
   refresh.type = 'button';
   refresh.disabled = loading;
@@ -159,39 +157,38 @@ export function renderReview(container) {
   }
   if (loadError) page.appendChild(el('p', 'rv-error', `No pude leer las sesiones (${loadError}).`));
 
-  // Every process falls in one kind; the filter shows one kind or all but the done ones
-  const kinds = { progress: [], check: [], scheduled: [], done: [] };
-  for (const it of items) kinds[kindOf(it)]?.push(it);
-  page.appendChild(claudePanel(kinds));
-  const filters = el('div', 'v2-segmented rv-filters');
-  filters.setAttribute('role', 'group');
-  filters.setAttribute('aria-label', 'Filtrar');
-  for (const [id, label] of FILTERS) {
-    const n = id === 'all' ? items.length - kinds.done.length : kinds[id].length;
-    const b = el('button', filter === id ? 'on' : '', `${label} ${n}`);
-    b.type = 'button';
-    b.setAttribute('aria-pressed', String(filter === id));
-    b.addEventListener('click', () => { filter = id; rerender(); });
-    filters.appendChild(b);
-  }
-  page.appendChild(filters);
+  const live = items.map(it => ({ it, kind: kindOf(it) })).filter(x => x.kind);
+  page.appendChild(claudePanel(live));
 
-  const shown = items.filter(it => filter === 'all' ? kindOf(it) !== 'done' : kindOf(it) === filter);
-
-  // One card per project; projects with something in progress first
+  // One card per project; the one with something working now first, then the most recent
   const groups = new Map();
-  for (const it of shown) {
-    const key = it.projectId || it.projectName;
-    if (!groups.has(key)) groups.set(key, { name: it.projectName, color: projectColor(it), list: [] });
-    groups.get(key).list.push(it);
+  for (const x of live) {
+    const key = x.it.projectId || x.it.projectName;
+    if (!groups.has(key)) groups.set(key, { name: x.it.projectName, color: projectColor(x.it), list: [] });
+    groups.get(key).list.push(x);
   }
-  const ordered = [...groups.values()].map(g => ({
-    ...g,
-    running: g.list.some(x => kindOf(x) === 'progress'),
-    last: Math.max(...g.list.map(x => x.scheduledFor || x.updatedAt || 0)),
-  })).sort((a, b) => (b.running - a.running) || b.last - a.last);
-  if (!ordered.length) page.appendChild(el('p', 'pp-muted rv-empty', 'Nada acá.'));
-  for (const g of ordered) page.appendChild(projectCard(g));
+  const ordered = [...groups.values()]
+    .filter(g => g.list.some(x => x.kind !== 'scheduled'))
+    .map(g => ({
+      ...g,
+      working: g.list.some(x => x.kind === 'working'),
+      last: Math.max(...g.list.map(x => x.it.updatedAt || 0)),
+    }))
+    .sort((a, b) => (b.working - a.working) || b.last - a.last);
+  if (!ordered.length) page.appendChild(el('p', 'pp-muted rv-empty', 'No hay nada en curso.'));
+  const grid = el('div', 'rv-grid');
+  for (const g of ordered) grid.appendChild(projectCard(g));
+  page.appendChild(grid);
+
+  // Scheduled tasks of projects with nothing live: one line at the bottom
+  const later = live.filter(x => x.kind === 'scheduled' && !ordered.some(g => g.list.includes(x)))
+    .sort((a, b) => a.it.scheduledFor - b.it.scheduledFor);
+  if (later.length) {
+    const box = el('div', 'rv-later');
+    box.appendChild(el('span', 'rv-later-title', 'Programado'));
+    for (const { it } of later) box.appendChild(el('span', 'rv-later-item', `${it.projectName} · ${it.process} · ${whenScheduled(it.scheduledFor)}`));
+    page.appendChild(box);
+  }
   container.appendChild(page);
 }
 
@@ -201,9 +198,8 @@ function untilText(ms) {
   return d ? `${d} d ${h} h` : h ? `${h} h ${m} min` : `${m} min`;
 }
 
-// General view of Claude: plan limits with their reset, extra usage, and how
-// many processes are in each state across every project.
-function claudePanel(kinds) {
+// Claude's plan limits with their reset, extra usage, and live counts.
+function claudePanel(live) {
   const card = el('section', 'v2-card rv-claude');
   const head = el('div', 'rv-claude-head');
   head.appendChild(el('h2', 'rv-claude-title', 'Claude'));
@@ -238,15 +234,15 @@ function claudePanel(kinds) {
   grid.appendChild(limits);
 
   const counts = el('div', 'rv-counts');
-  const working = kinds.progress.filter(x => x.status === 'running').length;
-  for (const [n, label, cls] of [
-    [working, 'trabajando ahora', 'running'],
-    [kinds.progress.length - working, 'en curso', 'progress'],
-    [kinds.check.length, 'para revisar', 'check'],
-    [kinds.scheduled.length, 'programadas', 'scheduled'],
+  const n = (k) => live.filter(x => x.kind === k).length;
+  for (const [v, label, cls] of [
+    [n('working'), 'trabajando ahora', 'running'],
+    [n('asks'), 'te preguntan', 'decide'],
+    [n('waiting'), 'esperándote', 'check'],
+    [new Set(live.filter(x => x.kind !== 'scheduled').map(x => x.it.projectId || x.it.projectName)).size, 'proyectos activos', 'progress'],
   ]) {
     const c = el('div', `rv-count ${cls}`);
-    c.append(el('b', null, String(n)), el('span', null, label));
+    c.append(el('b', null, String(v)), el('span', null, label));
     counts.appendChild(c);
   }
   grid.appendChild(counts);
@@ -254,50 +250,21 @@ function claudePanel(kinds) {
   return card;
 }
 
-// progress: in course · check: finished, asked or stopped, waiting for the user
-// scheduled: a one-time scheduled task that has not started · done: ticked by the user
-function kindOf(it) {
-  if (it.status === 'scheduled') return (it.scheduledFor || 0) > Date.now() ? 'scheduled' : null;
-  if (isSleeping(it)) return 'done';
-  return inCourse(it) ? 'progress' : 'check';
-}
-
-// A project: in progress on top with its percentage, then what waits for the
-// user, then what is scheduled to start (and, under Terminadas, what is done).
+// A project: its processes, working ones first, then the ones that ask, then
+// the rest by recency; its upcoming scheduled tasks as a small line.
 function projectCard(g) {
-  const sec = el('section', `v2-card rv-project${g.running ? ' live' : ''}`);
+  const sec = el('section', `v2-card rv-project${g.working ? ' live' : ''}`);
   sec.style.setProperty('--proj', g.color);
+  const procs = g.list.filter(x => x.kind !== 'scheduled')
+    .sort((a, b) => KIND[a.kind].rank - KIND[b.kind].rank || (b.it.updatedAt || 0) - (a.it.updatedAt || 0));
   const head = el('h2', 'rv-project-name');
-  head.append(el('span', 'rv-dot'), g.name);
-  if (g.running) head.appendChild(el('span', 'rv-status running', 'En curso'));
+  head.append(el('span', 'rv-dot'), g.name, el('span', 'rv-part-n', String(procs.length)));
+  if (g.working) head.appendChild(el('span', 'rv-status running', 'Trabajando'));
   sec.appendChild(head);
-  const of = (k) => g.list.filter(x => kindOf(x) === k);
-  const progress = of('progress').sort((a, b) => b.updatedAt - a.updatedAt);
-  const check = of('check').sort((a, b) => (NEEDS[a.status]?.rank ?? 9) - (NEEDS[b.status]?.rank ?? 9) || b.updatedAt - a.updatedAt);
-  const scheduled = of('scheduled').sort((a, b) => a.scheduledFor - b.scheduledFor);
-  const done = of('done').sort((a, b) => b.updatedAt - a.updatedAt);
-  if (progress.length) sec.appendChild(part('En progreso', 'progress', progress, 'working'));
-  if (check.length) sec.appendChild(part('Terminadas · para chequear', 'check', check, 'needs'));
-  if (scheduled.length) sec.appendChild(part('Programadas', 'scheduled', scheduled, 'scheduled'));
-  if (done.length) sec.appendChild(part('Terminadas', 'done', done, 'sleeping'));
+  for (const x of procs) sec.appendChild(row(x.it, x.kind));
+  const sched = g.list.filter(x => x.kind === 'scheduled').sort((a, b) => a.it.scheduledFor - b.it.scheduledFor);
+  for (const { it } of sched) sec.appendChild(el('div', 'rv-sched-line', `Programado · ${it.process} · ${whenScheduled(it.scheduledFor)}`));
   return sec;
-}
-
-function part(title, cls, list, kind) {
-  const box = el('div', `rv-part ${cls}`);
-  const h = el('div', 'rv-part-title');
-  h.append(title, el('span', 'rv-part-n', String(list.length)));
-  box.appendChild(h);
-  for (const it of list) box.appendChild(row(it, kind));
-  return box;
-}
-
-function inTime(ms) {
-  const h = Math.round((ms - Date.now()) / 3600000);
-  if (h < 1) return 'en minutos';
-  if (h < 24) return `en ${h} h`;
-  const d = Math.round(h / 24);
-  return d === 1 ? 'en 1 día' : `en ${d} días`;
 }
 
 const WEEKDAYS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
@@ -311,58 +278,51 @@ function whenScheduled(ms) {
 
 function row(it, kind) {
   const color = projectColor(it);
-  const sleeping = kind === 'sleeping';
   const wrap = el('div', 'rv-row-wrap');
-  const r = el('div', `rv-row ${it.status}${kind === 'working' ? ' live' : ''}`);
+  const r = el('div', `rv-row rv-${kind}${kind === 'working' ? ' live' : ''}`);
   r.style.setProperty('--proj', color);
 
-  const box = document.createElement('input');
-  box.type = 'checkbox';
-  box.className = 'rv-check';
-  box.checked = sleeping;
-  box.title = sleeping ? 'Despertar' : 'Listo, ya lo vi: dormir hasta que le pida algo';
-  box.setAttribute('aria-label', `${box.title}: ${it.projectName} · ${it.process || it.title}`);
-  box.addEventListener('change', () => setSleeping(it, box.checked));
-  // Nothing to tick on work that has not started yet
-  if (kind === 'scheduled') box.style.visibility = 'hidden';
-  r.appendChild(box);
-
   const name = el('div', 'rv-name');
-  const proj = el('span', 'rv-proj');
-  proj.append(el('span', 'rv-dot'), it.projectName);
-  name.append(proj, el('b', 'rv-proc', it.process || it.title));
+  name.appendChild(el('b', 'rv-proc', it.process || it.title));
+  // What it is about right now: the question, or the step being worked on
+  const hint = kind === 'asks' && it.ask ? it.ask
+    : currentStep(it) || (kind === 'working' ? it.lastPrompt : '') || '';
+  if (hint) name.appendChild(el('span', 'rv-hint', hint));
   r.appendChild(name);
 
-  // What it is about right now: the question, the step being worked on, or the status
-  const hint = kind === 'working' ? (currentStep(it) || it.lastPrompt || 'Trabajando')
-    : kind === 'scheduled' ? (it.recap || '')
-    : it.status === 'decide' && it.ask ? it.ask
-    : (NEEDS[it.status]?.label || '');
-  const info = el('div', 'rv-info');
-  if (kind === 'working') info.appendChild(el('span', 'rv-status running', it.status === 'running' ? 'Trabajando' : 'En curso'));
-  else if (kind === 'scheduled') info.appendChild(el('span', 'rv-status scheduled', `Empieza ${whenScheduled(it.scheduledFor)}`));
-  else if (!sleeping && NEEDS[it.status]) info.appendChild(el('span', `rv-status ${it.status}`, NEEDS[it.status].label));
-  if (hint && hint !== NEEDS[it.status]?.label && hint !== 'Trabajando') info.appendChild(el('span', 'rv-hint', hint));
-  r.appendChild(info);
-
+  const side = el('div', 'rv-side');
+  side.appendChild(el('span', `rv-status ${kind === 'working' ? 'running' : kind === 'asks' ? 'decide' : 'review'}`, KIND[kind].label));
   const pct = pctOf(it);
-  const prog = el('div', 'rv-prog');
-  // Only work in progress gets a bar; a finished one at 100% would read as progress too
-  if (kind === 'working' && pct != null) prog.append(progressBar(pct, color), el('span', 'rv-pct', `${pct}%`));
-  r.appendChild(prog);
-  r.appendChild(el('span', 'rv-when', kind === 'scheduled' ? inTime(it.scheduledFor) : ago(it.updatedAt)));
+  if (pct != null && pct < 100) {
+    const prog = el('div', 'rv-prog');
+    prog.append(progressBar(pct, color), el('span', 'rv-pct', `${pct}%`));
+    side.appendChild(prog);
+  }
+  side.appendChild(el('span', 'rv-when', ago(it.updatedAt)));
+  r.appendChild(side);
 
+  const actions = el('div', 'rv-actions');
   const steps = it.steps || [];
-  const more = el('button', 'rv-more', open.has(it.sessionId) ? '▾' : '▸');
-  more.type = 'button';
-  more.disabled = !steps.length;
-  more.title = steps.length ? 'Ver pasos' : 'Sin lista de pasos';
-  more.setAttribute('aria-expanded', String(open.has(it.sessionId)));
-  more.addEventListener('click', () => {
-    if (open.has(it.sessionId)) open.delete(it.sessionId); else open.add(it.sessionId);
-    rerender();
-  });
-  r.appendChild(more);
+  if (steps.length) {
+    const more = el('button', 'rv-more', open.has(it.sessionId) ? '▾' : '▸');
+    more.type = 'button';
+    more.title = 'Ver pasos';
+    more.setAttribute('aria-expanded', String(open.has(it.sessionId)));
+    more.addEventListener('click', () => {
+      if (open.has(it.sessionId)) open.delete(it.sessionId); else open.add(it.sessionId);
+      rerender();
+    });
+    actions.appendChild(more);
+  }
+  if (kind !== 'working') {
+    const done = el('button', 'rv-done', '✓');
+    done.type = 'button';
+    done.title = 'Listo: sacarlo de acá hasta que le pida algo nuevo';
+    done.setAttribute('aria-label', `Listo: ${it.projectName} · ${it.process || it.title}`);
+    done.addEventListener('click', () => tick(it));
+    actions.appendChild(done);
+  }
+  r.appendChild(actions);
   wrap.appendChild(r);
 
   if (open.has(it.sessionId) && steps.length) {

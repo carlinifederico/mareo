@@ -429,6 +429,8 @@ async function once(dryRun) {
     // A session named after its folder ("BANANA AIRWAYS") says nothing: use what was asked
     const generic = !s.title || [proj.projectName, path.basename(s.cwd)].some(n => norm(n) === norm(s.title));
     const title = generic && !auto ? (s.aiTitle || s.lastPrompt || s.title) : (s.title || s.aiTitle || autoName || s.firstPrompt);
+    // Name of a piece Claude has not named yet: the session's own title, so its pieces stay one row
+    const fallback = clip(auto ? title : (generic ? (s.aiTitle || 'Trabajo general') : s.title), 40);
     const base = {
       ownerUid: OWNER_UID,
       ...proj,
@@ -443,7 +445,7 @@ async function once(dryRun) {
       await put(f.sessionId, {
         ...base,
         sessionId: f.sessionId,
-        process: auto ? clip(autoName || title, 40) : (names[nameKey(f.sessionId, s.steps, s.lastPrompt || s.title)]?.name || clip(title, 40)),
+        process: auto ? clip(autoName || title, 40) : (names[nameKey(f.sessionId, s.steps, s.lastPrompt || s.title)]?.name || fallback),
         status: statusOf(s, f.mtime),
         steps: s.steps.slice(0, 14),
         progress: pct(s.steps),
@@ -459,13 +461,13 @@ async function once(dryRun) {
     // keeps the session id; earlier ones get <session>~<process>.
     const byName = new Map();
     for (const p of plans) {
-      const name = names[nameKey(f.sessionId, p.steps, p.prompts.join('|'))]?.name || clip(p.prompts[p.prompts.length - 1] || title, 40);
+      const name = names[nameKey(f.sessionId, p.steps, p.prompts.join('|'))]?.name || fallback;
       byName.set(name, p); // later plans win
     }
     let last = plans[plans.length - 1];
     if (s.tail.length) {
       // Work after the last list: keep the list's steps if it is the same process
-      const name = names[tailKey(f.sessionId, s)]?.name || clip(s.tail[s.tail.length - 1], 40);
+      const name = names[tailKey(f.sessionId, s)]?.name || fallback;
       const same = byName.get(name);
       last = {
         steps: same ? same.steps : [],
