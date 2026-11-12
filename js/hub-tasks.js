@@ -1,12 +1,14 @@
-// Two-way sync between a MAREO project's notes and a person's lane on a
-// production hub's Tareas board (the Opi hub: Cloudflare Pages + D1, /api/db).
+// Brings the tasks of a person's lane on a production hub's Tareas board (the
+// Opi hub: Cloudflare Pages + D1, /api/db) into a MAREO project's notes, and
+// sends back edits of those tasks (title, done). MAREO's own notes are never
+// uploaded to the hub.
 // No background job: it runs when MAREO opens, when the tab comes back into
 // view, after a refresh, and a few seconds after a note of that project is
 // edited. Each synced note carries hubId (the board doc id), hubAt (the hub
 // version it last matched) and hubSynced (its own updatedAt at that moment),
-// so a change on either side is detected and the newer one wins. Tasks made
-// on the hub are the priority ones (hubMain) and show first; tasks MAREO
-// uploads carry from:'mareo' on the hub.
+// so a change on either side is detected and the newer one wins. They are
+// the priority ones (hubMain) and show first. Rows with from:'mareo' were
+// uploaded by an earlier version and are ignored.
 import { Store } from './store.js';
 
 const LINKS = [
@@ -69,7 +71,7 @@ async function syncProject(l) {
   // Hub -> MAREO, and MAREO edits of linked notes -> hub
   const fresh = [];
   for (const [id, r] of st.rows) {
-    if (tombstones.has(id)) continue;
+    if (tombstones.has(id) || r.data.from) continue; // only tasks made on the hub come in
     const n = byHub.get(id);
     if (!n) {
       // A note with the same title that lost its link (a save that never
@@ -105,23 +107,20 @@ async function syncProject(l) {
   }
   for (const n of fresh) { n.hubSynced = n.updatedAt; proj.projectNotes.unshift(n); changed = true; }
 
-  // Linked notes whose task is gone from the lane (deleted or moved to someone else)
-  const before = proj.projectNotes.length;
-  proj.projectNotes = proj.projectNotes.filter(n => !n.hubId || st.rows.has(n.hubId) || tombstones.has(n.hubId));
-  if (proj.projectNotes.length !== before) changed = true;
-
-  // New MAREO notes -> new tasks in the lane
-  let order = Math.max(-1, ...[...st.rows.values()].map(r => +(r.data && r.data.order) || 0));
+  // Linked notes whose hub task is gone (deleted or moved to someone else's
+  // lane) go too. MAREO's own notes that an earlier version uploaded
+  // (hubMain false) only lose the link: they stay in MAREO.
+  const kept = [];
   for (const n of proj.projectNotes) {
-    if (n.hubId || (n.depth || 0) > 0 || !(n.title || '').trim()) continue;
-    const seen = n.updatedAt;
-    const t = now();
-    const out = await write({ op: 'add', col: 'board', data: {
-      title: n.title.trim(), note: '', due: '', scene: '', lane: l.lane, order: ++order, done: !!n.done, from: 'mareo',
-      created_by: l.email, created_at: n.createdAt || t, by: l.email, at: t,
-    } });
-    if (out) { n.hubId = out.id; n.hubAt = out.at; n.hubSynced = seen; n.hubMain = false; dirty = true; }
+    const r = n.hubId && st.rows.get(n.hubId);
+    if (!n.hubId || tombstones.has(n.hubId) || (r && !r.data.from)) { kept.push(n); continue; }
+    changed = true;
+    if (n.hubMain === false || (r && r.data.from)) {
+      delete n.hubId; delete n.hubAt; delete n.hubSynced; delete n.hubMain;
+      kept.push(n);
+    }
   }
+  proj.projectNotes = kept;
 
   if (changed || dirty) {
     selfSave = true; Store._skipUndo = true;
