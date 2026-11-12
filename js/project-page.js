@@ -693,7 +693,7 @@ function renderIdentityEditor(project, id) {
     status.textContent = 'Procesando…';
     try {
       const dataUrl = await resizeImage(f);
-      await Meta.update(project.id, { thumb: dataUrl }, { lock: ['thumb'] });
+      await Meta.update(project.id, { thumb: dataUrl, thumbAuto: null }, { lock: ['thumb'] });
       rerender();
     } catch (err) {
       console.warn('thumbnail failed', err);
@@ -704,9 +704,21 @@ function renderIdentityEditor(project, id) {
   if (id.thumb) {
     const rm = el('button', 'v2-btn', 'Quitar');
     rm.type = 'button';
-    rm.addEventListener('click', async () => { await Meta.update(project.id, { thumb: null }, { lock: ['thumb'] }); rerender(); });
+    rm.addEventListener('click', async () => { await Meta.update(project.id, { thumb: null, thumbAuto: null }, { lock: ['thumb'] }); rerender(); });
     trow.appendChild(rm);
   }
+  // Automatic picture: taken from the hub, Miro, a site or the Drive folder
+  if (id.thumbAuto) status.textContent = `Elegida sola, de ${id.thumbAuto.label || id.thumbAuto.source}`;
+  else if (id.thumbLocked) {
+    const auto = el('button', 'v2-btn', 'Que la elija sola');
+    auto.type = 'button';
+    auto.title = 'MAREO busca una imagen en el hub, el Miro, los links o la carpeta del proyecto';
+    auto.addEventListener('click', async () => {
+      await Meta.update(project.id, { thumb: null, thumbAuto: null, locked: { ...(Meta.get(project.id).locked || {}), thumb: false } });
+      rerender();
+    });
+    trow.appendChild(auto);
+  } else if (!id.thumb) status.textContent = 'Se elige sola cuando el proyecto tenga hub, Miro, links o carpeta';
   trow.appendChild(status);
   thumbs.appendChild(trow);
   sec.appendChild(thumbs);

@@ -108,6 +108,8 @@ export function identityFor(project) {
     glyph: GLYPHS[meta.icon] ? meta.icon : glyphFor(project),
     monogram: meta.monogram || monogramFor(project.name),
     thumb: meta.thumb || null,
+    thumbAuto: meta.thumb && meta.thumbAuto ? meta.thumbAuto : null, // picked by tools/mareo-thumbs
+    thumbLocked: !!meta.locked?.thumb,
     hub: meta.hub && meta.hub.url ? meta.hub : null,
     stage: meta.stage || '',
     aliases: meta.aliases || [],

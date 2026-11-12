@@ -27,6 +27,7 @@ import os from 'node:os';
 import path from 'node:path';
 import readline from 'node:readline';
 import { spawnSync } from 'node:child_process';
+import { syncThumbs } from './mareo-thumbs.mjs';
 
 const PROJECT = 'mareo-app-8de88';
 const DB = `https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/(default)/documents`;
@@ -196,9 +197,12 @@ async function scan(days) {
 }
 
 async function listProjects(token) {
-  const res = await fetch(`${DB}/projects?pageSize=300&mask.fieldPaths=name`, { headers: { Authorization: `Bearer ${token}` } });
+  const res = await fetch(`${DB}/projects?pageSize=300&mask.fieldPaths=name&mask.fieldPaths=links`, { headers: { Authorization: `Bearer ${token}` } });
   const j = await res.json();
-  return (j.documents || []).map(d => ({ id: d.name.split('/').pop(), name: d.fields?.name?.stringValue || '' }));
+  return (j.documents || []).map(d => ({
+    id: d.name.split('/').pop(), name: d.fields?.name?.stringValue || '',
+    links: (d.fields?.links?.arrayValue?.values || []).map(v => ({ url: v.mapValue?.fields?.url?.stringValue || '' })),
+  }));
 }
 
 // ---- Process names -------------------------------------------------------------
@@ -541,6 +545,8 @@ async function once(dryRun) {
   }
   if (all.length) console.log(JSON.stringify(all));
   if (!dryRun) console.log(`${new Date().toLocaleTimeString('es-AR')} · ${written} sesiones actualizadas`);
+  // Project pictures from what each project has attached (tools/mareo-thumbs.mjs)
+  if (!dryRun && !flag('--no-thumbs')) await syncThumbs({ token, projects }).catch(err => console.error('thumbs: ' + (err.message || err)));
 }
 
 const main = async () => {
