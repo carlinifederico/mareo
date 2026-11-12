@@ -1,14 +1,13 @@
-// Brings the tasks of a person's lane on a production hub's Tareas board (the
-// Opi hub: Cloudflare Pages + D1, /api/db) into a MAREO project's notes, and
-// sends back edits of those tasks (title, done). MAREO's own notes are never
-// uploaded to the hub.
-// No background job: it runs when MAREO opens, when the tab comes back into
-// view, after a refresh, and a few seconds after a note of that project is
-// edited. Each synced note carries hubId (the board doc id), hubAt (the hub
-// version it last matched) and hubSynced (its own updatedAt at that moment),
-// so a change on either side is detected and the newer one wins. They are
-// the priority ones (hubMain) and show first. Rows with from:'mareo' were
-// uploaded by an earlier version and are ignored.
+// One way only: tasks of a person's lane on a production hub's Tareas board
+// (the Opi hub: Cloudflare Pages + D1, /api/db) come into a MAREO project's
+// notes. MAREO never writes to the hub. Runs on events, no background job:
+// when MAREO opens, when the tab comes back into view and after a refresh.
+// Each note made from a task carries hubId (the board doc id) and hubAt (the
+// hub version it last took); when the task changes on the hub, the note takes
+// the new title and done. They are the priority ones (hubMain) and show first.
+// Deleting such a note in MAREO hides that task here (proj.hubDismissed) and
+// leaves it on the hub. Rows with from:'mareo' were uploaded by an earlier
+// version and are ignored.
 import { Store } from './store.js';
 
 const LINKS = [
@@ -20,20 +19,16 @@ const LINKS = [
   },
 ];
 
-const PUSH_DELAY = 2500;
 const state = new Map(); // projectId -> { rows: Map(id -> row), lastAt, loaded }
-const tombstones = new Set(); // hub ids deleted here, until the hub confirms
-let running = false, again = false, timer = null, selfSave = false;
+let running = false, again = false;
 
 const same = (a, b) => (a || '').trim().toLowerCase() === (b || '').trim().toLowerCase();
 const linkFor =(projectId) => LINKS.find(l => l.projectId === projectId);
 const mine = (l) => Store._uid === l.uid;
 
-async function api(l, body) {
-  const res = await fetch(l.hub + '/api/db' + (body ? '' : '?since=' + Math.max(0, state.get(l.projectId).lastAt - 10000)), {
-    method: body ? 'POST' : 'GET',
-    headers: { 'content-type': 'application/json', 'x-opi-user': l.name },
-    body: body ? JSON.stringify(body) : undefined,
+async function api(l) {
+  const res = await fetch(l.hub + '/api/db?since=' + Math.max(0, state.get(l.projectId).lastAt - 10000), {
+    headers: { 'x-opi-user': l.name },
   });
   if (!res.ok) throw new Error('hub ' + res.status);
   return res.json();
@@ -46,7 +41,7 @@ async function pull(l) {
   for (const r of rows) {
     if (r.at > st.lastAt) st.lastAt = r.at;
     if (r.col !== 'board') continue;
-    if (r.deleted || !r.data || r.data.lane !== l.lane) { st.rows.delete(r.id); tombstones.delete(r.id); }
+    if (r.deleted || !r.data || r.data.lane !== l.lane) st.rows.delete(r.id);
     else st.rows.set(r.id, r);
   }
   st.loaded = true;
@@ -58,54 +53,38 @@ async function syncProject(l) {
   const proj = Store._findProject(l.projectId);
   if (!proj) return;
   if (!proj.projectNotes) proj.projectNotes = [];
-  let changed = false, dirty = false;
+  const dismissed = new Set(proj.hubDismissed || []);
+  let changed = false;
   const now = () => Date.now();
   const byHub = new Map(proj.projectNotes.filter(n => n.hubId).map(n => [n.hubId, n]));
-  const write = async (body) => {
-    const j = await api(l, body);
-    const r = j.rows && j.rows[0];
-    if (r) { if (r.at > st.lastAt) st.lastAt = r.at; if (!r.deleted) st.rows.set(r.id, { ...r, col: 'board' }); }
-    return r;
-  };
 
-  // Hub -> MAREO, and MAREO edits of linked notes -> hub
   const fresh = [];
   for (const [id, r] of st.rows) {
-    if (tombstones.has(id) || r.data.from) continue; // only tasks made on the hub come in
+    if (dismissed.has(id) || r.data.from) continue; // only tasks made on the hub come in
     const n = byHub.get(id);
     if (!n) {
       // A note with the same title that lost its link (a save that never
       // reached Firestore, another device): link it instead of duplicating.
       const twin = proj.projectNotes.find(x => !x.hubId && !(x.depth > 0) && same(x.title, r.data.title));
       if (twin) {
-        Object.assign(twin, { hubId: id, hubAt: r.at, hubSynced: twin.updatedAt, hubMain: !r.data.from });
+        Object.assign(twin, { hubId: id, hubAt: r.at, hubMain: true });
         byHub.set(id, twin);
         changed = true;
         continue;
       }
       fresh.push({
         id: 'pn-' + crypto.randomUUID(), title: r.data.title || '', content: '', done: !!r.data.done,
-        createdAt: r.data.created_at || now(), updatedAt: now(), hubId: id, hubAt: r.at, hubMain: !r.data.from,
+        createdAt: r.data.created_at || now(), updatedAt: now(), hubId: id, hubAt: r.at, hubMain: true,
       });
       continue;
     }
-    if (n.hubMain !== !r.data.from) { n.hubMain = !r.data.from; changed = true; }
-    const localChanged = (n.updatedAt || 0) > (n.hubSynced || 0);
-    const hubChanged = r.at > (n.hubAt || 0);
-    if (hubChanged && (!localChanged || r.at >= n.updatedAt)) {
-      n.title = r.data.title || ''; n.done = !!r.data.done; n.hubAt = r.at;
-      n.updatedAt = n.hubSynced = now();
+    if (n.hubMain !== true) { n.hubMain = true; changed = true; }
+    if (r.at > (n.hubAt || 0)) {
+      n.title = r.data.title || ''; n.done = !!r.data.done; n.hubAt = r.at; n.updatedAt = now();
       changed = true;
-    } else if (localChanged) {
-      const seen = n.updatedAt;
-      const done = !!n.done;
-      const out = await write({ op: 'update', col: 'board', id, data: {
-        title: n.title || '', done, doneAt: done ? (r.data.doneAt || now()) : { __delete__: true }, by: l.email, at: now(),
-      } });
-      if (out) { n.hubAt = out.at; n.hubSynced = seen; dirty = true; }
     }
   }
-  for (const n of fresh) { n.hubSynced = n.updatedAt; proj.projectNotes.unshift(n); changed = true; }
+  for (const n of fresh) { proj.projectNotes.unshift(n); changed = true; }
 
   // Linked notes whose hub task is gone (deleted or moved to someone else's
   // lane) go too. MAREO's own notes that an earlier version uploaded
@@ -113,7 +92,7 @@ async function syncProject(l) {
   const kept = [];
   for (const n of proj.projectNotes) {
     const r = n.hubId && st.rows.get(n.hubId);
-    if (!n.hubId || tombstones.has(n.hubId) || (r && !r.data.from)) { kept.push(n); continue; }
+    if (!n.hubId || (r && !r.data.from)) { kept.push(n); continue; }
     changed = true;
     if (n.hubMain === false || (r && r.data.from)) {
       delete n.hubId; delete n.hubAt; delete n.hubSynced; delete n.hubMain;
@@ -122,9 +101,9 @@ async function syncProject(l) {
   }
   proj.projectNotes = kept;
 
-  if (changed || dirty) {
-    selfSave = true; Store._skipUndo = true;
-    try { Store.save(); } finally { Store._skipUndo = false; selfSave = false; }
+  if (changed) {
+    Store._skipUndo = true;
+    try { Store.save(); } finally { Store._skipUndo = false; }
   }
   // Don't re-render under someone typing; the next render shows it.
   if (changed && !document.activeElement?.classList?.contains('note-preview-text')) {
@@ -146,22 +125,14 @@ export async function syncHubTasks() {
   }
 }
 
-const later = () => { clearTimeout(timer); timer = setTimeout(syncHubTasks, PUSH_DELAY); };
-
 export function initHubTasks() {
-  // Any save of the user's data may touch a linked project's notes.
-  const save = Store.save.bind(Store);
-  Store.save = () => { save(); if (!selfSave) later(); };
-  // Deleting a linked note deletes its task on the hub.
+  // Deleting a hub task's note in MAREO hides that task here; the hub keeps it.
   const remove = Store.removeProjectNote.bind(Store);
   Store.removeProjectNote = (projectId, noteId) => {
-    const l = linkFor(projectId);
-    const n = l && (Store._findProject(projectId)?.projectNotes || []).find(x => x.id === noteId);
+    const proj = linkFor(projectId) && Store._findProject(projectId);
+    const n = proj && (proj.projectNotes || []).find(x => x.id === noteId);
+    if (n && n.hubId) proj.hubDismissed = [...new Set([...(proj.hubDismissed || []), n.hubId])];
     remove(projectId, noteId);
-    if (n && n.hubId && mine(l)) {
-      tombstones.add(n.hubId);
-      api(l, { op: 'delete', col: 'board', id: n.hubId }).catch(err => console.warn('hub task delete failed', err));
-    }
   };
   const refresh = Store.refresh.bind(Store);
   Store.refresh = async () => { await refresh(); syncHubTasks(); };
