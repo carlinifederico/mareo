@@ -48,6 +48,12 @@ export const Store = {
   // Per-project content snapshots (JSON strings) for diff-based dirty
   // tracking on Firestore save. Updated on every successful write.
   _projectSnapshots: {},
+  // Projects the user deleted with removeProject(). Only these are ever
+  // deleted from /projects: a project merely missing from the local lists
+  // (stale tab, failed load, undo, import, mid-refresh) is never deleted.
+  // On 2026-11-16 a save during a refresh deleted all 31 projects.
+  _deletedIds: new Set(),
+  _hydrating: false,
   // Runtime list of projects shared with this user (not in their own
   // categories). Hydrated on load from data.sharedProjects[].
   _sharedProjects: [],
@@ -191,7 +197,8 @@ export const Store = {
     // pulling content from /projects. Owned projects sitting in
     // categories AND projects shared with us via sharedProjects[].
     if (uid) {
-      await this._hydrateProjects(uid);
+      this._hydrating = true;
+      try { await this._hydrateProjects(uid); } finally { this._hydrating = false; }
     } else {
       // Without a uid we can't hit Firestore. Tag any nested in-memory
       // projects as owner so client gating doesn't lock them out.
@@ -323,6 +330,7 @@ export const Store = {
 
   _initProjectSnapshots() {
     this._projectSnapshots = {};
+    this._lastRefs = this.data.categories.reduce((n, c) => n + c.projects.length, 0);
     for (const cat of this.data.categories) {
       for (const proj of cat.projects) {
         if (typeof proj === 'object' && proj && proj.id) {
@@ -357,6 +365,15 @@ export const Store = {
   // elsewhere. Last-write-wins; local unsaved changes are clobbered.
   async refresh() {
     if (!this._uid) return;
+    this._hydrating = true;
+    try {
+      await this._refresh();
+    } finally {
+      this._hydrating = false;
+    }
+  },
+
+  async _refresh() {
     try {
       const snap = await getDoc(doc(db, 'mareo_data', this._uid));
       if (snap.exists()) {
@@ -458,6 +475,7 @@ export const Store = {
     if (this._saveTimer) clearTimeout(this._saveTimer);
     this._saveTimer = setTimeout(() => {
       if (!this._uid || !this.data) return;
+      if (this._hydrating) { this._debouncedFirestoreSave(); return; } // wait for the load to finish
       this._doFirestoreSave().catch(err => console.warn('Firestore save failed:', err));
     }, 1500);
   },
@@ -468,6 +486,7 @@ export const Store = {
     const dirty = [];
     const currentIds = new Set();
     const visit = (proj) => {
+      if (typeof proj === 'string') { currentIds.add(proj); return; } // not hydrated yet: still there
       if (typeof proj !== 'object' || !proj || !proj.id) return;
       currentIds.add(proj.id);
       if (proj._role === 'viewer') return; // not allowed to write
@@ -485,8 +504,9 @@ export const Store = {
     // 2. Detect projects that disappeared from runtime (removed locally).
     //    We delete the remote doc only when we're owner — for shared
     //    projects, dropping a reference doesn't affect the underlying doc.
-    const removedIds = Object.keys(this._projectSnapshots).filter(id => !currentIds.has(id));
-    for (const id of removedIds) delete this._projectSnapshots[id];
+    const removedIds = Object.keys(this._projectSnapshots).filter(id => !currentIds.has(id) && this._deletedIds.has(id));
+    for (const id of Object.keys(this._projectSnapshots)) if (!currentIds.has(id)) delete this._projectSnapshots[id];
+    for (const id of removedIds) this._deletedIds.delete(id);
 
     // 3. Write dirty projects in parallel. Each carries its own ownership
     //    metadata so editors of someone else's project preserve the owner.
@@ -511,6 +531,12 @@ export const Store = {
 
     // 5. Write the per-user doc with project references (IDs only).
     const userDoc = this._buildUserDoc();
+    const refs = userDoc.categories.reduce((n, c) => n + c.projects.length, 0);
+    if (refs === 0 && (this._lastRefs || 0) >= 3 && this._deletedIds.size === 0 && removedIds.length < this._lastRefs) {
+      console.error('MAREO: refusing to save a project list that went from', this._lastRefs, 'to 0 projects');
+      return;
+    }
+    this._lastRefs = refs;
     try {
       await setDoc(doc(db, 'mareo_data', this._uid), userDoc);
     } catch (err) {
@@ -575,6 +601,7 @@ export const Store = {
   },
 
   removeProject(projectId) {
+    this._deletedIds.add(projectId);
     for (const cat of this.data.categories) {
       cat.projects = cat.projects.filter(p =>
         typeof p === 'object' && p ? p.id !== projectId : p !== projectId
