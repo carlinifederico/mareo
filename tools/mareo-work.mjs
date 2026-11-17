@@ -28,6 +28,7 @@ import path from 'node:path';
 import readline from 'node:readline';
 import { spawnSync } from 'node:child_process';
 import { syncThumbs } from './mareo-thumbs.mjs';
+import { dailyBackup } from './mareo-backup.mjs';
 
 const PROJECT = 'mareo-app-8de88';
 const DB = `https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/(default)/documents`;
@@ -546,6 +547,8 @@ async function once(dryRun) {
   if (all.length) console.log(JSON.stringify(all));
   if (!dryRun) console.log(`${new Date().toLocaleTimeString('es-AR')} · ${written} sesiones actualizadas`);
   // Project pictures from what each project has attached (tools/mareo-thumbs.mjs)
+  // One copy of the Firestore data a day, to Drive (tools/mareo-backup.mjs)
+  if (!dryRun) await dailyBackup(token).catch(err => console.error('backup: ' + (err.message || err)));
   if (!dryRun && !flag('--no-thumbs')) await syncThumbs({ token, projects }).catch(err => console.error('thumbs: ' + (err.message || err)));
 }
 
