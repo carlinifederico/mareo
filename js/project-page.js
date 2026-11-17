@@ -122,6 +122,12 @@ export function renderProjectPage(container, projectId) {
   hero.appendChild(art);
   page.appendChild(hero);
 
+  // --- Notes + tasks first, always within reach; hub next to them ---
+  const row = el('div', 'pp-row');
+  row.appendChild(renderNotes(project, id));
+  row.appendChild(renderHubPanel(project, id));
+  page.appendChild(row);
+
   // --- Up to date: written by /mareo-sync from the hub, meetings and folders ---
   if (id.brief) {
     const row0 = el('div', 'pp-row');
@@ -148,12 +154,6 @@ export function renderProjectPage(container, projectId) {
     sec.appendChild(ol);
     page.appendChild(sec);
   }
-
-  // --- Hub + notes ---
-  const row = el('div', 'pp-row');
-  row.appendChild(renderHubPanel(project, id));
-  row.appendChild(renderNotes(project, id));
-  page.appendChild(row);
 
   // --- Timeline + dedication ---
   const row2 = el('div', 'pp-row');
