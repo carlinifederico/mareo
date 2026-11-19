@@ -1,5 +1,5 @@
 import { Store } from './store.js';
-import { getDayWidth, taskToPixels, taskToDisplayPixels } from './timeline.js';
+import { getDayWidth, taskToDisplayPixels, taskStartInYear, normalizeTaskStart } from './timeline.js';
 
 let dragState = null;
 const DRAG_THRESHOLD = 8;
@@ -23,7 +23,9 @@ function onPointerDown(e) {
 
   const isTouch = e.pointerType === 'touch';
   const dw = getDayWidth();
-  const pos = taskToDisplayPixels(task.startDay, task.durationDays);
+  // Positions are offsets from Jan 1 of the year shown in the Timeline
+  const shownStart = taskStartInYear(task, Store.data.currentYear);
+  const pos = taskToDisplayPixels(shownStart, task.durationDays);
 
   let mode = 'move';
   if (isResizeRight) mode = 'resize-right';
@@ -31,7 +33,7 @@ function onPointerDown(e) {
 
   dragState = {
     taskId, bar, mode,
-    initialStartDay: task.startDay || 0,
+    initialStartDay: shownStart,
     initialDuration: task.durationDays || 7,
     initialLeft: pos.left,
     initialWidth: pos.width,
@@ -63,13 +65,12 @@ function onPointerMove(e) {
   const pxDelta = deltaSnaps * sw;
 
   if (dragState.mode === 'move') {
-    dragState.bar.style.left = Math.max(0, dragState.initialLeft + pxDelta) + 'px';
+    dragState.bar.style.left = (dragState.initialLeft + pxDelta) + 'px';
   } else if (dragState.mode === 'resize-right') {
     dragState.bar.style.width = Math.max(sw, dragState.initialWidth + pxDelta) + 'px';
   } else if (dragState.mode === 'resize-left') {
     const maxPx = dragState.initialWidth - sw;
-    const minPx = -dragState.initialLeft;
-    const clamped = Math.max(minPx, Math.min(maxPx, pxDelta));
+    const clamped = Math.min(maxPx, pxDelta);
     dragState.bar.style.left = (dragState.initialLeft + clamped) + 'px';
     dragState.bar.style.width = (dragState.initialWidth - clamped) + 'px';
   }
@@ -85,16 +86,16 @@ function onPointerUp(e) {
   const deltaDays = deltaSnaps * snap;
 
   if (dragState.mode === 'move') {
-    const newStart = Math.max(0, dragState.initialStartDay + deltaDays);
-    Store.updateTask(dragState.taskId, { startDay: newStart });
+    // May cross into the previous or next year
+    Store.updateTask(dragState.taskId, normalizeTaskStart(Store.data.currentYear, dragState.initialStartDay + deltaDays));
   } else if (dragState.mode === 'resize-right') {
     const newDuration = Math.max(snap, dragState.initialDuration + deltaDays);
     Store.updateTask(dragState.taskId, { durationDays: newDuration });
   } else if (dragState.mode === 'resize-left') {
     const maxDelta = dragState.initialDuration - snap;
-    const clamped = Math.max(-dragState.initialStartDay, Math.min(maxDelta, deltaDays));
+    const clamped = Math.min(maxDelta, deltaDays);
     Store.updateTask(dragState.taskId, {
-      startDay: dragState.initialStartDay + clamped,
+      ...normalizeTaskStart(Store.data.currentYear, dragState.initialStartDay + clamped),
       durationDays: dragState.initialDuration - clamped
     });
   }

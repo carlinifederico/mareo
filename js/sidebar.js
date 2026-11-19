@@ -2,6 +2,7 @@ import { Store } from './store.js';
 import { showModal } from './modal.js';
 import { icon } from './icons.js';
 import { showShareModal } from './share-modal.js';
+import { taskStartInYear, dateStrToTaskStart } from './timeline.js';
 
 let onProjectClick = null;
 
@@ -146,7 +147,7 @@ export function renderSidebar(container) {
         addBtn.textContent = '+ Subtask';
         addBtn.addEventListener('click', (e) => {
           e.stopPropagation();
-          showAddTaskModal(proj.id, parentTask.startDay || 0, parentTask.id);
+          showAddTaskModal(proj.id, taskStartInYear(parentTask, Store.data.currentYear), parentTask.id);
         });
         groupRow.appendChild(addBtn);
       }
@@ -683,7 +684,7 @@ export function showAddTaskModal(projectId, startDay, parentId) {
     onSave: (values) => {
       Store.addTask(projectId, {
         label: values.label.trim() || 'New Task',
-        startDay: _dateStrToDoy(year, values.startDate),
+        ...(values.startDate ? dateStrToTaskStart(values.startDate) : { startDay: 0, year }),
         durationDays: parseInt(values.durationDays),
         color: values.color,
         parentId: parentId || null

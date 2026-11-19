@@ -13,6 +13,7 @@ import { icon } from './icons.js';
 import { renderBalance } from './balance.js';
 import { renderDayTasks, resetDayTasksToToday } from './daytasks.js';
 import { initPan } from './pan.js';
+import { initTimelineNav } from './timeline-nav.js';
 import { renderHome, currentRoute } from './home.js';
 import { Meta } from './meta-repo.js';
 import { setDayTasksMode } from './daytasks.js';
@@ -180,79 +181,30 @@ function initApp() {
     scrollToToday();
   });
 
-  // Timeline zoom (Ctrl+scroll or pinch)
+  // Timeline navigation: zoom at cursor, pan, sideways scroll, year edges
+  // (see timeline-nav.js). A zoom step redraws only the header and bars.
   const timelineArea = document.getElementById('timeline-area');
-  // Horizontal navigation with acceleration: Shift+wheel, horizontal trackpad
-  // swipes, or plain wheel over the month/week header. Consecutive notches in
-  // the same direction ramp the speed up (up to 10x) so far dates are quick
-  // to reach; a pause or direction change resets it.
-  let hAccel = 1, hLastT = 0, hLastDir = 0;
-  timelineArea.addEventListener('wheel', (e) => {
-    if (e.ctrlKey || e.metaKey) return; // zoom handler below
-    const header = timelineArea.querySelector('.timeline-header-wrapper');
-    const hr = header?.getBoundingClientRect();
-    const overHeader = hr && e.clientY >= hr.top && e.clientY <= hr.bottom;
-    const horizontalSwipe = Math.abs(e.deltaX) > Math.abs(e.deltaY);
-    if (!e.shiftKey && !overHeader && !horizontalSwipe) return; // normal vertical scroll
-    e.preventDefault();
-    const raw = horizontalSwipe ? e.deltaX : (e.deltaY || e.deltaX);
-    const dir = Math.sign(raw);
-    const now = performance.now();
-    hAccel = (dir === hLastDir && now - hLastT < 180) ? Math.min(hAccel * 1.35, 10) : 1;
-    hLastT = now; hLastDir = dir;
-    // Trackpads send many small deltas — accelerate them less
-    const base = Math.abs(raw) < 40 ? raw * 1.5 : raw * 2;
-    timelineArea.scrollLeft += base * hAccel;
-  }, { passive: false });
-
-  timelineArea.addEventListener('wheel', (e) => {
-    if (!e.ctrlKey && !e.metaKey) return;
-    e.preventDefault();
-    const oldWeekWidth = getWeekWidth();
-    const year = Store.data.currentYear;
-    const oldTotalWidth = getTotalWidth();
-
-    const rect = timelineArea.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left + timelineArea.scrollLeft;
-    const fraction = mouseX / oldTotalWidth;
-
-    const delta = e.deltaY > 0 ? -5 : 5;
-    setWeekWidth(oldWeekWidth + delta);
-
-    if (getWeekWidth() !== oldWeekWidth) {
-      render();
-      const newTotalWidth = getTotalWidth();
-      const newScrollLeft = fraction * newTotalWidth - (e.clientX - rect.left);
-      timelineArea.scrollLeft = Math.max(0, newScrollLeft);
-    }
-  }, { passive: false });
-
-  // Touch pinch zoom for mobile
-  let lastPinchDist = 0;
-  timelineArea.addEventListener('touchstart', (e) => {
-    if (e.touches.length === 2) {
-      lastPinchDist = Math.hypot(
-        e.touches[0].clientX - e.touches[1].clientX,
-        e.touches[0].clientY - e.touches[1].clientY
-      );
-    }
+  const renderTimelineZoom = () => {
+    renderTimelineHeader(document.getElementById('timeline-header'), Store.data.currentYear);
+    renderGantt(document.getElementById('gantt-body'));
+    copyRowHeights();
+  };
+  const timelineNav = initTimelineNav({
+    area: timelineArea,
+    renderZoom: renderTimelineZoom,
+    renderYear: render,
+    onZoomChange: refreshZoomButtons,
   });
-  timelineArea.addEventListener('touchmove', (e) => {
-    if (e.touches.length === 2) {
-      e.preventDefault();
-      const dist = Math.hypot(
-        e.touches[0].clientX - e.touches[1].clientX,
-        e.touches[0].clientY - e.touches[1].clientY
-      );
-      const diff = dist - lastPinchDist;
-      if (Math.abs(diff) > 3) {
-        const oldWidth = getWeekWidth();
-        setWeekWidth(oldWidth + (diff > 0 ? 3 : -3));
-        if (getWeekWidth() !== oldWidth) render();
-        lastPinchDist = dist;
-      }
-    }
-  }, { passive: false });
+  document.getElementById('btn-zoom-in')?.addEventListener('click', () => timelineNav.zoomIn());
+  document.getElementById('btn-zoom-out')?.addEventListener('click', () => timelineNav.zoomOut());
+  function refreshZoomButtons() {
+    const zin = document.getElementById('btn-zoom-in');
+    const zout = document.getElementById('btn-zoom-out');
+    if (zin) zin.disabled = !timelineNav.canZoomIn();
+    if (zout) zout.disabled = !timelineNav.canZoomOut();
+  }
+  refreshZoomButtons();
+  document.addEventListener('mareo:timelineZoom', refreshZoomButtons);
 
   // Reset view button — restores the default Timeline view
   // (±1.5 months around today, centered).
@@ -415,6 +367,7 @@ function applyTimelineDefaultView() {
   const targetWeekWidth = Math.max(20, Math.min(300, (visibleW / DAYS_IN_WINDOW) * 7));
   setWeekWidth(targetWeekWidth);
   render();
+  document.dispatchEvent(new Event('mareo:timelineZoom'));
   // Center today after the layout settles.
   requestAnimationFrame(() => {
     const todayPx = getTodayPixelX(now.getFullYear());
@@ -636,9 +589,24 @@ function render() {
   }
 }
 
+// Gantt rows, without the grid layer and the today marker
+const GANTT_ROWS = '#gantt-body > :not(.gantt-grid-layer):not(.today-marker)';
+
+// After a zoom redraw: give the new gantt rows the heights the sidebar rows
+// already have (no layout reads, so it stays cheap per frame).
+function copyRowHeights() {
+  const sidebarItems = document.querySelectorAll('#sidebar-content > *');
+  const ganttItems = document.querySelectorAll(GANTT_ROWS);
+  const n = Math.min(sidebarItems.length, ganttItems.length);
+  for (let i = 0; i < n; i++) {
+    const h = sidebarItems[i].style.height;
+    if (h) ganttItems[i].style.height = h;
+  }
+}
+
 function syncRowHeights() {
   const sidebarItems = document.querySelectorAll('#sidebar-content > *');
-  const ganttItems = document.querySelectorAll('#gantt-body > *');
+  const ganttItems = document.querySelectorAll(GANTT_ROWS);
   const minLen = Math.min(sidebarItems.length, ganttItems.length);
   for (let i = 0; i < minLen; i++) {
     const sH = sidebarItems[i].getBoundingClientRect().height;

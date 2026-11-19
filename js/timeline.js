@@ -4,10 +4,15 @@ const DAY_ABBR = ['S','M','T','W','T','F','S'];
 const DEFAULT_WEEK_WIDTH = 40;
 const DAY_THRESHOLD = 110;
 
+// Zoom limits, as week width in px: 20 ≈ the whole year on screen,
+// 420 = 60 px per day.
+export const MIN_WEEK_WIDTH = 20;
+export const MAX_WEEK_WIDTH = 420;
+
 let _weekWidth = DEFAULT_WEEK_WIDTH;
 
 export function getWeekWidth() { return _weekWidth; }
-export function setWeekWidth(w) { _weekWidth = Math.max(20, Math.min(300, w)); }
+export function setWeekWidth(w) { _weekWidth = Math.max(MIN_WEEK_WIDTH, Math.min(MAX_WEEK_WIDTH, w)); }
 export function resetWeekWidth() { _weekWidth = DEFAULT_WEEK_WIDTH; }
 export function getDefaultWeekWidth() { return DEFAULT_WEEK_WIDTH; }
 export function isDayMode() { return _weekWidth >= DAY_THRESHOLD; }
@@ -43,8 +48,56 @@ export function taskToDisplayPixels(startDay, durationDays) {
   return taskToPixels(startDay, durationDays);
 }
 
+// -------------------------------------------------------
+// TASK YEARS
+// -------------------------------------------------------
+// A task stores startDay as a day of year. Tasks made before years were
+// tracked have no `year` field: they belong to LEGACY_TASK_YEAR. New tasks
+// carry `year` (an extra field; v1 ignores it and keeps reading startDay).
+// A task is drawn in every year its dates overlap, so a task that runs over
+// New Year shows its tail at the start of the next year.
+export const LEGACY_TASK_YEAR = 2026;
+const DAY_MS = 86400000;
+
+export function taskYear(task) {
+  const y = task && task.year;
+  return Number.isInteger(y) ? y : LEGACY_TASK_YEAR;
+}
+
+function yearStartDays(year) { return Date.UTC(year, 0, 1) / DAY_MS; }
+
+// Task start as a day offset from Jan 1 of `year` (negative or past the end
+// of that year when the task belongs to another one).
+export function taskStartInYear(task, year) {
+  return (task.startDay || 0) + yearStartDays(taskYear(task)) - yearStartDays(year);
+}
+
+export function taskInYear(task, year) {
+  const s = taskStartInYear(task, year);
+  const d = task.durationDays || 1;
+  return s + d > 0 && s < daysInYear(year);
+}
+
+// (year, day offset that may spill out of it) → stored { year, startDay }.
+export function normalizeTaskStart(year, day) {
+  let y = year, s = Math.round(day);
+  while (s < 0) { y--; s += daysInYear(y); }
+  while (s >= daysInYear(y)) { s -= daysInYear(y); y++; }
+  return { year: y, startDay: s };
+}
+
+// 'YYYY-MM-DD' ↔ { year, startDay }
+export function dateStrToTaskStart(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return { year: y, startDay: Date.UTC(y, m - 1, d) / DAY_MS - yearStartDays(y) };
+}
+
+export function taskStartToDateStr(year, day) {
+  return new Date(Date.UTC(year, 0, 1) + day * DAY_MS).toISOString().slice(0, 10);
+}
+
 // Calendar helpers
-function daysInYear(year) {
+export function daysInYear(year) {
   return ((year % 4 === 0 && year % 100 !== 0) || year % 400 === 0) ? 366 : 365;
 }
 
@@ -118,7 +171,7 @@ export function renderTimelineHeader(container, year) {
     cell.style.position = 'absolute';
     cell.style.left = left + 'px';
     cell.style.width = w + 'px';
-    cell.textContent = m.name;
+    cell.textContent = m.name === 'JAN' ? `JAN ${year}` : m.name;
     if (m.isCurrent) cell.classList.add('current-month');
     monthRow.appendChild(cell);
   }

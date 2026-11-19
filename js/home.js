@@ -8,6 +8,7 @@ import { GCal } from './gcal.js';
 import { identityFor, glyphSvg, listProjects } from './identity.js';
 import { renderDedicationMini, openDedication } from './stats.js';
 import { renderProjectPage } from './project-page.js';
+import { taskStartInYear } from './timeline.js';
 import { showAddProjectModal } from './sidebar.js';
 
 const DAYS = ['DOMINGO', 'LUNES', 'MARTES', 'MIÉRCOLES', 'JUEVES', 'VIERNES', 'SÁBADO'];
@@ -334,7 +335,10 @@ export function currentTask(project) {
   const now = new Date();
   const doy = Math.floor((now - new Date(now.getFullYear(), 0, 1)) / 86400000);
   const top = (project.tasks || []).filter(t => !t.parentId);
-  return top.find(t => doy >= (t.startDay || 0) && doy < (t.startDay || 0) + (t.durationDays || 1)) || null;
+  return top.find(t => {
+    const s = taskStartInYear(t, now.getFullYear());
+    return doy >= s && doy < s + (t.durationDays || 1);
+  }) || null;
 }
 
 function renderProjectCard(project) {

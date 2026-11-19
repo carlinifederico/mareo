@@ -1,5 +1,6 @@
 import { db, doc, getDoc, setDoc } from './firebase-config.js';
 import { ProjectsRepo, PROJECT_CONTENT_FIELDS } from './projects-repo.js';
+import { taskInYear, taskStartInYear } from './timeline.js';
 
 const STORAGE_PREFIX = 'mareo_data_';
 const SCHEMA_VERSION = 2;
@@ -716,6 +717,8 @@ export const Store = {
       id: 'task-' + crypto.randomUUID(),
       label: task.label || 'New Task',
       startDay: task.startDay || 0,
+      // startDay is a day of this year (tasks without it are 2026)
+      year: Number.isInteger(task.year) ? task.year : this.data.currentYear,
       durationDays: task.durationDays || 7,
       color: task.color || proj.color,
       notes: task.notes || '',
@@ -1093,9 +1096,12 @@ export const Store = {
 
     const emitChildRows = (proj, cat, pinned, parentTasks, depth) => {
       if (depth > 5) return;
-      const sorted = [...parentTasks].sort((a, b) => (a.startDay || 0) - (b.startDay || 0));
+      // Only the Timeline's year: tasks of other years get no subtask rows
+      const year = this.data.currentYear;
+      const sorted = parentTasks.filter(t => taskInYear(t, year))
+        .sort((a, b) => taskStartInYear(a, year) - taskStartInYear(b, year));
       for (const task of sorted) {
-        const children = proj.tasks.filter(t => t.parentId === task.id);
+        const children = proj.tasks.filter(t => t.parentId === task.id && taskInYear(t, year));
         if (children.length > 0 && task.expanded) {
           layout.push({ type: 'task-children', proj, cat, pinned, parentTask: task, depth });
           emitChildRows(proj, cat, pinned, children, depth + 1);

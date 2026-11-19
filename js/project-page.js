@@ -10,6 +10,7 @@ import { showLinksModal } from './modal.js';
 import { statusPill } from './home.js';
 import { appendNoteRows, attachNoteReorderDnD, focusPendingNote, addNoteAndFocus } from './board.js';
 import { showEditTaskModal, showTaskContextMenu } from './gantt.js';
+import { taskInYear, taskStartInYear, normalizeTaskStart } from './timeline.js';
 
 const MONTHS_SHORT = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
 const ARROW = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M7 17L17 7M8 7h9v9"/></svg>';
@@ -199,11 +200,13 @@ function fmtDoy(doy) {
 
 function buildStages(project) {
   const doy = todayDoy();
+  const year = new Date().getFullYear();
+  const startOf = (t) => taskStartInYear(t, year);
   return (project.tasks || [])
     .filter(t => !t.parentId)
-    .sort((a, b) => (a.startDay || 0) - (b.startDay || 0))
+    .sort((a, b) => startOf(a) - startOf(b))
     .map(t => {
-      const s = t.startDay || 0, e = s + (t.durationDays || 1);
+      const s = startOf(t), e = s + (t.durationDays || 1);
       const status = doy >= e ? 'done' : doy >= s ? 'now' : 'next';
       return { label: t.label || 'Etapa', status, dates: `${fmtDoy(s)} → ${fmtDoy(e - 1)}` };
     });
@@ -410,9 +413,10 @@ function renderNotes(project, id) {
 }
 
 // Tasks in tree order (parents first, children right under them), by start.
-function taskTree(project) {
-  const tasks = project.tasks || [];
-  const byStart = (a, b) => (a.startDay || 0) - (b.startDay || 0);
+// Only tasks whose dates fall in `year`.
+function taskTree(project, year) {
+  const tasks = (project.tasks || []).filter(t => taskInYear(t, year));
+  const byStart = (a, b) => taskStartInYear(a, year) - taskStartInYear(b, year);
   const out = [];
   const walk = (parentId, depth) => {
     for (const t of tasks.filter(x => (x.parentId || null) === parentId).sort(byStart)) {
@@ -440,10 +444,10 @@ function renderMiniTimeline(project, id) {
   head.appendChild(go);
   card.appendChild(head);
 
-  const rows = taskTree(project);
+  const year = new Date().getFullYear();
+  const rows = taskTree(project, year);
   const yearDays = 366;
   const doy = todayDoy();
-  const year = new Date().getFullYear();
   const marks = ((id.brief && id.brief.milestones) || [])
     .filter(m => /^\d{4}-\d{2}-\d{2}$/.test(m.date || '') && Number(m.date.slice(0, 4)) === year)
     .map(m => ({ ...m, doy: Math.floor((new Date(m.date + 'T12:00') - new Date(year, 0, 1)) / 86400000) }));
@@ -459,14 +463,14 @@ function renderMiniTimeline(project, id) {
       r.appendChild(taskLabel(t, depth, editable));
       const track = el('div', 'pp-tl-track');
       const bar = el('span', 'pp-tl-bar' + (depth ? ' sub' : ''));
-      const s = t.startDay || 0, d = t.durationDays || 1;
+      const s = taskStartInYear(t, year), d = t.durationDays || 1;
       bar.style.left = `${(s / yearDays) * 100}%`;
       bar.style.width = `${Math.max((d / yearDays) * 100, 0.8)}%`;
       const active = doy >= s && doy < s + d;
       bar.style.background = active ? id.color : (t.color || id.color);
       bar.style.opacity = doy >= s + d ? '0.45' : '1';
       bar.title = `${t.label} · ${fmtDoy(s)} → ${fmtDoy(s + d - 1)}`;
-      if (editable) attachBarEditing(bar, track, t, yearDays);
+      if (editable) attachBarEditing(bar, track, t, yearDays, year);
       track.appendChild(bar);
       r.appendChild(track);
       grid.appendChild(r);
@@ -498,7 +502,7 @@ function renderMiniTimeline(project, id) {
     const add = el('button', 'v2-btn pp-tl-add', '+ Tarea');
     add.type = 'button';
     add.addEventListener('click', () => {
-      const t = Store.addTask(project.id, { label: 'Nueva tarea', startDay: doy, durationDays: 7, color: project.color });
+      const t = Store.addTask(project.id, { label: 'Nueva tarea', startDay: doy, year, durationDays: 7, color: project.color });
       if (t) focusTaskLabelAfterRender = t.id;
       rerender();
     });
@@ -542,7 +546,7 @@ function taskLabel(task, depth, editable) {
   return input;
 }
 
-function attachBarEditing(bar, track, task, yearDays) {
+function attachBarEditing(bar, track, task, yearDays, year) {
   bar.classList.add('editable');
   const handle = el('span', 'pp-tl-handle');
   bar.appendChild(handle);
@@ -555,7 +559,7 @@ function attachBarEditing(bar, track, task, yearDays) {
     e.preventDefault();
     const resize = e.target === handle;
     const pxPerDay = track.getBoundingClientRect().width / yearDays;
-    const s0 = task.startDay || 0, d0 = task.durationDays || 1;
+    const s0 = taskStartInYear(task, year), d0 = task.durationDays || 1;
     const x0 = e.clientX;
     let moved = false, s = s0, d = d0;
     bar.setPointerCapture(e.pointerId);
@@ -575,7 +579,7 @@ function attachBarEditing(bar, track, task, yearDays) {
       bar.removeEventListener('pointerup', onUp);
       bar.removeEventListener('pointercancel', onUp);
       if (!moved) { showEditTaskModal(task); return; }
-      if (s !== s0 || d !== d0) Store.updateTask(task.id, { startDay: s, durationDays: d });
+      if (s !== s0 || d !== d0) Store.updateTask(task.id, { ...normalizeTaskStart(year, s), durationDays: d });
       rerender();
     };
     bar.addEventListener('pointermove', onMove);

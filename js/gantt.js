@@ -1,5 +1,5 @@
 import { Store } from './store.js';
-import { getWeekWidth, getDayWidth, isDayMode, getTotalWeeks, getTotalWidth, taskToPixels, taskToDisplayPixels, getTodayPixelX, getTodayWeekIndex } from './timeline.js';
+import { getWeekWidth, getDayWidth, isDayMode, getTotalWeeks, getTotalWidth, taskToDisplayPixels, getTodayPixelX, getTodayWeekIndex, taskInYear, taskStartInYear, taskYear, normalizeTaskStart, dateStrToTaskStart, taskStartToDateStr } from './timeline.js';
 import { showModal } from './modal.js';
 import { icon } from './icons.js';
 import { openContextMenu } from './context-menu.js';
@@ -18,15 +18,18 @@ function lightenColor(hex, amount) {
   return '#' + [r, g, b].map(c => c.toString(16).padStart(2, '0')).join('');
 }
 
+// day: offset from Jan 1 of the year shown in the Timeline
 function createTaskInline(projId, day, parentId) {
   const proj = Store._findProject(projId);
+  const { year, startDay } = normalizeTaskStart(Store.data.currentYear, day);
   if (!proj) return;
   const parent = parentId ? Store._findTask(parentId) : null;
   const depth = parent ? Store.getTaskDepth(parent.id) + 1 : 0;
   const color = parent ? lightenColor(parent.color, 0.2) : proj.color;
   const newTask = Store.addTask(projId, {
     label: '',
-    startDay: day,
+    startDay,
+    year,
     durationDays: DURATIONS[Math.min(depth, DURATIONS.length - 1)],
     color: color,
     parentId: parentId || null
@@ -107,6 +110,13 @@ export function renderGantt(container) {
     return;
   }
 
+  // One grid layer under all rows (not one set of lines per row)
+  const grid = document.createElement('div');
+  grid.className = 'gantt-grid-layer';
+  grid.style.width = totalWidth + 'px';
+  renderGridLines(grid, dayMode, year, dw, ww, totalWeeks, todayPx, todayWeek);
+  container.appendChild(grid);
+
   const layout = Store.getRenderedLayout();
 
   for (const item of layout) {
@@ -118,8 +128,8 @@ export function renderGantt(container) {
 
     } else if (item.type === 'project') {
       const proj = item.proj;
-      const rootTasks = proj.tasks.filter(t => !t.parentId);
-      const { tasks, laneCount } = layoutTasks(rootTasks);
+      const rootTasks = proj.tasks.filter(t => !t.parentId && taskInYear(t, year));
+      const { tasks, laneCount } = layoutTasks(rootTasks, year);
       const rowHeight = Math.max(1, laneCount) * 36 + 4;
 
       const projRow = document.createElement('div');
@@ -127,8 +137,6 @@ export function renderGantt(container) {
       projRow.dataset.projectId = proj.id;
       projRow.style.width = totalWidth + 'px';
       projRow.style.height = rowHeight + 'px';
-
-      renderGridLines(projRow, dayMode, year, dw, ww, totalWeeks, todayPx, todayWeek);
 
       for (const task of tasks) {
         projRow.appendChild(createTaskBar(task, 36, year, proj));
@@ -166,9 +174,9 @@ export function renderGantt(container) {
 
     } else if (item.type === 'task-children') {
       const { proj, parentTask, depth } = item;
-      const children = proj.tasks.filter(t => t.parentId === parentTask.id);
+      const children = proj.tasks.filter(t => t.parentId === parentTask.id && taskInYear(t, year));
       const lh = LANE_HEIGHTS[Math.min(depth, LANE_HEIGHTS.length - 1)];
-      const { tasks: childSorted, laneCount: childLanes } = layoutTasks(children);
+      const { tasks: childSorted, laneCount: childLanes } = layoutTasks(children, year);
       const childRowHeight = Math.max(1, childLanes) * lh + 4;
 
       const childRow = document.createElement('div');
@@ -178,8 +186,6 @@ export function renderGantt(container) {
       childRow.dataset.depth = depth;
       childRow.style.width = totalWidth + 'px';
       childRow.style.height = childRowHeight + 'px';
-
-      renderGridLines(childRow, dayMode, year, dw, ww, totalWeeks, todayPx, todayWeek);
 
       for (const task of childSorted) {
         const bar = createTaskBar(task, lh, year, proj);
@@ -407,7 +413,8 @@ function renderGridLines(row, dayMode, year, dw, ww, totalWeeks, todayPx, todayW
 }
 
 function createTaskBar(task, laneHeight, year, proj) {
-  const pos = taskToDisplayPixels(task.startDay, task.durationDays);
+  const shownStart = taskStartInYear(task, year);
+  const pos = taskToDisplayPixels(shownStart, task.durationDays);
   const bar = document.createElement('div');
   bar.className = 'task-bar';
   bar.dataset.taskId = task.id;
@@ -418,8 +425,8 @@ function createTaskBar(task, laneHeight, year, proj) {
   bar.style.color = getContrastColor(task.color);
   bar.style.setProperty('--bar-color', task.color);
 
-  const startDateStr = _formatDateReadable(year, task.startDay || 0);
-  const endDateStr = _formatDateReadable(year, (task.startDay || 0) + (task.durationDays || 1) - 1);
+  const startDateStr = _formatDateReadable(year, shownStart);
+  const endDateStr = _formatDateReadable(year, shownStart + (task.durationDays || 1) - 1);
   let tooltip = task.label + '\n' + startDateStr + (task.durationDays > 1 ? ' – ' + endDateStr : '');
   if (task.deadline) tooltip += '\nDeadline: ' + task.deadline;
   bar.title = tooltip;
@@ -466,7 +473,7 @@ function createTaskBar(task, laneHeight, year, proj) {
         cur = cur.parentId ? Store._findTask(cur.parentId) : null;
       }
       if (!proj.notesExpanded) Store.updateProject(proj.id, { notesExpanded: true });
-      createTaskInline(proj.id, task.startDay, task.id);
+      createTaskInline(proj.id, taskStartInYear(task, Store.data.currentYear), task.id);
     });
     addBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
     bar.appendChild(addBtn);
@@ -504,12 +511,13 @@ function createTaskBar(task, laneHeight, year, proj) {
   return bar;
 }
 
-function layoutTasks(tasks) {
-  const sorted = [...tasks].sort((a, b) => (a.startDay || 0) - (b.startDay || 0));
+function layoutTasks(tasks, year) {
+  const startOf = (t) => taskStartInYear(t, year);
+  const sorted = [...tasks].sort((a, b) => startOf(a) - startOf(b));
   const lanes = [];
 
   for (const task of sorted) {
-    const start = task.startDay || 0;
+    const start = startOf(task);
     const dur = task.durationDays || 7;
     const laneStart = start;
     const laneEnd = start + dur;
@@ -536,27 +544,12 @@ const _monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct'
 function _formatDateReadable(year, doy) {
   const d = new Date(year, 0, 1);
   d.setDate(d.getDate() + doy);
-  return _monthNames[d.getMonth()] + ' ' + d.getDate();
-}
-
-function _doyToDateStr(year, doy) {
-  const d = new Date(year, 0, 1);
-  d.setDate(d.getDate() + doy);
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${d.getFullYear()}-${mm}-${dd}`;
-}
-
-function _dateStrToDoy(year, dateStr) {
-  const parts = dateStr.split('-');
-  const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-  const jan1 = new Date(year, 0, 1);
-  return Math.floor((d - jan1) / 86400000);
+  return _monthNames[d.getMonth()] + ' ' + d.getDate() + (d.getFullYear() !== year ? ' ' + d.getFullYear() : '');
 }
 
 export function showEditTaskModal(task) {
-  const year = Store.data.currentYear;
-  const dateStr = _doyToDateStr(year, task.startDay || 0);
+  // The task's own year, so the date picker can move it to another year
+  const dateStr = taskStartToDateStr(taskYear(task), task.startDay || 0);
   showModal({
     title: 'Edit Task',
     fields: [
@@ -569,7 +562,7 @@ export function showEditTaskModal(task) {
     onSave: (values) => {
       Store.updateTask(task.id, {
         label: values.label.trim() || task.label,
-        startDay: _dateStrToDoy(year, values.startDate),
+        ...(values.startDate ? dateStrToTaskStart(values.startDate) : {}),
         durationDays: parseInt(values.durationDays),
         deadline: values.deadline || null,
         color: values.color
@@ -629,7 +622,7 @@ export function showTaskContextMenu(e, task) {
         }
         const p = Store._findProject(proj.id);
         if (p && !p.notesExpanded) Store.updateProject(proj.id, { notesExpanded: true });
-        createTaskInline(proj.id, task.startDay, task.id);
+        createTaskInline(proj.id, taskStartInYear(task, Store.data.currentYear), task.id);
       }
     } else if (action === 'notes') {
       menu.remove();

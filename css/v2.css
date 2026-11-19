@@ -977,3 +977,25 @@ input.pp-tl-label:focus { background: var(--bg-elev); outline: 2px solid var(--a
 .rv-later { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; color: var(--text-muted); }
 .rv-later-title { color: #B98CFF; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; font-size: 11px; }
 .rv-count.decide b { color: #F5C542; }
+
+/* ---------- Timeline navigation (timeline-nav.js) ---------- */
+/* One grid layer under all rows instead of one set of lines per row */
+.gantt-grid-layer { position: absolute; top: 0; bottom: 0; left: 0; pointer-events: none; }
+.timeline-area { overscroll-behavior: contain; cursor: grab; }
+body:not(.timeline-locked) .timeline-area .task-bar { cursor: pointer; }
+.timeline-area.is-panning, .timeline-area.is-panning * { cursor: grabbing !important; user-select: none; }
+.gantt-container { position: relative; }
+.timeline-edge-hint {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  padding: 6px 12px; border-radius: 999px;
+  background: var(--bg-surface, #1b1b1f); border: 1px solid var(--border, #333);
+  color: var(--text, #eee); font: 600 12px/1 var(--font-mono, monospace);
+  opacity: 0; transition: opacity .15s ease; pointer-events: none; z-index: 60;
+}
+.timeline-edge-hint.left { left: 12px; }
+.timeline-edge-hint.right { right: 12px; }
+.zoom-controls { display: inline-flex; gap: 2px; }
+.btn-zoom { min-width: 28px; padding-left: 8px; padding-right: 8px; font-size: 14px; line-height: 1; }
+.btn-zoom:disabled { opacity: .35; cursor: default; }
+#current-year.year-flash { animation: yearFlash .6s ease; }
+@keyframes yearFlash { 0% { color: var(--coral, #ff5831); transform: scale(1.15); } 100% { transform: none; } }
