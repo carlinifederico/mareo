@@ -58,23 +58,6 @@ export function renderTodayPanel() {
   panelEl.innerHTML = '';
   panelEl.classList.toggle('collapsed', collapsed);
   panelEl.classList.toggle('widget-dot', WIDGET && collapsed);
-  // Popped out and folded: just a small red dot (+ count); click opens it
-  const pipDot = !WIDGET && !!pipWindow && collapsed;
-  panelEl.classList.toggle('pip-dot', pipDot);
-  panelEl.onclick = null;
-  if (pipDot) {
-    const dot = document.createElement('span');
-    dot.className = 'widget-dot-core' + (items.length ? '' : ' empty');
-    const n = document.createElement('span');
-    n.className = 'pip-dot-count';
-    n.textContent = items.length;
-    panelEl.title = 'Abrir Today';
-    panelEl.append(dot, n);
-    panelEl.onclick = () => { collapsed = false; renderTodayPanel(); };
-    updateFabCount(items.length);
-    fitPipToContent();
-    return;
-  }
 
   if (WIDGET && collapsed) {
     const dot = document.createElement('div');
@@ -111,9 +94,7 @@ export function renderTodayPanel() {
   collapseBtn.className = 'btn-icon today-collapse';
   collapseBtn.title = collapsed ? 'Expand' : 'Collapse';
   collapseBtn.innerHTML = collapsed ? icon('chevron-up') : icon('chevron-down');
-  collapseBtn.addEventListener('click', (e) => {
-    // The panel re-renders mid-click; don't let the click reach its new handler
-    e.stopPropagation();
+  collapseBtn.addEventListener('click', () => {
     collapsed = !collapsed;
     renderTodayPanel();
   });
@@ -218,8 +199,6 @@ function attachWidgetDrag(elm, onClick, when) {
 
 const PIP_WIDTH = 340;
 const PIP_MAX_HEIGHT = 640;
-const PIP_DOT_WIDTH = 72;
-const PIP_DOT_HEIGHT = 34;
 
 // Height the panel needs for its current content (header + rows), so the
 // pop-out window is never bigger than the task list.
@@ -237,10 +216,7 @@ function fitPipToContent() {
   requestAnimationFrame(() => {
     if (!pipWindow) return;
     const chrome = Math.max(0, pipWindow.outerHeight - pipWindow.innerHeight);
-    // Folded = as small as the browser allows; open = the list's width
-    const w = collapsed ? PIP_DOT_WIDTH + (pipWindow.outerWidth - pipWindow.innerWidth) : PIP_WIDTH;
-    const h = collapsed ? PIP_DOT_HEIGHT : panelContentHeight();
-    try { pipWindow.resizeTo(w, h + chrome); }
+    try { pipWindow.resizeTo(pipWindow.outerWidth || PIP_WIDTH, panelContentHeight() + chrome); }
     catch { /* resize may need a user gesture — size stays as is */ }
   });
 }
@@ -464,6 +440,5 @@ async function popoutToPiP() {
   pipWindow.addEventListener('pagehide', () => {
     document.body.appendChild(panelEl);
     pipWindow = null;
-    renderTodayPanel();
   });
 }
