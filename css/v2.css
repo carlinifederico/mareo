@@ -999,3 +999,37 @@ body:not(.timeline-locked) .timeline-area .task-bar { cursor: pointer; }
 .btn-zoom:disabled { opacity: .35; cursor: default; }
 #current-year.year-flash { animation: yearFlash .6s ease; }
 @keyframes yearFlash { 0% { color: var(--coral, #ff5831); transform: scale(1.15); } 100% { transform: none; } }
+
+/* ---------- Today desktop widget (tools/today-widget, ?widget=today) ---------- */
+html.widget-mode, html.widget-mode body { background: transparent !important; overflow: hidden; }
+html.widget-mode #app-container { background: transparent !important; }
+html.widget-mode #app-container > *:not(#today-panel) { display: none !important; }
+html.widget-mode .today-panel {
+  display: flex !important;
+  position: fixed; top: 0; left: 0; right: auto; bottom: auto;
+  width: 340px; max-height: 600px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(20, 20, 23, 0.97);
+  box-shadow: none;
+  animation: widget-in 0.14s ease-out;
+}
+html.widget-mode .today-header { cursor: grab; }
+html.widget-mode .today-header:active { cursor: grabbing; }
+html.widget-mode .today-body { overflow-y: auto; scrollbar-width: thin; }
+@keyframes widget-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
+html.widget-mode .today-panel.widget-dot {
+  width: 30px; height: 30px; max-height: none;
+  border: none; border-radius: 50%; background: transparent;
+  display: grid !important; place-items: center;
+  cursor: pointer; animation: none;
+}
+.widget-dot-core {
+  width: 12px; height: 12px; border-radius: 50%;
+  background: #ff3b30;
+  box-shadow: 0 0 0 3px rgba(255, 59, 48, 0.22), 0 0 10px rgba(255, 59, 48, 0.55);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.widget-dot-core.empty { background: #8a8c94; box-shadow: 0 0 0 3px rgba(138, 140, 148, 0.2); }
+.widget-dot:hover .widget-dot-core { transform: scale(1.25); box-shadow: 0 0 0 4px rgba(255, 59, 48, 0.28), 0 0 14px rgba(255, 59, 48, 0.7); }

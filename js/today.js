@@ -3,8 +3,13 @@ import { icon } from './icons.js';
 
 let pipWindow = null;
 let panelEl = null;
-let collapsed = false;
 let mobileOpen = false;
+
+// Desktop widget (tools/today-widget): the page runs inside a frameless
+// always-on-top window. Collapsed = a small red dot; open = the Today list.
+export const WIDGET = new URLSearchParams(location.search).get('widget') === 'today' && !!window.mareoWidget;
+if (WIDGET) document.documentElement.classList.add('widget-mode');
+let collapsed = WIDGET;
 
 export function initTodayPanel() {
   panelEl = document.getElementById('today-panel');
@@ -15,6 +20,19 @@ export function initTodayPanel() {
 
   // Initial render
   renderTodayPanel();
+
+  if (WIDGET) {
+    // The dot: click opens, drag moves (one listener; the panel element persists)
+    attachWidgetDrag(panelEl, () => expandWidget(), () => collapsed);
+    // Clicking elsewhere on the screen folds it back into the dot. The delay
+    // lets a textarea commit its edit (change fires on blur) first.
+    window.addEventListener('blur', () => setTimeout(() => {
+      if (!document.hasFocus() && !collapsed) { collapsed = true; renderTodayPanel(); }
+    }, 150));
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !collapsed) { collapsed = true; renderTodayPanel(); }
+    });
+  }
 
   // Mobile FAB toggle
   const fab = document.getElementById('today-fab');
@@ -39,6 +57,22 @@ export function renderTodayPanel() {
 
   panelEl.innerHTML = '';
   panelEl.classList.toggle('collapsed', collapsed);
+  panelEl.classList.toggle('widget-dot', WIDGET && collapsed);
+
+  if (WIDGET && collapsed) {
+    const dot = document.createElement('div');
+    dot.className = 'widget-dot-core' + (items.length ? '' : ' empty');
+    panelEl.title = `Today · ${items.length}  (clic: abrir · arrastrar: mover · clic derecho: cerrar)`;
+    panelEl.appendChild(dot);
+    panelEl.oncontextmenu = (e) => {
+      e.preventDefault();
+      if (confirm('¿Cerrar el widget de Today?')) window.mareoWidget.quit();
+    };
+    fitWidget();
+    return;
+  }
+  panelEl.title = '';
+  panelEl.oncontextmenu = null;
 
   // Header
   const header = document.createElement('div');
@@ -72,11 +106,13 @@ export function renderTodayPanel() {
   popoutBtn.addEventListener('click', popoutToPiP);
 
   actions.appendChild(collapseBtn);
-  actions.appendChild(popoutBtn);
+  if (!WIDGET) actions.appendChild(popoutBtn);
+  else collapseBtn.title = 'Achicar al puntito (Esc)';
 
   header.appendChild(title);
   header.appendChild(actions);
   panelEl.appendChild(header);
+  if (WIDGET) attachWidgetDrag(header, null);
 
   // Collapsed = compact pill; clicking anywhere on it expands again
   if (collapsed) {
@@ -113,6 +149,52 @@ export function renderTodayPanel() {
   attachTodayReorderDnD(body);
   updateFabCount(items.length);
   fitPipToContent();
+  fitWidget();
+}
+
+// Open from the dot: show what we have now, then fetch edits made elsewhere
+// (the browser tab) so the list is current before anything is checked off.
+function expandWidget() {
+  collapsed = false;
+  renderTodayPanel();
+  Store.refresh().catch(err => console.warn('widget refresh failed', err));
+}
+
+// Size the desktop window to exactly the dot or the panel
+function fitWidget() {
+  if (!WIDGET) return;
+  requestAnimationFrame(() => {
+    if (collapsed) { window.mareoWidget.resize(30, 30); return; }
+    const r = panelEl.getBoundingClientRect();
+    window.mareoWidget.resize(Math.ceil(r.width), Math.ceil(r.height));
+  });
+}
+
+// Drag the desktop window by this element; a click without movement calls onClick
+function attachWidgetDrag(elm, onClick, when) {
+  elm.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0 || (when && !when())) return;
+    if (e.target.closest('button, input, textarea, a')) return;
+    const sx = e.screenX, sy = e.screenY;
+    let moved = false;
+    try { elm.setPointerCapture(e.pointerId); } catch {}
+    window.mareoWidget.dragStart(sx, sy);
+    const mv = (ev) => {
+      if (!moved && Math.hypot(ev.screenX - sx, ev.screenY - sy) < 4) return;
+      moved = true;
+      window.mareoWidget.drag(ev.screenX, ev.screenY);
+    };
+    const up = () => {
+      elm.removeEventListener('pointermove', mv);
+      elm.removeEventListener('pointerup', up);
+      elm.removeEventListener('pointercancel', up);
+      window.mareoWidget.dragEnd();
+      if (!moved && onClick) onClick();
+    };
+    elm.addEventListener('pointermove', mv);
+    elm.addEventListener('pointerup', up);
+    elm.addEventListener('pointercancel', up);
+  });
 }
 
 const PIP_WIDTH = 340;

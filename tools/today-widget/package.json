@@ -1,0 +1,9 @@
+{
+  "name": "mareo-today-widget",
+  "version": "1.0.0",
+  "private": true,
+  "main": "main.js",
+  "dependencies": {
+    "electron": "38.8.6"
+  }
+}

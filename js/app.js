@@ -7,7 +7,7 @@ import { renderGantt } from './gantt.js';
 import { initDragDrop } from './dragdrop.js';
 import { showLinksModal, showProjectLinksDropdown } from './modal.js';
 import { renderBoard, initBoardDrag, initBoardZoom, initBoardSelection } from './board.js';
-import { initTodayPanel } from './today.js';
+import { initTodayPanel, WIDGET } from './today.js';
 import { renderExpenses, ensureCurrentMonth } from './expenses.js';
 import { icon } from './icons.js';
 import { renderBalance } from './balance.js';
@@ -78,7 +78,8 @@ Auth.init(
     renderTabs();
     switchView(currentView);
     render();
-    syncHubTasks();
+    // The desktop widget only shows Today; the browser tab does the hub sync
+    if (!WIDGET) syncHubTasks();
   },
   // On sign out
   () => {
@@ -247,6 +248,18 @@ function initApp() {
       Store.refresh().then(loadMeta).catch(err => console.warn('auto-refresh failed', err));
     }
   });
+  // Coming back to the window (e.g. after checking something in the Today
+  // widget, which is a second client) also picks up edits made there.
+  if (!WIDGET) {
+    let _lastWinBlur = 0;
+    window.addEventListener('blur', () => { _lastWinBlur = Date.now(); });
+    window.addEventListener('focus', () => {
+      if (_lastWinBlur && !document.hidden && Date.now() - _lastWinBlur > 10000) {
+        _lastWinBlur = 0;
+        Store.refresh().then(loadMeta).catch(err => console.warn('auto-refresh failed', err));
+      }
+    });
+  }
 
   // Sidebar resize handle
   const resizeHandle = document.getElementById('sidebar-resize-handle');
