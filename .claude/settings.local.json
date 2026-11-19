@@ -5,7 +5,32 @@
       "Bash(start:*)",
       "Bash(cd:*)",
       "Bash(gh api:*)",
-      "Bash(gh run:*)"
+      "Bash(gh run:*)",
+      "Bash(python3:*)",
+      "Bash(pip install:*)",
+      "Bash(find C:_WORKMAREO -type f \\\\\\(-name *.png -o -name *.jpg -o -name *.jpeg -o -name *.gif -o -name *.svg \\\\\\))",
+      "mcp__patapim-browser__browser_navigate",
+      "mcp__patapim-browser__browser_screenshot",
+      "Bash(python -m http.server 8080)",
+      "Bash(node:*)",
+      "Bash(find C:/_WORK/MAREO -type f \\\\\\(-name *.js -o -name *.html -o -name *.css \\\\\\))",
+      "Bash(wc:*)",
+      "Bash(grep:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)",
+      "Bash(git push:*)",
+      "Bash(ls -la /c/_WORK/MAREO/.*)",
+      "Bash(git config:*)",
+      "mcp__patapim-browser__browser_status",
+      "mcp__patapim-browser__browser_list",
+      "Bash(magick --version)",
+      "Bash(python:*)",
+      "Bash(git show:*)",
+      "WebFetch(domain:api.iconify.design)",
+      "mcp__patapim-browser__browser_scroll",
+      "mcp__patapim-browser__browser_evaluate",
+      "Bash(git restore *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }
